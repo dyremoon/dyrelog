@@ -607,6 +607,12 @@
 
   // Returns a parsed event object, or null if the line isn't recognized.
   function parseLine(raw) {
+    // EverQuest writes its logs with Windows-style CRLF line endings, so
+    // every line coming out of a \n-split still has a trailing \r on it.
+    // JS regex "." treats \r as a line terminator (it refuses to match
+    // it), so leaving it on would make RE_TIMESTAMP — and everything
+    // after it — fail on every single line. Strip it before any matching.
+    if (raw.charCodeAt(raw.length - 1) === 13) raw = raw.slice(0, -1);
     var m = RE_TIMESTAMP.exec(raw);
     if (!m) return null;
     var time = parseTimestamp(m[1]);
