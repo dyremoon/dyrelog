@@ -78,7 +78,8 @@
           </table>
         `;
       } catch (err) {
-        tableEl.innerHTML = `<p class="empty-state">This parse isn't available — it may still be under review, or the link is wrong.</p>`;
+        document.getElementById('parse-boss').textContent = "Can't load this parse";
+        tableEl.innerHTML = `<p class="empty-state">This parse isn't available! It may still be under review, or the link is wrong.</p>`;
       }
     }
     document.addEventListener('DOMContentLoaded', loadParse);

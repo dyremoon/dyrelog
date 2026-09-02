@@ -23,7 +23,7 @@ async function renderAuthNav() {
     const { user } = await api('/api/me');
     if (user) {
       slot.innerHTML = `
-        <span class="muted">${user.username}</span>
+        <a class="muted" href="./profile.html">${user.username}</a>
         <button class="btn" id="logout-btn">Log out</button>
       `;
       document.getElementById('logout-btn').addEventListener('click', async () => {

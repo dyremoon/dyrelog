@@ -45,6 +45,7 @@
       const listEl = document.getElementById('parse-list');
       if (!bossId) {
         document.getElementById('boss-name').textContent = 'No boss selected';
+        listEl.innerHTML = '<p class="empty-state">Pick a boss from the leaderboards page.</p>';
         return;
       }
       try {
@@ -79,6 +80,7 @@
           </table>
         `;
       } catch (err) {
+        document.getElementById('boss-name').textContent = "Can't load this boss";
         listEl.innerHTML = `<p class="empty-state">Can't reach the API right now.</p>`;
       }
     }
