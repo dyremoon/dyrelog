@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!--
+    Title/description here are what actually shows up in a Google result
+    snippet — this is the real lever for "people searching EQL dps meter
+    find this," not the product name. See DYRELOG-PLAN.md's
+    Discoverability section for why the name itself stays as Dyrelog.
+  -->
+  <title>Dyrelog — EverQuest Legends DPS Meter &amp; Leaderboard</title>
+  <meta name="description" content="Dyrelog is a free EverQuest Legends DPS meter and combat-log leaderboard. Track your damage live with the overlay, submit a fight, and compare parses by boss." />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="./css/dyrelog.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="site-header">
+      <div class="wordmark">Dyrelog</div>
+      <nav class="site-nav">
+        <a href="./index.html">Leaderboards</a>
+        <span id="auth-slot"></span>
+      </nav>
+    </header>
+
+    <main>
+      <p class="muted" style="margin-bottom:24px;">
+        Dyrelog is a free DPS meter and combat-log leaderboard for
+        <strong>EverQuest Legends</strong>. Track your damage live with the
+        overlay, submit a fight, and see how it stacks up by boss. Fan-made,
+        not affiliated with Daybreak or EverQuest Legends.
+      </p>
+
+      <div class="plate">
+        <h2>Bosses</h2>
+        <div id="boss-list">
+          <p class="muted">Loading…</p>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      Dyrelog is an unofficial fan project. Not affiliated with Daybreak
+      Game Company or EverQuest Legends.
+    </footer>
+  </div>
+
+  <script src="./js/app.js"></script>
+  <script>
+    async function loadBosses() {
+      const listEl = document.getElementById('boss-list');
+      try {
+        const { bosses } = await api('/api/bosses');
+        if (bosses.length === 0) {
+          listEl.innerHTML = '<p class="empty-state">No bosses in the curated list yet.</p>';
+          return;
+        }
+        listEl.innerHTML = `
+          <table>
+            <thead><tr><th>Boss</th><th>Zone</th></tr></thead>
+            <tbody>
+              ${bosses
+                .map(
+                  (b) => `
+                <tr>
+                  <td><a href="./boss.html?id=${b.id}">${b.name}</a></td>
+                  <td class="muted">${b.zone || '—'}</td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        listEl.innerHTML = `<p class="empty-state">Can't reach the API right now.</p>`;
+      }
+    }
+    document.addEventListener('DOMContentLoaded', loadBosses);
+  </script>
+</body>
+</html>
