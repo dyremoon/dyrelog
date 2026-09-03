@@ -12,18 +12,30 @@
     "claw", "claws", "bite", "bites", "sting", "stings", "maul", "mauls",
     "hit", "hits", "punch", "punches", "kick", "kicks", "gore", "gores",
     "smash", "smashes", "rend", "rends", "slice", "slices", "bash", "bashes",
-    "shoot", "shoots", "burn", "burns", "gouge", "gouges"
+    "shoot", "shoots", "burn", "burns", "gouge", "gouges",
+    "cleave", "cleaves", "backstab", "backstabs", "strike", "strikes"
   ].sort(function (a, b) { return b.length - a.length; }); // longest-first
 
   var VERB_ALT = MELEE_VERBS.join("|");
 
   var RE_TIMESTAMP = /^\[(\w{3} \w{3} \d{1,2} \d{2}:\d{2}:\d{2} \d{4})\]\s?(.*)$/;
 
-  // Group 5 = "non-melee " when a direct-damage spell names its caster
-  // ("Fizmo hits a rat_snake for 156 points of non-melee damage."); absent
-  // for ordinary melee. Group 6 = an optional (Critical)/(Flurry)/etc tag.
+  // Group 5 = an optional one-word damage-type qualifier before "damage"
+  // — "non-melee" for a direct-damage spell that names its caster
+  // ("Fizmo hits a rat_snake for 156 points of non-melee damage."), but
+  // also disease/fire/cold/poison/magic/etc. for a typed melee or pet
+  // attack ("Dyremoon`s warder hits a rat_snake for 62 points of disease
+  // damage."). Matching any single word here (rather than hardcoding
+  // "non-melee" only) is what was missing — a mob-side pet ability tagged
+  // with an element was silently going unrecognized.
+  // Group 6 = an optional attributed-spell clause BEFORE the period
+  // ("...for 50 points of poison damage by Blood Draw Strike.") — a
+  // proc/skill that names itself doesn't put a period right after
+  // "damage" the way plain melee does, so the period has to move to
+  // after this clause instead of being hardcoded right after "damage".
+  // Group 7 is an optional (Critical)/(Flurry)/etc tag.
   var RE_MELEE = new RegExp(
-    "^(.+?) (" + VERB_ALT + ") (.+?) for (\\d+) points? of (non-melee )?damage\\.(?:\\s*\\((.+?)\\))?\\s*$"
+    "^(.+?) (" + VERB_ALT + ") (.+?) for (\\d+) points? of (\\S+ )?damage(?: by (.+?))?\\.(?:\\s*\\((.+?)\\))?\\s*$"
   );
 
   var RE_MISS = new RegExp(
@@ -36,6 +48,22 @@
   // ("Fizmo hit a rat_snake for 156 points of non-melee damage.") so
   // RE_MELEE is tried first; RE_NONMELEE only catches the unattributed
   // DoT-tick form ("A rat_snake has taken 22 points of non-melee damage.").
+
+  // DoT ticks and procs that name their own spell instead of "non-melee":
+  // "A scorn banshee has taken 259 damage from your Drifting Death X." or
+  // "You have taken 3 damage from Strong Disease by a scorn banshee." Very
+  // common (DoTs, life-drain procs, poison breath) — found missing after
+  // comparing a real fight against another parser and coming up ~60% short
+  // on total damage. Treated the same as RE_NONMELEE (unattributed to a
+  // specific combatant, same as that regex already simplifies to) rather
+  // than trying to parse out who cast it.
+  var RE_NONMELEE_FROM = /^(.+?) (?:have|has) taken (\d+) (?:points? of )?damage from (.+?)\.?\s*$/i;
+
+  // Damage-shield/thorns/reflect damage: "Dyremoon`s warder is pierced by
+  // a wan ghoul knight's thorns for 20 points of non-melee damage." or
+  // "YOU are pierced by a spite golem's thorns for 20 points of non-melee
+  // damage!" — passive-voice, doesn't use any MELEE_VERBS verb at all.
+  var RE_THORNS = /^(.+?) (?:is|are) \w+ by (?:(.+?)'s|your) (?:thorns|flames|spikes|retaliation) for (\d+) points? of (?:non-melee )?damage[.!]?\s*$/i;
 
   var RE_HEAL_OTHER = /^(.+?) (?:have|has) been healed for (\d+) points?(?: of damage)? by (.+?)\.?\s*$/i;
   var RE_HEAL_SELF = /^You have been healed for (\d+) points? by (.+?)\.?\s*$/i;
@@ -90,8 +118,10 @@
         source: isSelfSource ? "You" : source,
         target: isSelfTarget ? "You" : target,
         amount: parseInt(mm[4], 10),
-        nonMelee: !!mm[5],
-        modifier: mm[6] || null,
+        nonMelee: mm[5] === "non-melee ",
+        damageType: mm[5] ? mm[5].trim() : null,
+        viaSpell: mm[6] || null,
+        modifier: mm[7] || null,
         selfInvolved: isSelfSource || isSelfTarget,
         raw: raw
       };
@@ -104,6 +134,76 @@
         source: null, target: tgt,
         amount: parseInt(mm[2], 10),
         kind: mm[3],
+        raw: raw
+      };
+    }
+    if ((mm = RE_NONMELEE_FROM.exec(rest))) {
+      var tgt2 = canon(mm[1]);
+      if (tgt2 === "You") {
+        // Incoming damage taken by the player from a source the sentence
+        // doesn't cleanly name ("You have taken 3 damage from Strong
+        // Disease by a scorn banshee.") — v1 doesn't break down damage
+        // *taken* by source (that's a website-only feature), so just
+        // count it, same as the plain RE_NONMELEE case.
+        return {
+          time: time, type: "nonmelee",
+          source: null, target: "You",
+          amount: parseInt(mm[2], 10),
+          kind: "proc",
+          raw: raw
+        };
+      }
+      // Damage being dealt TO a mob/NPC — figure out who cast it so it
+      // lands under the right combatant (You, your pet, or a groupmate)
+      // instead of a catch-all. Two cases give us a real name: "from
+      // your X" -> you; "from <name>'s X" (a pet's own proc, or a
+      // groupmate's named proc) -> that name. A bare spell name with no
+      // stated owner ("...from Envenomed Breath.") is genuinely
+      // ambiguous — it's always been the player's own proc in solo
+      // testing, but in a group it could just as easily be a groupmate's
+      // unnamed proc, and guessing "You" would silently steal credit for
+      // someone else's damage. So an unnamed case falls through to the
+      // same "nonmelee" path plain unattributed DoTs already use below,
+      // which respects the Solo mode checkbox instead of assuming.
+      var attribution = mm[3];
+      var possessive = /^(.+?)'s\s+/.exec(attribution);
+      if (/^your\b/i.test(attribution) || possessive) {
+        var src2 = /^your\b/i.test(attribution) ? "You" : canon(possessive[1]);
+        return {
+          time: time, type: "hit",
+          source: src2, target: tgt2,
+          amount: parseInt(mm[2], 10),
+          nonMelee: true,
+          damageType: null,
+          viaSpell: attribution,
+          modifier: null,
+          selfInvolved: src2 === "You",
+          raw: raw
+        };
+      }
+      return {
+        time: time, type: "nonmelee",
+        source: null, target: tgt2,
+        amount: parseInt(mm[2], 10),
+        kind: "proc",
+        raw: raw
+      };
+    }
+    if ((mm = RE_THORNS.exec(rest))) {
+      var tgt3 = canon(mm[1]);
+      var isSelfTarget3 = tgt3 === "YOU";
+      var owner = mm[2]; // undefined when the "your" branch matched
+      var src3 = owner ? canon(owner) : "You";
+      return {
+        time: time, type: "hit",
+        source: src3,
+        target: isSelfTarget3 ? "You" : tgt3,
+        amount: parseInt(mm[3], 10),
+        nonMelee: true,
+        damageType: null,
+        viaSpell: "thorns",
+        modifier: null,
+        selfInvolved: src3 === "You" || isSelfTarget3,
         raw: raw
       };
     }

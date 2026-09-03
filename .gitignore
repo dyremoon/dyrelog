@@ -4,3 +4,8 @@ node_modules/
 *.log
 .DS_Store
 dist/
+
+# Local reference copies of things Claude sent during planning sessions —
+# not project code, not meant to be tracked.
+Claude outputs/
+DYRELOG-PLAN-1.md
