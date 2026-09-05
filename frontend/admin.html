@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dyrelog — Review Queue</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="./css/dyrelog.css" />
+  <link rel="icon" type="image/png" href="./assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="./assets/logo-180.png" />
+</head>
+<body>
+  <div class="container">
+    <header class="site-header">
+      <div class="wordmark"><img class="logo-mark" src="./assets/logo-64.png" alt="" width="28" height="28">Dyrelog<span class="game-badge">EverQuest Legends</span></div>
+      <nav class="site-nav">
+        <a href="./index.html">Leaderboards</a>
+        <a href="./analyze.html">Analyze Log</a>
+        <a href="./about.html">About</a>
+        <a href="./download.html">Download Dyrelog</a>
+        <span id="auth-slot"></span>
+      </nav>
+    </header>
+
+    <main>
+      <div class="plate">
+        <h2>Review queue</h2>
+        <p class="muted">
+          Submissions that didn't auto-post: <strong>pending_review</strong>
+          means the account is currently restricted (a past flag), not
+          that anything's wrong with this specific fight — check the
+          numbers and approve if it looks right. <strong>flagged</strong>
+          means one of the anti-cheat checks tripped on this fight itself
+          — read the reason before approving.
+        </p>
+        <div id="queue"><p class="muted">Loading…</p></div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      Dyrelog is an unofficial fan project. Not affiliated with Daybreak
+      Game Company or EverQuest Legends.
+    </footer>
+  </div>
+
+  <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
+  <script src="./js/app.js"></script>
+  <script>
+    const REASON_LABELS = {
+      duplicate_content_hash: 'Duplicate of an existing submission',
+      hits_too_fast: 'Hits landed faster than physically possible',
+      hit_over_ceiling: 'A single hit exceeded the plausible ceiling',
+      total_damage_far_exceeds_boss_hp: "Total damage far exceeds the boss's known HP",
+      single_batch_for_long_fight: "Long fight arrived as one batch — didn't stream live",
+      batches_clustered_at_end: "Batches clustered at the end — didn't stream live",
+    };
+    function labelReason(r) {
+      const [key] = r.split(':');
+      return REASON_LABELS[key] || r;
+    }
+
+    async function loadQueue() {
+      const el = document.getElementById('queue');
+      let data;
+      try {
+        data = await api('/api/admin/queue');
+      } catch (err) {
+        el.innerHTML = err.message === 'forbidden'
+          ? `<p class="empty-state">You're not signed in as an admin.</p>`
+          : `<p class="empty-state">${err.message === 'unauthorized' ? 'Log in to see the review queue.' : "Couldn't load the queue."}</p>`;
+        return;
+      }
+      if (data.items.length === 0) {
+        el.innerHTML = `<p class="empty-state">Nothing waiting on review.</p>`;
+        return;
+      }
+      el.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Submitted</th><th>Player</th><th>Boss</th><th class="num">Damage</th>
+              <th>Status</th><th>Reason</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.items
+              .map(
+                (it) => `
+              <tr data-submission-id="${it.submissionId}" data-user-id="${it.userId}">
+                <td class="muted">${fmtDate(it.submittedAt)}</td>
+                <td>${it.characterName} <span class="muted">(${it.username})</span></td>
+                <td>${it.bossName || '—'} <span class="muted">${fmtDifficulty(it.difficulty)}</span></td>
+                <td class="num">${it.totalDamage != null ? fmtNumber(it.totalDamage) : '—'}</td>
+                <td><span class="badge ${it.status === 'flagged' ? 'badge-bad' : 'badge-warn'}">${it.status}</span></td>
+                <td class="muted">${it.reasons.length ? it.reasons.map(labelReason).join('; ') : '—'}</td>
+                <td>
+                  <button class="btn approve-btn" type="button">Approve</button>
+                  <button class="btn reject-btn" type="button">Reject</button>
+                  <button class="btn restore-btn" type="button" title="Clear this account's restricted flag so future clean fights auto-post again">Restore privilege</button>
+                </td>
+              </tr>`
+              )
+              .join('')}
+          </tbody>
+        </table>
+      `;
+
+      el.querySelectorAll('.approve-btn, .reject-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const row = btn.closest('tr');
+          const id = row.dataset.submissionId;
+          btn.disabled = true;
+          try {
+            await api(`/api/admin/submissions/${id}/review`, {
+              method: 'POST',
+              body: JSON.stringify({ action: btn.classList.contains('approve-btn') ? 'approve' : 'reject' }),
+            });
+            row.remove();
+          } catch (err) {
+            alert("Couldn't update that submission: " + err.message);
+            btn.disabled = false;
+          }
+        });
+      });
+
+      el.querySelectorAll('.restore-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const row = btn.closest('tr');
+          const userId = row.dataset.userId;
+          btn.disabled = true;
+          btn.textContent = 'Restored';
+          try {
+            await api(`/api/admin/users/${userId}/restore`, { method: 'POST' });
+          } catch (err) {
+            alert("Couldn't restore that account: " + err.message);
+            btn.disabled = false;
+            btn.textContent = 'Restore privilege';
+          }
+        });
+      });
+    }
+
+    loadQueue();
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "dyrelog-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dyrelog's always-on-top desktop overlay (Electron) — the mini-mode DPS meter from the README art spec.",
+  "main": "main.js",
+  "scripts": {
+    "sync-eqp-core": "node scripts/sync-eqp-core.js",
+    "start": "npm run sync-eqp-core && electron .",
+    "dist": "npm run sync-eqp-core && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.dyrelog.desktop",
+    "productName": "Dyrelog",
+    "files": ["main.js", "preload.js", "renderer/**/*"],
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" }
+  }
+}

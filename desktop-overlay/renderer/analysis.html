@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dyrelog — Combat Analysis</title>
+<link rel="stylesheet" href="analysis.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Combat Analysis</h1>
+      <p class="muted">Your last 50 fights, updating live from the mini-mode overlay.</p>
+    </div>
+    <button class="btn secondary" id="btn-open-site">Open full website &#8599;</button>
+  </header>
+  <!-- Item 3 — "it should have a prompt to let the user know it will
+       populate when it gathers combat data." Genuinely rare to see now
+       that fights persist across restarts (see loadHistory()/saveHistory()
+       in main.js) — this only shows on a brand-new install with no fights
+       on file yet, or if that history file couldn't be read. -->
+  <div class="empty" id="empty">No fights on file yet. Get a kill going in the mini-mode overlay — the moment a fight starts, it'll show up here automatically, and every fight after that is saved so it's still here next time you open Dyrelog.</div>
+  <div id="layout" hidden>
+    <div id="enc-list"></div>
+    <div id="enc-detail"><p class="muted">Select a fight on the left to see its full breakdown.</p></div>
+  </div>
+  <!-- This window now does its own session-grouping/merging with EQP
+       directly (see analysis.js's buildSessions()/EQP.mergeEncounters())
+       instead of only ever rendering pre-computed stats handed to it —
+       same generated eqp-core.js the mini-mode window uses, loaded here
+       too rather than a second copy. -->
+  <script src="eqp-core.js"></script>
+  <script src="analysis.js"></script>
+</body>
+</html>

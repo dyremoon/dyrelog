@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dyrelog — Analyze Log</title>
+  <meta name="description" content="Drop an EverQuest Legends combat log into Dyrelog and get a full per-fight, per-combatant breakdown — entirely in your browser, nothing uploaded." />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="./css/dyrelog.css" />
+  <link rel="icon" type="image/png" href="./assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="./assets/logo-180.png" />
+</head>
+<body>
+  <div class="container">
+    <header class="site-header">
+      <div class="wordmark"><img class="logo-mark" src="./assets/logo-64.png" alt="" width="28" height="28">Dyrelog<span class="game-badge">EverQuest Legends</span></div>
+      <nav class="site-nav">
+        <a href="./index.html">Leaderboards</a>
+        <a href="./analyze.html" class="active">Analyze Log</a>
+        <a href="./about.html">About</a>
+        <a href="./download.html">Download Dyrelog</a>
+        <span id="auth-slot"></span>
+      </nav>
+    </header>
+
+    <main>
+      <div class="plate plate-gold" style="margin-bottom:24px;">
+        <h2>Analyze a log</h2>
+        <p class="muted" style="margin-top:-6px;">
+          Drop a raw EverQuest Legends log file below and Dyrelog breaks
+          every fight in it down by combatant &mdash; damage, dps, hits,
+          crits. It runs entirely in your browser: the file is never
+          uploaded anywhere, the same way the desktop overlay never sends
+          your log anywhere either.
+        </p>
+        <div class="dropzone" id="dropzone">
+          <div class="dz-title" id="dz-title">Drop your log file here, or click to choose one</div>
+          <div class="dz-sub">eqlog_YourName_pq.proj.txt &mdash; usually in your EverQuest Legends install folder</div>
+        </div>
+        <input type="file" id="file-input" accept=".txt,.log" hidden>
+        <p class="muted" id="dz-error" style="margin-bottom:0; display:none;"></p>
+      </div>
+
+      <div id="results" hidden>
+        <div class="plate plate-highlight" style="margin-bottom:24px;">
+          <h3 style="margin-bottom:8px;">Fights in this log</h3>
+          <p class="muted" id="results-summary" style="margin-top:0; margin-bottom:12px; font-size:0.9rem;"></p>
+          <table>
+            <thead>
+              <tr><th>Fight</th><th>Difficulty</th><th>Result</th><th class="num">Duration</th><th class="num">Total dmg</th><th class="num">Top parser</th></tr>
+            </thead>
+            <tbody id="encounter-list"></tbody>
+          </table>
+        </div>
+
+        <div class="plate" id="detail-plate" hidden>
+          <div class="analyze-detail-head">
+            <h3 id="detail-title" style="margin:0;"></h3>
+            <span class="badge" id="detail-result-badge"></span>
+          </div>
+          <div class="analyze-stat-row">
+            <span class="badge" id="detail-duration"></span>
+            <span class="badge" id="detail-damage"></span>
+            <span class="badge" id="detail-dps"></span>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Combatant</th><th class="num">Damage</th><th class="num">DPS</th><th class="num">% of total</th><th class="num">Hits</th><th class="num">Crits</th></tr>
+            </thead>
+            <tbody id="combatant-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="plate">
+        <h3 style="margin-bottom:6px;">What's here now, and what's next</h3>
+        <p class="muted" style="margin-top:0; margin-bottom:0; font-size:0.9rem;">
+          This first version covers the fight list and the per-combatant
+          breakdown &mdash; the same numbers the overlay's own Combat
+          Analysis window shows. A dps-over-time graph and an Incoming
+          (damage taken) tab are planned as a fast-follow. For those right
+          now, open Combat Analysis from the desktop overlay itself.
+        </p>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      Dyrelog is an unofficial fan project. Not affiliated with Daybreak
+      Game Company or EverQuest Legends.
+    </footer>
+  </div>
+
+  <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
+  <script src="./js/app.js"></script>
+  <script src="./js/eqp-core.js"></script>
+  <script>
+    var encounters = [];
+    var activeIndex = null;
+    var characterName = null;
+
+    // Same "You" -> real character name swap the desktop overlay's own
+    // Combat Analysis window does — cosmetic only, EQP itself always
+    // tracks the log's owner internally as "You" regardless.
+    function displayName(rawName) {
+      return rawName === 'You' ? (characterName || 'You') : rawName;
+    }
+
+    function fmtNum(n) {
+      return new Intl.NumberFormat('en-US').format(Math.round(n || 0));
+    }
+    function fmtDur(sec) {
+      sec = Math.max(0, Math.round(sec || 0));
+      var m = Math.floor(sec / 60), s = sec % 60;
+      return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+    function fmtDifficultyLabel(enc) {
+      if (!enc.difficultyKnown) return '—';
+      return enc.difficulty ? EQP_DIFFICULTY_LABELS[enc.difficulty] || enc.difficulty : 'Base';
+    }
+    var EQP_DIFFICULTY_LABELS = { D1: 'D1 · Awakened', D2: 'D2 · Adaptive', D3: 'D3 · Fused', D4: 'D4 · Refined' };
+
+    // Same split as the desktop overlay's own Combat Analysis window
+    // (buildAnalysisRows() in analysis.js) — a pet gets its own row here
+    // too, instead of staying folded silently inside its owner's combined
+    // total.
+    function buildAnalysisRows(rows, totalDamage, duration) {
+      var out = [];
+      (rows || []).forEach(function (r) {
+        var pets = r.pets || [];
+        var petHits = pets.reduce(function (sum, p) { return sum + p.hits; }, 0);
+        var petCrits = pets.reduce(function (sum, p) { return sum + p.crits; }, 0);
+        out.push({
+          name: displayName(r.name), isPet: false,
+          damage: r.selfDamage,
+          dps: duration > 0 ? r.selfDamage / duration : 0,
+          hits: r.hits - petHits,
+          crits: r.crits - petCrits,
+          pct: totalDamage > 0 ? (r.selfDamage / totalDamage) * 100 : 0
+        });
+        pets.forEach(function (p) {
+          out.push({
+            name: p.name, isPet: true,
+            damage: p.damage, dps: p.dps, hits: p.hits, crits: p.crits,
+            pct: totalDamage > 0 ? (p.damage / totalDamage) * 100 : 0
+          });
+        });
+      });
+      out.sort(function (a, b) { return b.damage - a.damage; });
+      return out;
+    }
+
+    function parseCharacterFromFilename(filename) {
+      var m = /^eqlog_([^_]+)_(.+)\.(txt|log)$/i.exec(filename || '');
+      return m ? m[1] : null;
+    }
+
+    function showError(msg) {
+      var el = document.getElementById('dz-error');
+      el.textContent = msg;
+      el.style.display = msg ? '' : 'none';
+    }
+
+    function parseLogText(text, characterName) {
+      var state = EQP.newState({ characterName: characterName || null, gapSeconds: 9 });
+      var lines = text.split('\n');
+      lines.forEach(function (line) {
+        if (!line) return;
+        var ev = EQP.parseLine(line);
+        if (ev) EQP.ingest(state, ev);
+      });
+      EQP.closeEncounter(state);
+      return state.encounters;
+    }
+
+    function renderEncounterList() {
+      var listEl = document.getElementById('encounter-list');
+      var summaryEl = document.getElementById('results-summary');
+      if (encounters.length === 0) {
+        document.getElementById('results').hidden = false;
+        summaryEl.textContent = 'No fights found in that log — Dyrelog looks for melee/spell damage lines, so a log with no combat in it won\'t show anything here.';
+        listEl.innerHTML = '';
+        document.getElementById('detail-plate').hidden = true;
+        return;
+      }
+      summaryEl.textContent = encounters.length + (encounters.length === 1 ? ' fight found.' : ' fights found.') + ' Click one for its full breakdown.';
+      listEl.innerHTML = encounters
+        .map(function (enc, i) {
+          var stats = EQP.computeStats(enc);
+          var top = stats.rows[0];
+          var dur = EQP.durationSeconds(enc);
+          return (
+            '<tr class="encounter-row' + (i === activeIndex ? ' active' : '') + '" data-idx="' + i + '">' +
+              '<td>' + (enc.mobName || 'Unknown') + '</td>' +
+              '<td class="muted">' + fmtDifficultyLabel(enc) + '</td>' +
+              '<td>' + (enc.mobKilled ? '<span class="badge badge-good">Killed</span>' : '<span class="badge">No kill</span>') + '</td>' +
+              '<td class="num tabular">' + fmtDur(dur) + '</td>' +
+              '<td class="num tabular">' + fmtNum(enc.totalDamage) + '</td>' +
+              '<td class="num tabular">' + (top ? displayName(top.name) + ' · ' + fmtNum(top.dps) + ' dps' : '—') + '</td>' +
+            '</tr>'
+          );
+        })
+        .join('');
+      listEl.querySelectorAll('.encounter-row').forEach(function (row) {
+        row.addEventListener('click', function () {
+          activeIndex = parseInt(row.dataset.idx, 10);
+          renderEncounterList();
+          renderDetail();
+          // Always scroll the breakdown into view on click — with only one
+          // fight in the log the row is already selected by default, so
+          // without this a click on it looks like nothing happened.
+          var plate = document.getElementById('detail-plate');
+          if (plate && !plate.hidden) {
+            plate.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        });
+      });
+    }
+
+    function renderDetail() {
+      var plate = document.getElementById('detail-plate');
+      if (activeIndex === null || !encounters[activeIndex]) { plate.hidden = true; return; }
+      var enc = encounters[activeIndex];
+      var stats = EQP.computeStats(enc);
+      var dur = EQP.durationSeconds(enc);
+      plate.hidden = false;
+      document.getElementById('detail-title').textContent = enc.mobName || 'Unknown';
+      document.getElementById('detail-result-badge').outerHTML = enc.mobKilled
+        ? '<span class="badge badge-good" id="detail-result-badge">Killed</span>'
+        : '<span class="badge" id="detail-result-badge">No kill</span>';
+      document.getElementById('detail-duration').textContent = fmtDur(dur) + ' elapsed';
+      document.getElementById('detail-damage').textContent = fmtNum(enc.totalDamage) + ' total dmg';
+      document.getElementById('detail-dps').textContent = fmtNum(enc.totalDamage / (dur || 1)) + ' combined dps';
+      var displayRows = buildAnalysisRows(stats.rows, enc.totalDamage, dur);
+      document.getElementById('combatant-table').innerHTML = displayRows
+        .map(function (r) {
+          return (
+            '<tr>' +
+              '<td>' + r.name + (r.isPet ? ' <span class="muted">(pet)</span>' : '') + '</td>' +
+              '<td class="num tabular">' + fmtNum(r.damage) + '</td>' +
+              '<td class="num tabular">' + fmtNum(r.dps) + '</td>' +
+              '<td class="num tabular">' + r.pct.toFixed(1) + '%</td>' +
+              '<td class="num tabular">' + r.hits + '</td>' +
+              '<td class="num tabular">' + r.crits + '</td>' +
+            '</tr>'
+          );
+        })
+        .join('');
+    }
+
+    function handleFile(file) {
+      if (!file) return;
+      showError('');
+      document.getElementById('dz-title').textContent = 'Reading ' + file.name + '…';
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          characterName = parseCharacterFromFilename(file.name);
+          encounters = parseLogText(String(reader.result), characterName);
+          activeIndex = encounters.length ? 0 : null;
+          document.getElementById('results').hidden = false;
+          renderEncounterList();
+          renderDetail();
+        } catch (err) {
+          showError("Couldn't read that file — make sure it's a plain-text EverQuest Legends log.");
+        } finally {
+          document.getElementById('dz-title').textContent = 'Drop your log file here, or click to choose one';
+        }
+      };
+      reader.onerror = function () {
+        showError("Couldn't read that file — try again.");
+        document.getElementById('dz-title').textContent = 'Drop your log file here, or click to choose one';
+      };
+      reader.readAsText(file);
+    }
+
+    var dropzone = document.getElementById('dropzone');
+    var fileInput = document.getElementById('file-input');
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', function () { handleFile(fileInput.files[0]); });
+    ['dragenter', 'dragover'].forEach(function (evt) {
+      dropzone.addEventListener(evt, function (e) { e.preventDefault(); dropzone.classList.add('drag'); });
+    });
+    ['dragleave', 'drop'].forEach(function (evt) {
+      dropzone.addEventListener(evt, function (e) { e.preventDefault(); dropzone.classList.remove('drag'); });
+    });
+    dropzone.addEventListener('drop', function (e) {
+      var file = e.dataTransfer.files && e.dataTransfer.files[0];
+      handleFile(file);
+    });
+
+    // "have the option to click on the parse in your personal history to
+    // analyze it, it will open that parse in the analyze log window" —
+    // profile.html links here as analyze.html?submissionId=123&name=You.
+    // Reuses the exact same client-side parse/render path as a dropped
+    // file: the server hands back that submission's own original raw log
+    // text (owner-only, see /api/me/submissions/:id/log), and everything
+    // after that is identical to handleFile() above.
+    function loadFromSubmission(submissionId, name) {
+      characterName = name || null;
+      document.getElementById('dz-title').textContent = 'Loading your parse…';
+      api('/api/me/submissions/' + submissionId + '/log')
+        .then(function (data) {
+          encounters = parseLogText(data.rawLogText, characterName);
+          activeIndex = encounters.length ? 0 : null;
+          document.getElementById('results').hidden = false;
+          renderEncounterList();
+          renderDetail();
+          document.getElementById('dz-title').textContent = 'Loaded from your personal history — drop another log file to analyze something else';
+          // The breakdown is already selected and shown at this point (it's
+          // the only fight in most single-kill logs), which is easy to miss
+          // since it renders below the fold — jump straight to it.
+          var plate = document.getElementById('detail-plate');
+          if (plate && !plate.hidden) {
+            plate.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        })
+        .catch(function () {
+          showError("Couldn't load that parse — it may not be yours, or may no longer be available.");
+        });
+    }
+
+    var queryParams = new URLSearchParams(window.location.search);
+    var queriedSubmissionId = queryParams.get('submissionId');
+    if (queriedSubmissionId) loadFromSubmission(queriedSubmissionId, queryParams.get('name'));
+  </script>
+</body>
+</html>

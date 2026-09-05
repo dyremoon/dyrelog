@@ -1,0 +1,671 @@
+/* Mini-mode look, per the art reference saved in the project README
+   ("Overlay art direction (mini mode reference)") — near-black HUD card,
+   one accent color, six fixed rank hues. Not a restyle of the browser
+   overlay's warm/gold theme; this is its own thing on purpose (though the
+   "EQ Brass" theme below deliberately echoes it — see Settings > Theme).
+
+   Text sizing: every font-size below is in rem, relative to <html>'s own
+   font-size — app.js sets that directly from the Settings > "Text size"
+   slider (document.documentElement.style.fontSize = ...). rem (not em)
+   is deliberate: it stays relative to the ROOT regardless of how deeply
+   an element is nested, so nothing compounds unexpectedly. Everything
+   else (padding, gaps, the resize handles) stays in fixed px — that's
+   what Settings > "Size" and the corner/edge drag handles control
+   instead, so the two sliders do genuinely different things. */
+
+:root {
+  --bg-card: #14120f;
+  --hair: #2c2a24;
+  --ink: #f2ede1;
+  --ink-2: #a89f8d;
+  --ink-3: #6f6858;
+  --accent: #4c8bf5;
+  --accent-ink: #06121f;
+  --ok: #4caf6e;
+
+  /* Six fixed rank hues, in order — never cycled past 6, never reassigned
+     by filtering, and NOT swapped per-theme (identity stays put even when
+     the chrome around it changes) — see the dataviz skill's categorical-
+     color rule and the README spec this mirrors. */
+  --rank1: #b3423a; /* brick / maroon red */
+  --rank2: #9c3f8f; /* magenta-purple */
+  --rank3: #6c6fd1; /* periwinkle / blue-violet */
+  --rank4: #8a8a2f; /* olive / dark yellow-green */
+  --rank5: #3f7a52; /* muted forest green */
+  --rank6: #c9932f; /* golden amber */
+
+  /* Panel background opacity — Settings > Background opacity, applied ONLY
+     to .card::before (see below), never to the window itself or to any
+     text/icon. That split is deliberate: dragging this to 0 makes the
+     panel chrome disappear entirely while every number and control stays
+     fully legible, "floating" over the game — see the comment on .card
+     and .card::before. Unitless (not a %) so it plugs into calc()
+     multiplications for the bar-row fill tint below. */
+  --panel-alpha: 1;
+  /* Settings > Bar height — multiplies each .bar-row's vertical padding.
+     Set from app.js's applySettings(); 1 = the original fixed 4px. */
+  --bar-height-mult: 1;
+  /* Settings > Font — set from app.js's applySettings(); falls back to
+     the original stack below if JS hasn't run yet (first paint). */
+  --font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
+  /* A pet's own default bar color when Settings > Pet bar isn't
+     overridden — deliberately NOT one of the six rank hues, so a pet
+     never lands on the exact same color as its owner just because of
+     where it happened to sort in the list (see colorForRow() in app.js
+     and item 3.5 of the newest feature list). */
+  --pet-default: #4fa8c9;
+}
+
+/* EQ Brass — the warm gold/parchment theme already established in the
+   browser overlay and website, echoed here for anyone who wants one
+   consistent Dyrelog look everywhere. Toggled via Settings > Theme,
+   applied as data-theme="brass" on <html> (see app.js applySettings()). */
+:root[data-theme="brass"] {
+  --bg-card: #1c130b;
+  --hair: #3a2a1a;
+  --ink: #f2e2c4;
+  --ink-2: #cbad83;
+  --ink-3: #8a7256;
+  --accent: #c9922e;
+  --accent-ink: #201105;
+  --ok: #7ba861;
+}
+
+/* Five newer presets (item 9 — "some that are druidic, magical, girly,
+   hardcore, metal, etc."). Same shape as brass above: only the 8 tokens
+   below ever change per theme, so every component built against --bg-card/
+   --hair/--ink/--ink-2/--ink-3/--accent/--accent-ink/--ok picks these up
+   automatically with no other CSS to touch. See THEME_NAMES in app.js and
+   the theme swatches in settings.html/.js. */
+
+/* Druidic — deep forest green + moss, an amber-gold accent (nature/ranger/
+   druid coded, not the same blue or gold either existing theme already
+   uses). */
+:root[data-theme="druidic"] {
+  --bg-card: #10160f;
+  --hair: #253a20;
+  --ink: #e8f0dd;
+  --ink-2: #9ec288;
+  --ink-3: #5f7d52;
+  --accent: #7fb238;
+  --accent-ink: #10200a;
+  --ok: #6fae5a;
+}
+
+/* Magical — arcane violet/indigo with a bright cyan-purple accent (wizard/
+   enchanter coded). */
+:root[data-theme="magical"] {
+  --bg-card: #140f22;
+  --hair: #302352;
+  --ink: #ece6fb;
+  --ink-2: #b39cdf;
+  --ink-3: #7863a8;
+  --accent: #9b6bf2;
+  --accent-ink: #140a26;
+  --ok: #57c2a4;
+}
+
+/* Girly — soft blush pink on a warm plum-black ground, hot-pink accent. */
+:root[data-theme="girly"] {
+  --bg-card: #1c1017;
+  --hair: #3d2430;
+  --ink: #fbe6ef;
+  --ink-2: #e2a0c0;
+  --ink-3: #9e6b83;
+  --accent: #f24ea0;
+  --accent-ink: #250013;
+  --ok: #6fc48f;
+}
+
+/* Hardcore — near-black with a hot blood-red accent, high contrast. */
+:root[data-theme="hardcore"] {
+  --bg-card: #0d0b0b;
+  --hair: #2e1414;
+  --ink: #f3e6e6;
+  --ink-2: #b87a7a;
+  --ink-3: #7a4a4a;
+  --accent: #e31c1c;
+  --accent-ink: #1a0000;
+  --ok: #5cae5c;
+}
+
+/* Metal — cold gunmetal grays with a steel-blue accent, deliberately
+   desaturated next to "blue" (--accent there is a warmer, brighter blue). */
+:root[data-theme="metal"] {
+  --bg-card: #15171a;
+  --hair: #33373d;
+  --ink: #e6e9ec;
+  --ink-2: #9aa3ac;
+  --ink-3: #656d75;
+  --accent: #7d92a8;
+  --accent-ink: #0c1116;
+  --ok: #6fae6f;
+}
+
+* { box-sizing: border-box; }
+/* Author CSS beats the UA stylesheet's default [hidden]{display:none} the
+   moment ANY rule below sets display on that same element (e.g. the old
+   .settings-view had display:flex) — the hidden attribute then silently
+   stops hiding anything, which is exactly what made the settings panel
+   render permanently on top of the fight view. This one rule is the fix,
+   for every current and future hidden-toggled element in this file. */
+[hidden] { display: none !important; }
+html { font-size: 12.5px; } /* app.js multiplies this by the Text size setting */
+/* overflow:hidden here — this is a small frameless window, not a scrolling
+   page; only .fight-view scrolls internally (see below). Without this, an
+   OS zoom level change (Ctrl+/Ctrl- or a display scale change) can round
+   the layout a fraction of a pixel wider than the viewport and the window
+   sprouts a sliver scrollbar on the side. */
+html, body { margin: 0; background: transparent; height: 100%; overflow: hidden; }
+body {
+  font-family: var(--font-family, -apple-system, "Segoe UI", "Inter", system-ui, sans-serif);
+  color: var(--ink);
+  padding: 10px 4px 4px;
+  -webkit-user-select: none;
+  user-select: none;
+  /* The other half of the fuzzy-text fix (see the Math.round() comment on
+     document.documentElement.style.fontSize in app.js's applySettings()).
+     Chromium's default subpixel antialiasing is what read as "fuzzy" on the
+     decorative fonts especially (Cinzel/MedievalSharp/Orbitron/Press Start
+     2P all have thin serifs/strokes that show it more than a plain sans) —
+     forcing grayscale/LCD-off antialiasing plus optimizeLegibility gives
+     every font in FONT_STACKS clean, crisp edges instead. */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+/* The panel's paintable chrome — background, border, shadow — lives on
+   this pseudo-element instead of directly on .card, so Settings >
+   Background opacity (applied here as plain CSS opacity) can fade it out
+   completely without touching .card's real children at all. Every child
+   (.header, .fight-view, etc.) gets position:relative + a higher z-index
+   below so it always paints above this regardless of DOM order — see
+   "z-index: 1" further down. */
+.card {
+  position: relative;
+  border-radius: 13px;
+  padding: 11px 12px 12px;
+  height: 100%; /* fills body's content box exactly — no sibling above it
+                   anymore to leave room for (the "MINI MODE" eyebrow row
+                   used to be one; the icons already say what this is) */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--hair);
+  border-radius: 13px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+  opacity: var(--panel-alpha);
+  pointer-events: none;
+  z-index: 0;
+}
+.card > * { position: relative; z-index: 1; }
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin: -1px -1px 8px;
+  padding: 4px 8px;
+  border-radius: 8px 8px 0 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  flex: none;
+}
+.update-banner-dismiss {
+  flex: none;
+  width: 16px; height: 16px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.8;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.update-banner-dismiss:hover { opacity: 1; }
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  -webkit-app-region: drag; /* frameless window — this row is the drag handle */
+  margin-bottom: 8px;
+  flex: none;
+}
+.brand { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.brand-logo { flex: none; width: 16px; height: 16px; border-radius: 4px; }
+.status-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px color-mix(in srgb, var(--ok) 70%, transparent); }
+.status-dot.off { background: var(--ink-3); box-shadow: none; }
+.wordmark {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 108px;
+}
+
+.icons { display: flex; gap: 3px; -webkit-app-region: no-drag; flex: none; }
+.icon-btn {
+  width: 20px; height: 20px;
+  border: 1px solid var(--hair);
+  background: transparent;
+  color: var(--ink-2);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--ink); }
+
+.empty-copy { color: var(--ink-2); font-size: 0.92rem; line-height: 1.4; margin-bottom: 10px; }
+.empty-actions { display: flex; flex-direction: column; gap: 6px; }
+
+.pill-btn {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pill-btn:hover { filter: brightness(1.08); }
+.pill-btn.secondary { background: transparent; color: var(--ink); border: 1px solid var(--hair); }
+
+.folder-pick select {
+  width: 100%;
+  margin: 6px 0 8px;
+  background: color-mix(in srgb, var(--bg-card) 80%, black);
+  color: var(--ink);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.92rem;
+}
+
+/* No visible scrollbar in the mini overlay — it's still scrollable (wheel/
+   trackpad), just without a thumb sitting in the middle of a small always-
+   on-top card. A resize/zoom-triggered scrollbar was exactly what this
+   was hiding. */
+.fight-view {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.fight-view::-webkit-scrollbar { width: 0; height: 0; }
+.subhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.mob-line { color: var(--ink-2); font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; min-width: 0; }
+/* "the dps meter in that companion has a dropdown to show which fight" —
+   a real <select> (see renderFightSelect() in app.js) styled to blend
+   into the mob-line instead of looking like a form control: no native
+   chrome, inherits the same color/weight/size the plain mob-name text
+   used to have. Its own currently-selected option IS the mob name (see
+   sessionShortLabel()) — nothing else needs to write "Lady Vox" anywhere
+   once this exists. */
+.fight-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  font-family: var(--font-family);
+  padding: 0 14px 0 0;
+  margin: 0;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  /* A minimal custom chevron since appearance:none also removes the
+     native one — small enough to read as "this picks something" without
+     looking like a bulky form dropdown. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+  background-position: right 5px top 55%, right 1px top 55%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.fight-select:hover { color: var(--accent); }
+.fight-select option { color: initial; background: initial; font-weight: 400; } /* readable in the native popup regardless of theme */
+.mob-line .diff { color: var(--ink-3); }
+/* Settings > "Timer / dps / status size" (item 7) — its own independent
+   multiplier, separate from the main Text size slider, which never sized
+   the "(live)"/"(defeated)" status text on its own (only the whole
+   .mob-line, mob name included, which this deliberately doesn't touch). */
+#mob-state { display: inline-block; font-size: calc(0.88rem * var(--secondary-text-scale, 1)); }
+/* Static by default — only actually spinning while a fight is truly live
+   (app.js toggles the .pulse class itself; see render()). It used to spin
+   nonstop even on "Waiting for a fight…", which read as the app being
+   stuck rather than idle. */
+.fight-icon { display: inline-block; }
+.fight-icon.pulse { animation: spin 1.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.dps-side { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
+/* Both also scale with Settings > "Timer / dps / status size" (item 7) —
+   same --secondary-text-scale var #mob-state above uses. */
+.dps-number { color: var(--accent); font-weight: 700; font-size: calc(1.2rem * var(--secondary-text-scale, 1)); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fight-timer { color: var(--ink-3); font-size: calc(0.72rem * var(--secondary-text-scale, 1)); font-variant-numeric: tabular-nums; }
+/* "id also like to see Peak DPS like this graph does" — a short rolling-
+   window burst peak (see trackPeakDps() in app.js), separate from the
+   cumulative running-average number above, which trends toward the
+   fight's overall average and rarely spikes. Hidden entirely until
+   there's an actual peak to show (see #peak-dps' hidden attribute). */
+.peak-dps { color: var(--ink-3); font-size: calc(0.68rem * var(--secondary-text-scale, 1)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.barlist { display: flex; flex-direction: column; gap: 4px; }
+/* Each row is a real proportional bar now, not just a flat tinted strip —
+   .fill's width is set inline per-row (see buildDisplayRows()/
+   renderBarList() in app.js) relative to the top row's dps, and re-renders
+   every second as dps changes, so the transition here is what makes that
+   read as a bar growing/shrinking instead of jumping. The transition
+   happens to also fade in and out smoothly with the panel opacity slider,
+   since --panel-alpha multiplies its tint below. */
+.bar-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14px auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: calc(4px * var(--bar-height-mult, 1)) 7px;
+  border-radius: 8px;
+  overflow: hidden;
+  /* Settings > Colors > Border — its own override (--row-border-color),
+     separate from --hair (icon buttons, dividers, etc. elsewhere). Fixed
+     at a flat 55% instead of scaling with --panel-alpha the way it used
+     to — a low Background opacity used to fade this out right along with
+     the panel tint, which read as almost no structure between rows at
+     all ("not much of a difference between minimal mode and bar mode").
+     Lightweight on purpose (55%, 1px) rather than a hard outline. */
+  border: 1px solid color-mix(in srgb, var(--row-border-color, var(--hair)) 55%, transparent);
+}
+/* Every row — yours, a groupmate's, or a pet's — swaps the list in place
+   to that combatant's own spell/ability breakdown on click (see the
+   delegated click listener on #barlist and renderDrillDown() in app.js).
+   Used to open the separate Combat Analysis window instead; "I want ours
+   to do that instead of opening the analysis window." */
+.bar-row[data-row-key] { cursor: pointer; }
+.bar-row[data-row-key]:hover .name .label { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink) 50%, transparent); }
+.bar-row .fill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: var(--pct, 0%);
+  background: color-mix(in srgb, var(--swatch, var(--rank1)) calc(34% * var(--panel-alpha)), transparent);
+  transition: width 0.6s ease;
+}
+.bar-row .rank { position: relative; z-index: 1; color: var(--ink-3); font-size: 0.8rem; text-align: right; }
+.bar-row .dot { position: relative; z-index: 1; width: 7px; height: 7px; border-radius: 50%; background: var(--swatch, var(--rank1)); }
+.bar-row .name { position: relative; z-index: 1; font-weight: 600; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 5px; min-width: 0; }
+.bar-row .name .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-row .pet-tag {
+  flex: none;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  padding: 0 4px;
+  line-height: 1.4;
+}
+.bar-row .amount { position: relative; z-index: 1; text-align: right; font-variant-numeric: tabular-nums; }
+.bar-row .amount b { font-size: 0.92rem; color: var(--ink); }
+.bar-row .amount .unit { font-size: 0.72rem; color: var(--ink-3); margin-left: 2px; }
+/* "I also want our meter to show DPS - Total dmg done... 322 - 12.2k" —
+   the abbreviated (fmtAbbrev() in app.js) total damage riding right next
+   to the dps/unit pair, same muted weight as .unit so it reads as one
+   secondary figure, not a second competing number. */
+.bar-row .amount .sub-total { font-size: 0.72rem; color: var(--ink-3); margin-left: 2px; }
+
+/* In-place spell/ability drill-down — click any row (yours, a groupmate's,
+   or a pet's) in the main meter and the bar list itself swaps to that
+   combatant's own ability breakdown, instead of popping the separate
+   Combat Analysis window open ("I want ours to do that instead of opening
+   the analysis window"). Reuses .bar-row/.amount/.dot styling for each
+   ability row (see renderDrillDown() in app.js) so it reads as the exact
+   same list, just re-scoped. */
+.drill-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 3px 8px;
+  margin-bottom: 3px;
+  border-bottom: 1px solid color-mix(in srgb, var(--row-border-color, var(--hair)) 55%, transparent);
+  cursor: pointer;
+}
+.drill-header:hover .drill-name { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink) 50%, transparent); }
+.drill-who { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.drill-back {
+  flex: none;
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.drill-back:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 40%, var(--hair)); }
+.drill-name { font-weight: 700; font-size: 0.92rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drill-total { flex: none; font-size: 0.78rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.drill-list { display: flex; flex-direction: column; gap: 4px; }
+
+.submit-row { display: flex; justify-content: flex-end; margin-top: 8px; }
+.submit-pill { background: var(--accent); color: var(--accent-ink); border: none; border-radius: 999px; padding: 6px 14px; font-size: 0.92rem; font-weight: 700; cursor: pointer; }
+.submit-pill:hover { filter: brightness(1.08); }
+.submit-pill[disabled] { opacity: 0.55; cursor: default; filter: none; }
+
+.auto-submit-line { text-align: center; font-size: 0.82rem; color: var(--ink-2); margin-top: 8px; }
+.auto-submit-toggles { display: flex; gap: 4px; margin-top: 6px; }
+.toggle-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--hair);
+  color: var(--ink-2);
+  border-radius: 7px;
+  padding: 5px 4px;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+.toggle-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+/* ---- Mini mode ----
+   Back to text-only (per the mockup: just "Dyremoon  246 dps" / "Dyremoon's
+   warder  89 dps" and the restore button, no bars) — mini mode had briefly
+   grown the full .barlist underneath this strip per an earlier item 6
+   ("can we keep the dps bars of standard mode?"), but that left mini mode
+   and standard Bars mode looking almost identical, which defeats the
+   point of a separate compact mode. .mini-bar is still the compact top
+   strip (drag handle, your own dps at a glance, the restore button); now
+   .barlist is hidden right along with the mob-name/timer subhead and the
+   submit UI, none of which earn their space in a small always-on-top
+   card. The window itself doesn't force-resize into mini mode (see
+   toggleMini() in app.js) — it's a pure CSS-class toggle, so whatever size
+   you left the window at (and the resize handles) both carry over
+   unchanged; a short card is simply mostly empty space below this strip,
+   same as before bars were ever added here. */
+.mini-bar { display: none; align-items: center; gap: 6px; -webkit-app-region: drag; flex: none; margin-bottom: 6px; }
+body.mini .header,
+body.mini .update-banner,
+body.mini .empty-state,
+body.mini .folder-pick,
+body.mini .subhead,
+body.mini .barlist,
+body.mini .submit-row,
+body.mini .auto-submit-line,
+body.mini .auto-submit-toggles { display: none; }
+/* .mini-bar sits AFTER .fight-view in the DOM (index.html) so it degrades
+   sensibly if CSS ever fails to load — order: -1 is what actually pins it
+   above the bar list visually in the flex column, without touching markup. */
+body.mini .mini-bar { display: flex; order: -1; }
+body.mini .card { padding: 8px 9px; }
+.mini-bar .status-dot { flex: none; margin-top: 3px; }
+/* Two stacked lines now instead of one — your own name+dps, and (only
+   when your pet has actually dealt damage) a smaller pet sub-line right
+   under it, per item 3.9 of the newest feature list. */
+.mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
+.mini-main { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.mini-name { font-weight: 700; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.mini-dps { color: var(--accent); font-weight: 700; font-size: 0.95rem; font-variant-numeric: tabular-nums; flex: none; }
+.mini-pet-row { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+/* Settings > "Mini pet text size" — its own slider (item 5: the pet
+   sub-line was too small and rode the same textScale as everything else,
+   with no way to size it up on its own). --mini-pet-scale is set from
+   app.js's applySettings(); 1 = the original fixed sizes below. */
+.mini-pet-name { color: var(--ink-3); font-size: calc(0.66rem * var(--mini-pet-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.mini-pet-dps { color: var(--ink-2); font-size: calc(0.68rem * var(--mini-pet-scale, 1)); font-variant-numeric: tabular-nums; flex: none; }
+.mini-restore { -webkit-app-region: no-drag; flex: none; align-self: flex-start; }
+
+/* ---- Circle display style (Settings > Display style) ----
+   Item 8 — "a theme that is a circle and it just has a dps number in it...
+   almost like a watch." A small round badge instead of the rectangular
+   card: just your own dps and the current fight's duration, nothing else.
+   Only ever entered/left via Settings > Display style now (see
+   applyDisplayStyle() in app.js) — never a header icon, since there was
+   no way back to Settings once in it that way (the header, gear icon
+   included, is hidden while this is active). This DOES force the window
+   down to a small fixed square while active — a circle only reads as a
+   "watch" at a small, roughly-square size, so there's no sensible "keep
+   whatever size you left it at" here the way mini mode has; the window's
+   own size is derived from --circle-scale below (see watchWindowSizeFor()
+   in app.js) so it always exactly fits the badge. Click the badge,
+   right-click it, or use its gear button to jump to a menu with Settings/
+   Analysis/Leaderboards/back-to-Bars — see showWatchMenu() in main.js. */
+.watch-badge { display: none; }
+body.watch .header,
+body.watch .update-banner,
+body.watch .empty-state,
+body.watch .folder-pick,
+body.watch .fight-view,
+body.watch .mini-bar,
+body.watch .resize-handle { display: none; }
+body.watch .card { padding: 0; align-items: center; justify-content: center; }
+body.watch .card::before { display: none; } /* the circle draws its own background/border below — no rectangular panel behind it */
+body.watch { padding: 0; } /* the card's normal padding exists to frame a rectangular panel; the circle centers itself instead */
+body.watch .watch-badge { display: flex; }
+.watch-badge {
+  position: relative;
+  /* 132px is the scale-1 diameter — Settings > Circle size multiplies it
+     via --circle-scale (applyCircleScale() in app.js sets the variable;
+     watchWindowSizeFor() there keeps the window itself sized to match). */
+  width: calc(132px * var(--circle-scale, 1));
+  height: calc(132px * var(--circle-scale, 1));
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 3px solid var(--accent);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+  /* display is NOT set here — the plain ".watch-badge { display: none; }"
+     rule above and "body.watch .watch-badge { display: flex; }" below are
+     what actually turn this on/off. Setting display:flex unconditionally
+     right here used to silently win over the "hidden by default" rule
+     (same selector, later in the file), which is exactly why the badge
+     stayed visible even with Display style set to Bars — the one bug this
+     comment exists to make sure never comes back. */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  /* Both a drag handle AND a click target, same as .mini-bar elsewhere —
+     Chromium only treats an actual mouse-move-while-held as a drag, so a
+     stationary click usually still reaches the click listener in app.js.
+     "Usually" is exactly why this is no longer the ONLY way back to
+     Settings — see .watch-menu-btn below and the contextmenu listener in
+     app.js, both explicitly no-drag so they're never at the mercy of this. */
+  -webkit-app-region: drag;
+}
+.watch-menu-btn {
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--hair);
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+  color: var(--ink-3);
+  font-size: 11px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  /* The reliable escape hatch — a real button, deliberately NOT part of
+     the badge's drag region, so it always receives its click regardless
+     of the surrounding badge's drag-swallowing quirk (see .watch-badge's
+     comment above). Fixed size on purpose — it stays easy to hit even
+     when Circle size is dialed down small. */
+  -webkit-app-region: no-drag;
+}
+.watch-menu-btn:hover { color: var(--ink); border-color: var(--accent); }
+.watch-dps { display: flex; align-items: baseline; gap: 3px; }
+.watch-dps #watch-dps-num { color: var(--accent); font-weight: 700; font-size: calc(1.7rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
+.watch-unit { color: var(--ink-3); font-size: calc(0.72rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); }
+.watch-timer { color: var(--ink-2); font-size: calc(0.82rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
+
+/* ---- Fade UI when idle (Settings > Fade UI when idle) ----
+   Leaves the bar rows' color dot + name + dps number as the only fully
+   legible things on screen once the mouse has been off the overlay for
+   Settings > "After" seconds — see scheduleIdleFade() in app.js. Every
+   targeted element keeps its normal layout box (opacity, not display),
+   so nothing reflows when it fades; pointer-events: none means an idle
+   header/icon row can't accidentally eat a click, and moving the mouse
+   anywhere over the window (see the mousemove/mousedown listeners in
+   app.js) removes body.idle-faded immediately, before a follow-up click
+   would land. */
+body.idle-faded .header,
+body.idle-faded .mob-line,
+body.idle-faded .fight-timer,
+body.idle-faded .dps-number,
+body.idle-faded .bar-row .rank,
+body.idle-faded .bar-row .pet-tag,
+body.idle-faded .submit-row,
+body.idle-faded .auto-submit-line,
+body.idle-faded .auto-submit-toggles {
+  opacity: 0;
+  pointer-events: none;
+}
+.header, .mob-line, .fight-timer, .dps-number,
+.bar-row .rank, .bar-row .pet-tag,
+.submit-row, .auto-submit-line, .auto-submit-toggles {
+  transition: opacity 0.8s ease;
+}
+
+/* ---- Manual resize handles (right/bottom edges + corner only — see
+   wireResizeHandle() in app.js) ---- */
+.resize-handle { position: absolute; -webkit-app-region: no-drag; }
+.resize-right { top: 0; right: -5px; width: 9px; height: 100%; cursor: ew-resize; }
+.resize-bottom { left: 0; bottom: -5px; width: 100%; height: 9px; cursor: ns-resize; }
+.resize-corner { right: -5px; bottom: -5px; width: 14px; height: 14px; cursor: nwse-resize; }
+/* Mini mode used to force a fixed window size and disable resizing — now it
+   doesn't (see toggleMini() in app.js), so the handles stay available here
+   too; item 6 explicitly wants mini mode to keep behaving like a real,
+   resizable window rather than snapping to one fixed footprint. */

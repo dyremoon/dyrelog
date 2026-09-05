@@ -13,13 +13,123 @@
   <meta name="description" content="Dyrelog is a free EverQuest Legends DPS meter and combat-log leaderboard. Track your damage live with the overlay, submit a fight, and compare parses by boss." />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="./css/dyrelog.css" />
+  <link rel="icon" type="image/png" href="./assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="./assets/logo-180.png" />
 </head>
 <body>
+  <!-- "add art to the side banners on the left and right of the main
+       page, there is a lot of empty space there." Decorative only
+       (aria-hidden, pointer-events:none), hidden below a viewport width
+       where it would crowd the real content. Original vector art, not any
+       EverQuest/Daybreak asset — we can't reproduce real game art here
+       without a trademark/copyright problem, so this is an arcane sigil
+       chain in the site's own three accent colors instead. Redrawn as a
+       plain, evenly-spaced, symmetric rail (same node positions and
+       shapes on both sides, mirrored) after the first pass looked
+       scattered and mismatched between the two columns. -->
+  <div class="side-banner side-banner-left" aria-hidden="true">
+    <svg viewBox="0 0 120 640" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="sigilLine" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--brass)" stop-opacity="0" />
+          <stop offset="50%" stop-color="var(--arcane)" stop-opacity="0.45" />
+          <stop offset="100%" stop-color="var(--gold)" stop-opacity="0" />
+        </linearGradient>
+        <filter id="sigilGlow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="6" />
+        </filter>
+      </defs>
+      <line x1="60" y1="50" x2="60" y2="590" stroke="url(#sigilLine)" stroke-width="1.5" />
+      <g>
+        <circle cx="60" cy="50" r="20" fill="var(--brass)" opacity="0.28" filter="url(#sigilGlow)" />
+        <rect x="49" y="39" width="22" height="22" rx="4" transform="rotate(45 60 50)" fill="none" stroke="var(--brass-2)" stroke-width="1.5" />
+        <line x1="27" y1="50" x2="43" y2="50" stroke="var(--brass-2)" stroke-width="1" opacity="0.6" />
+        <line x1="77" y1="50" x2="93" y2="50" stroke="var(--brass-2)" stroke-width="1" opacity="0.6" />
+      </g>
+      <g>
+        <circle cx="60" cy="185" r="20" fill="var(--arcane)" opacity="0.28" filter="url(#sigilGlow)" />
+        <circle cx="60" cy="185" r="11" fill="none" stroke="var(--arcane-2)" stroke-width="1.5" />
+        <circle cx="60" cy="185" r="3.5" fill="var(--arcane-2)" />
+        <line x1="27" y1="185" x2="43" y2="185" stroke="var(--arcane-2)" stroke-width="1" opacity="0.6" />
+        <line x1="77" y1="185" x2="93" y2="185" stroke="var(--arcane-2)" stroke-width="1" opacity="0.6" />
+      </g>
+      <g>
+        <circle cx="60" cy="320" r="20" fill="var(--gold)" opacity="0.28" filter="url(#sigilGlow)" />
+        <rect x="49" y="309" width="22" height="22" rx="4" transform="rotate(45 60 320)" fill="none" stroke="var(--gold-2)" stroke-width="1.5" />
+        <line x1="27" y1="320" x2="43" y2="320" stroke="var(--gold-2)" stroke-width="1" opacity="0.6" />
+        <line x1="77" y1="320" x2="93" y2="320" stroke="var(--gold-2)" stroke-width="1" opacity="0.6" />
+      </g>
+      <g>
+        <circle cx="60" cy="455" r="20" fill="var(--arcane)" opacity="0.28" filter="url(#sigilGlow)" />
+        <circle cx="60" cy="455" r="11" fill="none" stroke="var(--arcane-2)" stroke-width="1.5" />
+        <circle cx="60" cy="455" r="3.5" fill="var(--arcane-2)" />
+        <line x1="27" y1="455" x2="43" y2="455" stroke="var(--arcane-2)" stroke-width="1" opacity="0.6" />
+        <line x1="77" y1="455" x2="93" y2="455" stroke="var(--arcane-2)" stroke-width="1" opacity="0.6" />
+      </g>
+      <g>
+        <circle cx="60" cy="590" r="20" fill="var(--brass)" opacity="0.28" filter="url(#sigilGlow)" />
+        <rect x="49" y="579" width="22" height="22" rx="4" transform="rotate(45 60 590)" fill="none" stroke="var(--brass-2)" stroke-width="1.5" />
+        <line x1="27" y1="590" x2="43" y2="590" stroke="var(--brass-2)" stroke-width="1" opacity="0.6" />
+        <line x1="77" y1="590" x2="93" y2="590" stroke="var(--brass-2)" stroke-width="1" opacity="0.6" />
+      </g>
+    </svg>
+  </div>
+  <div class="side-banner side-banner-right" aria-hidden="true">
+    <svg viewBox="0 0 120 640" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="sigilLine2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--brass)" stop-opacity="0" />
+          <stop offset="50%" stop-color="var(--arcane)" stop-opacity="0.45" />
+          <stop offset="100%" stop-color="var(--gold)" stop-opacity="0" />
+        </linearGradient>
+        <filter id="sigilGlow2" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="6" />
+        </filter>
+      </defs>
+      <line x1="60" y1="50" x2="60" y2="590" stroke="url(#sigilLine2)" stroke-width="1.5" />
+      <g>
+        <circle cx="60" cy="50" r="20" fill="var(--brass)" opacity="0.28" filter="url(#sigilGlow2)" />
+        <rect x="49" y="39" width="22" height="22" rx="4" transform="rotate(45 60 50)" fill="none" stroke="var(--brass-2)" stroke-width="1.5" />
+        <line x1="27" y1="50" x2="43" y2="50" stroke="var(--brass-2)" stroke-width="1" opacity="0.6" />
+        <line x1="77" y1="50" x2="93" y2="50" stroke="var(--brass-2)" stroke-width="1" opacity="0.6" />
+      </g>
+      <g>
+        <circle cx="60" cy="185" r="20" fill="var(--arcane)" opacity="0.28" filter="url(#sigilGlow2)" />
+        <circle cx="60" cy="185" r="11" fill="none" stroke="var(--arcane-2)" stroke-width="1.5" />
+        <circle cx="60" cy="185" r="3.5" fill="var(--arcane-2)" />
+        <line x1="27" y1="185" x2="43" y2="185" stroke="var(--arcane-2)" stroke-width="1" opacity="0.6" />
+        <line x1="77" y1="185" x2="93" y2="185" stroke="var(--arcane-2)" stroke-width="1" opacity="0.6" />
+      </g>
+      <g>
+        <circle cx="60" cy="320" r="20" fill="var(--gold)" opacity="0.28" filter="url(#sigilGlow2)" />
+        <rect x="49" y="309" width="22" height="22" rx="4" transform="rotate(45 60 320)" fill="none" stroke="var(--gold-2)" stroke-width="1.5" />
+        <line x1="27" y1="320" x2="43" y2="320" stroke="var(--gold-2)" stroke-width="1" opacity="0.6" />
+        <line x1="77" y1="320" x2="93" y2="320" stroke="var(--gold-2)" stroke-width="1" opacity="0.6" />
+      </g>
+      <g>
+        <circle cx="60" cy="455" r="20" fill="var(--arcane)" opacity="0.28" filter="url(#sigilGlow2)" />
+        <circle cx="60" cy="455" r="11" fill="none" stroke="var(--arcane-2)" stroke-width="1.5" />
+        <circle cx="60" cy="455" r="3.5" fill="var(--arcane-2)" />
+        <line x1="27" y1="455" x2="43" y2="455" stroke="var(--arcane-2)" stroke-width="1" opacity="0.6" />
+        <line x1="77" y1="455" x2="93" y2="455" stroke="var(--arcane-2)" stroke-width="1" opacity="0.6" />
+      </g>
+      <g>
+        <circle cx="60" cy="590" r="20" fill="var(--brass)" opacity="0.28" filter="url(#sigilGlow2)" />
+        <rect x="49" y="579" width="22" height="22" rx="4" transform="rotate(45 60 590)" fill="none" stroke="var(--brass-2)" stroke-width="1.5" />
+        <line x1="27" y1="590" x2="43" y2="590" stroke="var(--brass-2)" stroke-width="1" opacity="0.6" />
+        <line x1="77" y1="590" x2="93" y2="590" stroke="var(--brass-2)" stroke-width="1" opacity="0.6" />
+      </g>
+    </svg>
+  </div>
+
   <div class="container">
     <header class="site-header">
-      <div class="wordmark">Dyrelog</div>
+      <div class="wordmark"><img class="logo-mark" src="./assets/logo-64.png" alt="" width="28" height="28">Dyrelog<span class="game-badge">EverQuest Legends</span></div>
       <nav class="site-nav">
-        <a href="./index.html">Leaderboards</a>
+        <a href="./index.html" class="active">Leaderboards</a>
+        <a href="./analyze.html">Analyze Log</a>
+        <a href="./about.html">About</a>
+        <a href="./download.html">Download Dyrelog</a>
         <span id="auth-slot"></span>
       </nav>
     </header>
@@ -27,14 +137,38 @@
     <main>
       <p class="muted" style="margin-bottom:24px;">
         Dyrelog is a free DPS meter and combat-log leaderboard for
-        <strong>EverQuest Legends</strong>. Track your damage live with the
+        <strong class="brand-highlight">EverQuest Legends</strong>. Track your damage live with the
         overlay, submit a fight, and see how it stacks up by boss. Fan-made,
         not affiliated with Daybreak or EverQuest Legends.
       </p>
 
-      <div class="plate">
-        <h2>Bosses</h2>
-        <div id="boss-list">
+      <!-- "The top ui shows the top 10 dps across all fights that are +4
+           only... this is like the highlights of the week." No actual
+           weekly time window yet (that'd need its own submitted_at range
+           filter, a separate feature) — this is every D4 fight on record,
+           top 10 by dps, one row per character per boss. See
+           GET /api/leaderboard/highlights in worker/src/leaderboard.js. -->
+      <div class="plate plate-highlight" style="margin-bottom:24px;">
+        <h2>Top 10 of the week</h2>
+        <p class="muted" style="margin-top:-6px;">The best D4 (Refined) parses on record, one entry per character per boss.</p>
+        <div id="highlights-list">
+          <p class="muted">Loading…</p>
+        </div>
+      </div>
+
+      <!-- Main leaderboard — a boss picker instead of the old always-visible
+           grouped table list, per "a boss drop down menu for the person to
+           select" replacing the category tab list. Selecting a boss shows
+           how many people are actually on it, e.g. "Master Yael (4,330)" —
+           see entrantCount on GET /api/bosses/:id/leaderboard. -->
+      <div class="plate plate-gold">
+        <div class="leaderboard-controls">
+          <label for="boss-picker">Boss</label>
+          <select id="boss-picker">
+            <option value="">Loading…</option>
+          </select>
+        </div>
+        <div id="boss-leaderboard">
           <p class="muted">Loading…</p>
         </div>
       </div>
@@ -46,37 +180,140 @@
     </footer>
   </div>
 
+  <!-- Production API origin — the deployed frontend (dyrelog.pages.dev) and
+       the deployed worker (dyrelog-api.dyremoon.workers.dev) are on two
+       different domains, so app.js's fetch() calls need this set or they
+       fall back to the http://127.0.0.1:8787 local-dev default. -->
+  <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
   <script>
-    async function loadBosses() {
-      const listEl = document.getElementById('boss-list');
+    // ---- Highlights panel: top 10 D4 parses across every boss -----------
+    async function loadHighlights() {
+      const el = document.getElementById('highlights-list');
       try {
-        const { bosses } = await api('/api/bosses');
-        if (bosses.length === 0) {
-          listEl.innerHTML = '<p class="empty-state">No bosses in the curated list yet.</p>';
+        const { highlights } = await api('/api/leaderboard/highlights');
+        if (highlights.length === 0) {
+          el.innerHTML = '<p class="empty-state">No D4 (Refined) parses on the board yet — be the first.</p>';
           return;
         }
-        listEl.innerHTML = `
+        el.innerHTML = `
           <table>
-            <thead><tr><th>Boss</th><th>Zone</th></tr></thead>
+            <thead>
+              <tr><th>#</th><th>Character</th><th>Class</th><th>Boss</th><th class="num">DPS</th></tr>
+            </thead>
             <tbody>
-              ${bosses
+              ${highlights
                 .map(
-                  (b) => `
+                  (h, i) => `
                 <tr>
-                  <td><a href="./boss.html?id=${b.id}">${b.name}</a></td>
-                  <td class="muted">${b.zone || '—'}</td>
+                  <td class="mono">${i + 1}</td>
+                  <td><a href="./parse.html?id=${h.encounter_id}">${h.character_name}</a> <span class="muted">(${h.realm})</span></td>
+                  <td class="muted">${h.class_combo || '—'}</td>
+                  <td><a href="./boss.html?id=${h.boss_id}">${h.boss_name}</a></td>
+                  <td class="num tabular">${fmtNumber(h.dps)}</td>
                 </tr>`
                 )
                 .join('')}
             </tbody>
-          </table>
-        `;
+          </table>`;
       } catch (err) {
-        listEl.innerHTML = `<p class="empty-state">Can't reach the API right now.</p>`;
+        el.innerHTML = `<p class="empty-state">Couldn't load the highlights right now — try refreshing in a moment.</p>`;
       }
     }
-    document.addEventListener('DOMContentLoaded', loadBosses);
+
+    // ---- Main leaderboard: a boss picker instead of a static list -------
+    function bossOptionLabel(b) {
+      return b.difficulty ? `${b.name} — ${fmtDifficulty(b.difficulty)}` : b.name;
+    }
+
+    function parseRow(p, i) {
+      return `
+        <tr>
+          <td class="mono">${i + 1}</td>
+          <td><a href="./parse.html?id=${p.encounter_id}">${p.character_name}</a> <span class="muted">(${p.realm})</span></td>
+          <td class="muted">${p.class_combo || '—'}</td>
+          <td class="num tabular">${fmtNumber(p.dps)}</td>
+          <td class="num tabular">${fmtNumber(p.damage)}</td>
+          <td class="muted">${fmtDateOnly(p.start_time)}</td>
+        </tr>`;
+    }
+
+    async function loadBossLeaderboard(bossId) {
+      const el = document.getElementById('boss-leaderboard');
+      el.innerHTML = '<p class="muted">Loading…</p>';
+      try {
+        const { boss, parses, entrantCount } = await api(`/api/bosses/${bossId}/leaderboard`);
+        // entrantCount can be missing on an older API response — never let
+        // that render as a literal "NaN entries".
+        const hasCount = Number.isFinite(entrantCount);
+        const countLabel = hasCount ? `(${fmtNumber(entrantCount)} ${entrantCount === 1 ? 'entry' : 'entries'})` : '';
+        const heading = `
+          <h3 class="boss-picker-heading">
+            <a href="./boss.html?id=${boss.id}">${boss.name}</a>
+            <span class="muted">${countLabel}</span>
+          </h3>`;
+        if (parses.length === 0) {
+          el.innerHTML = heading + '<p class="empty-state">No verified parses for this boss yet — be the first to submit one.</p>';
+          return;
+        }
+        el.innerHTML = heading + `
+          <table>
+            <thead>
+              <tr><th>#</th><th>Character</th><th>Class</th><th class="num">DPS</th><th class="num">Damage</th><th>Date</th></tr>
+            </thead>
+            <tbody>${parses.map(parseRow).join('')}</tbody>
+          </table>`;
+      } catch (err) {
+        el.innerHTML = `<p class="empty-state">Couldn't load this leaderboard right now — try another boss or refresh in a moment.</p>`;
+      }
+    }
+
+    async function loadBossPicker() {
+      const picker = document.getElementById('boss-picker');
+      try {
+        const { bosses } = await api('/api/bosses');
+        if (bosses.length === 0) {
+          picker.innerHTML = '<option value="">No bosses yet</option>';
+          document.getElementById('boss-leaderboard').innerHTML = '<p class="empty-state">No bosses in the curated list yet.</p>';
+          return;
+        }
+        // Grouped the same way the old list was (category, "Dungeons" last) —
+        // <optgroup> keeps a raid's tiers together in the dropdown too.
+        const groups = new Map();
+        bosses.forEach((b) => {
+          const key = b.category || 'Dungeons';
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(b);
+        });
+        const orderedKeys = [...groups.keys()].filter((k) => k !== 'Dungeons');
+        if (groups.has('Dungeons')) orderedKeys.push('Dungeons');
+
+        picker.innerHTML = orderedKeys
+          .map((key) => `
+            <optgroup label="${key}">
+              ${groups.get(key).map((b) => `<option value="${b.id}">${bossOptionLabel(b)}</option>`).join('')}
+            </optgroup>`)
+          .join('');
+
+        picker.addEventListener('change', () => {
+          if (picker.value) loadBossLeaderboard(picker.value);
+        });
+
+        // Open on the first boss so the page shows real content immediately
+        // rather than an empty picker waiting on a click.
+        const firstId = bosses[0].id;
+        picker.value = firstId;
+        loadBossLeaderboard(firstId);
+      } catch (err) {
+        picker.innerHTML = '<option value="">Couldn\'t load bosses</option>';
+        document.getElementById('boss-leaderboard').innerHTML = `<p class="empty-state">Couldn't load the boss list right now — try refreshing in a moment.</p>`;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadHighlights();
+      loadBossPicker();
+    });
   </script>
 </body>
 </html>

@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dyrelog</title>
+<!-- Only for Settings > Font's extra options (fantasy/sci-fi/retro) — the
+     default system/serif/mono/rounded choices need nothing here, they're
+     already installed on any Windows/Mac box. See FONT_STACKS in app.js. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=MedievalSharp&family=Orbitron:wght@400;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="card" id="card">
+    <!-- Hidden until main.js's update check actually finds a newer GitHub
+         release than this build — see onUpdateAvailable()/getUpdateInfo()
+         in app.js. Never shows in mini mode or Circle mode (see style.css);
+         Settings > About also shows the same version/link at any time. -->
+    <div class="update-banner" id="update-banner" hidden title="Click to open the download page">
+      <span id="update-banner-text">Update available</span>
+      <button class="update-banner-dismiss" id="update-banner-dismiss" title="Dismiss for this session">&times;</button>
+    </div>
+    <div class="header" id="drag-region">
+      <div class="brand"><img class="brand-logo" src="logo.png" alt=""><span class="status-dot" id="status-dot"></span><span class="wordmark" id="wordmark">DYRELOG</span></div>
+      <div class="icons">
+        <button class="icon-btn" id="btn-settings" title="Settings">&#9881;</button>
+        <button class="icon-btn" id="btn-analysis" title="Advanced combat analysis">&#128202;</button>
+        <button class="icon-btn" id="btn-leaderboard" title="Leaderboards">&#127942;</button>
+        <button class="icon-btn" id="btn-change-source" title="Change log source">&#128193;</button>
+        <button class="icon-btn" id="btn-mini" title="Mini mode">&#8212;</button>
+        <button class="icon-btn" id="btn-close" title="Close">&times;</button>
+      </div>
+    </div>
+
+    <!-- No log source yet — first-run state, replaces the fight subheader/list -->
+    <div class="empty-state" id="empty-state">
+      <div class="empty-copy">Point Dyrelog at your log once. It remembers it from here on &mdash; no browser permission dance, this is a real desktop app.</div>
+      <div class="empty-actions">
+        <button class="pill-btn" id="btn-pick-file">Pick log file&hellip;</button>
+        <button class="pill-btn" id="btn-pick-folder">Pick Logs folder&hellip;</button>
+      </div>
+    </div>
+
+    <!-- More than one eqlog_*.txt found in a picked folder -->
+    <div class="folder-pick" id="folder-pick" hidden>
+      <div class="empty-copy">Found more than one log in that folder &mdash; which one's yours?</div>
+      <select id="folder-select"></select>
+      <button class="pill-btn" id="btn-folder-use">Use this one</button>
+    </div>
+
+    <!-- Live/fight view -->
+    <div class="fight-view" id="fight-view" hidden>
+      <div class="subhead">
+        <span class="mob-line" id="mob-line"><span class="fight-icon" id="fight-icon">&#8635;</span> <select class="fight-select" id="fight-select" title="Pick which recent fight to view"></select> <span id="mob-diff" class="diff"></span> <span id="mob-state">(live)</span></span>
+        <span class="dps-side">
+          <span class="dps-number" id="dps-number">0 dps</span>
+          <span class="fight-timer" id="fight-timer"></span>
+          <span class="peak-dps" id="peak-dps" hidden></span>
+        </span>
+      </div>
+      <div class="barlist" id="barlist"></div>
+      <div class="submit-row" id="submit-row" hidden>
+        <button class="submit-pill" id="btn-submit">&uarr; Submit</button>
+      </div>
+      <div class="auto-submit-line" id="auto-submit-line" hidden></div>
+      <!-- First-run only (see settings.autoSubmitChosen in app.js) — once
+           you pick one, this row never shows again; the same three
+           choices live permanently in Settings after that. -->
+      <div class="auto-submit-toggles" id="auto-submit-toggles" hidden>
+        <button class="toggle-btn" data-mode="off">Disabled</button>
+        <button class="toggle-btn" data-mode="ask">Ask before submit</button>
+        <button class="toggle-btn" data-mode="auto">Always auto-submit</button>
+      </div>
+    </div>
+
+    <!-- Mini mode — everything else on the card is hidden while this shows -->
+    <div class="mini-bar" id="mini-bar">
+      <span class="status-dot" id="mini-dot"></span>
+      <div class="mini-info">
+        <div class="mini-main">
+          <span class="mini-name" id="mini-name">Dyrelog</span>
+          <span class="mini-dps" id="mini-dps">0 dps</span>
+        </div>
+        <!-- Only shown when your pet has actually dealt damage this fight
+             — see updateMiniBar() in app.js. -->
+        <div class="mini-pet-row" id="mini-pet-row" hidden>
+          <span class="mini-pet-name" id="mini-pet-name"></span>
+          <span class="mini-pet-dps" id="mini-pet-dps"></span>
+        </div>
+      </div>
+      <button class="icon-btn mini-restore" id="btn-restore" title="Expand">&#9633;</button>
+    </div>
+
+    <!-- Circle display style (Settings > Display style — item 8) — a small
+         circular badge with just your dps and the current fight's
+         duration, mockup-inspired. Only ever entered/left via Settings >
+         Display style, never a header icon (the header itself is hidden
+         while this is active). Three ways back out, since a click on the
+         badge alone turned out to be unreliable (the badge is also a drag
+         handle — see -webkit-app-region:drag on .watch-badge in style.css —
+         and Chromium can swallow a plain left-click on a large drag
+         region): click the badge itself, click the small gear button (a
+         genuine no-drag button), or right-click anywhere on the badge.
+         All three open the same menu — see showWatchMenu() in main.js and
+         its wiring in app.js. Circle's on-screen SIZE is a separate
+         Settings > Circle size slider — see --circle-scale in style.css
+         and applyCircleScale() in app.js. -->
+    <div class="watch-badge" id="watch-badge" title="Click, right-click, or use the gear for Settings / Analysis / back to Bars">
+      <button class="watch-menu-btn" id="watch-menu-btn" title="Menu">&#9881;</button>
+      <div class="watch-dps"><span id="watch-dps-num">0</span><span class="watch-unit">dps</span></div>
+      <div class="watch-timer" id="watch-timer">0:00</div>
+    </div>
+
+    <!-- Manual resize — right/bottom edges and the corner only (top-left
+         stays anchored where you put the window). See wireResizeHandle()
+         in app.js. -->
+    <div class="resize-handle resize-right" id="rh-right"></div>
+    <div class="resize-handle resize-bottom" id="rh-bottom"></div>
+    <div class="resize-handle resize-corner" id="rh-corner"></div>
+  </div>
+
+  <script src="eqp-core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,353 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dyrelog Settings</title>
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <header>
+    <div class="header-top">
+      <h1>Settings</h1>
+      <span class="live-note">Changes apply immediately</span>
+    </div>
+    <div class="header-links-row">
+      <a class="site-link" id="header-website" href="#">dyrelog.pages.dev &#8599;</a>
+      <div class="textsize-row">
+        <label for="set-uiscale">Settings text size</label>
+        <select id="set-uiscale">
+          <option value="0.9">Small</option>
+          <option value="1">Normal</option>
+          <option value="1.15">Large</option>
+          <option value="1.35">Extra large</option>
+        </select>
+      </div>
+    </div>
+    <div class="search-row">
+      <input type="search" id="settings-search" placeholder="Search settings…" autocomplete="off">
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" type="button" data-tab="appearance">Appearance</button>
+      <button class="tab" type="button" data-tab="options">Options</button>
+      <button class="tab" type="button" data-tab="about">About &amp; Feedback</button>
+      <button class="tab" type="button" data-tab="whatsnew">What's New</button>
+    </nav>
+  </header>
+
+  <div class="panel" id="panel">
+
+    <!-- ==================== Appearance ==================== -->
+    <section class="tab-panel" data-tab-panel="appearance">
+
+      <!-- "I want to be able to test the visuals without having a log in" —
+           two mockup meters (Bars and Mini-bar), always visible here,
+           redrawn from the same settings object every slider/color-pick
+           already saves — no real fight needed to see what a change
+           actually looks like. Bar length is proportional to dps (Pet is
+           roughly a quarter of You's, so its fill is roughly a quarter as
+           wide, not a copy-pasted full bar), and both previews fade the
+           same way Fade UI when idle does on the real overlay. -->
+      <div class="settings-section" data-searchable="preview live example test visuals bars mini-bar meter idle fade">
+        <p class="section-label">Live preview</p>
+        <p class="hint" style="margin-top:0;">Preview size, layout, color, and text changes to your meter using this preview.</p>
+
+        <div class="preview-group">
+          <p class="preview-group-label">Bars</p>
+          <div class="preview-frame" id="preview-frame">
+            <div class="preview-header" id="preview-header-bars">
+              <span class="preview-header-dot"></span>
+              <span class="preview-header-sub">Master Yael · D2 (live)</span>
+              <span class="preview-header-timer">2:14</span>
+            </div>
+            <div class="preview-row" id="preview-row-you">
+              <span class="preview-fill" id="preview-fill-you"></span>
+              <span class="preview-rank">1</span>
+              <span class="preview-name" id="preview-name-you">You</span>
+              <span class="preview-dps" id="preview-dps-you">842 dps</span>
+            </div>
+            <div class="preview-row" id="preview-row-pet">
+              <span class="preview-fill" id="preview-fill-pet"></span>
+              <span class="preview-rank">2</span>
+              <span class="preview-name" id="preview-name-pet">Pet</span>
+              <span class="preview-dps" id="preview-dps-pet">211 dps</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="preview-group">
+          <p class="preview-group-label">Mini-bar</p>
+          <div class="preview-frame preview-frame-mini" id="preview-frame-mini">
+            <div class="preview-header" id="preview-header-mini">
+              <span class="preview-header-dot"></span>
+              <span class="preview-mini-word">DYRELOG</span>
+            </div>
+            <div class="preview-mini-name-row">
+              <span class="preview-name" id="preview-mini-name">You</span>
+              <span class="preview-dps" id="preview-mini-dps">842 dps</span>
+            </div>
+            <div class="preview-mini-pet-row" id="preview-mini-pet-row">Pet 211 dps</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section" data-searchable="pets show pets separate bars">
+        <p class="section-label">Pets</p>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="set-showpets"> Show pets as separate bars</label>
+        </div>
+        <p class="hint">Off folds your pet's damage back into your own single
+          bar (the combined dps number at top is the same either way), try it
+          above, the preview's Pet row disappears and You's number absorbs it.</p>
+      </div>
+
+      <div class="settings-section" data-searchable="sizing background opacity bar height text size mini pet timer dps">
+        <p class="section-label">Sizing</p>
+        <div class="row">
+          <label for="set-opacity">Background</label>
+          <input type="range" id="set-opacity" min="0" max="1" step="0.05">
+        </div>
+        <p class="hint">Fades only the panel's background, text, bars and
+          icons stay fully readable all the way down to 0, so the overlay can
+          float over the game with no visible panel at all.</p>
+        <div class="row">
+          <label for="set-barheight">Bar height</label>
+          <input type="range" id="set-barheight" min="0.3" max="3.5" step="0.1">
+        </div>
+        <p class="hint">There's no "Size" slider anymore, drag the overlay's
+          right/bottom edge or corner instead, and it'll reopen at that size
+          from now on.</p>
+        <div class="row">
+          <label for="set-textscale">Text size</label>
+          <input type="range" id="set-textscale" min="0.85" max="1.3" step="0.05">
+        </div>
+        <div class="row">
+          <label for="set-minipetscale">Mini-bar pet text</label>
+          <input type="range" id="set-minipetscale" min="0.7" max="2.2" step="0.1">
+        </div>
+        <p class="hint">Only affects the small pet sub-line under your name in
+          mini mode, everything else uses Text size above.</p>
+        <div class="row">
+          <label for="set-secondarytextscale">Timer / DPS</label>
+          <input type="range" id="set-secondarytextscale" min="0.7" max="2" step="0.1">
+        </div>
+        <p class="hint">Sizes the fight timer, the "(defeated)"/"(live)"
+          state, and the "dps" unit label on their own, separate from Text
+          size above.</p>
+      </div>
+
+      <div class="settings-section" data-searchable="layout fade idle display style bars circle">
+        <p class="section-label">Layout</p>
+        <div class="row-stack">
+          <label class="check"><input type="checkbox" id="set-fadeidle"> Fade UI when idle</label>
+          <div class="row" id="fadeidle-row" hidden>
+            <label for="set-fadeidle-secs">After</label>
+            <input type="range" id="set-fadeidle-secs" min="3" max="30" step="1">
+            <span class="range-val" id="fadeidle-secs-val"></span>
+          </div>
+          <p class="hint">Leaves just each row's name and dps on screen,
+            header, icons, the timer and rank numbers fade out until you move
+            your mouse back over the overlay.</p>
+        </div>
+        <div class="row row-stack">
+          <label>Display style</label>
+          <div class="segmented" id="settings-display-style">
+            <button class="segment" type="button" data-style="bars">Bars</button>
+            <button class="segment" type="button" data-style="circle">Circle</button>
+          </div>
+          <p class="hint">Circle replaces the whole overlay with a small round
+            badge showing just your dps and the fight timer, Mini mode doesn't
+            apply while it's on. Click the badge, right-click it, or use its
+            gear button any time to jump to a menu with Analysis, Leaderboards,
+            this Settings window, and Switch to Bars.</p>
+        </div>
+        <div class="row">
+          <label for="set-circlescale">Circle size</label>
+          <input type="range" id="set-circlescale" min="0.6" max="1.8" step="0.1">
+        </div>
+        <p class="hint">Only matters in Circle display style above, resizes
+          the round badge (and the window around it) up or down.</p>
+      </div>
+
+      <div class="settings-section" data-searchable="color theme colors background text border font">
+        <p class="section-label">Color</p>
+        <div class="row-stack">
+          <label>Theme</label>
+          <div class="theme-swatches">
+            <button class="theme-swatch theme-blue" type="button" data-theme="blue" title="Midnight Blue"></button>
+            <button class="theme-swatch theme-brass" type="button" data-theme="brass" title="EQ Brass"></button>
+            <button class="theme-swatch theme-druidic" type="button" data-theme="druidic" title="Druidic"></button>
+            <button class="theme-swatch theme-magical" type="button" data-theme="magical" title="Magical"></button>
+            <button class="theme-swatch theme-girly" type="button" data-theme="girly" title="Girly"></button>
+            <button class="theme-swatch theme-hardcore" type="button" data-theme="hardcore" title="Hardcore"></button>
+            <button class="theme-swatch theme-metal" type="button" data-theme="metal" title="Metal"></button>
+          </div>
+          <p class="hint">Also recolors this Settings window's own accent
+            (and the Leaderboards/Analysis windows), so the whole app matches
+            the theme you pick here, not just the in-game overlay.</p>
+        </div>
+        <div class="row-stack">
+          <label>Colors</label>
+          <div class="color-pickers">
+            <label class="color-field">Background <input type="color" id="set-bgcolor"></label>
+            <label class="color-field">Text <input type="color" id="set-textcolor"></label>
+            <label class="color-field">My bar <input type="color" id="set-mybarcolor"></label>
+            <label class="color-field">Pet bar <input type="color" id="set-petbarcolor"></label>
+            <label class="color-field">Border <input type="color" id="set-bordercolor"></label>
+          </div>
+          <p class="hint">Border is the lightweight outline around each row,
+            it no longer fades out along with Background opacity above, so
+            there's still visible structure between rows even at low opacity.</p>
+          <button class="link-btn" id="btn-reset-colors" type="button">Reset to default colors</button>
+        </div>
+        <div class="row-stack">
+          <label>Text colors</label>
+          <div class="color-pickers">
+            <label class="color-field">Timer / dps / status <input type="color" id="set-secondarytextcolor"></label>
+            <label class="color-field">My name <input type="color" id="set-mynametextcolor"></label>
+            <label class="color-field">Pet name <input type="color" id="set-petnametextcolor"></label>
+          </div>
+          <p class="hint">Separate from "Text" above, that's every row's main
+            text; these three only recolor the fight timer, the "(defeated)"/
+            "(live)" state, the "dps" unit label and rank numbers (Timer/dps/
+            status), and your own or your pet's name specifically, wherever
+            they show up in the row list.</p>
+          <button class="link-btn" id="btn-reset-textcolors" type="button">Reset to default text colors</button>
+        </div>
+        <div class="row">
+          <label for="set-font">Font</label>
+          <select id="set-font">
+            <option value="system">System (default)</option>
+            <option value="serif">Serif</option>
+            <option value="mono">Monospace</option>
+            <option value="rounded">Rounded</option>
+            <option value="fantasy">Fantasy (Cinzel)</option>
+            <option value="medieval">Medieval (MedievalSharp)</option>
+            <option value="scifi">Sci-fi (Orbitron)</option>
+            <option value="pixel">Pixel (8-bit)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-section" data-searchable="class classes colors your class warrior wizard cleric">
+        <p class="section-label">Classes</p>
+        <div class="row row-stack">
+          <label for="set-myclass">Your class</label>
+          <select id="set-myclass"></select>
+          <p class="hint">Used for the class color options below. Pick "None"
+            if you'd rather not say, or if you play more than one character.</p>
+        </div>
+        <div class="row row-stack">
+          <label class="check"><input type="checkbox" id="set-classcolors"> Color my bar by class</label>
+          <p class="hint">Colors your bar with your class's color instead of
+            "My bar" in Color above. Customize any class's color below,
+            classes you haven't touched use EverQuest's own established
+            colors.</p>
+          <div class="class-color-grid" id="class-color-grid"></div>
+          <button class="link-btn" id="btn-reset-classcolors" type="button">Reset class colors to defaults</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== Options ==================== -->
+    <section class="tab-panel" data-tab-panel="options" hidden>
+      <div class="settings-section" data-searchable="leaderboard submission submit auto-submit disabled ask">
+        <p class="section-label">Leaderboard submission</p>
+        <div class="row row-stack">
+          <label>When you kill a leaderboard boss</label>
+          <div class="segmented segmented-vertical" id="settings-auto-toggles">
+            <button class="segment" type="button" data-mode="off">
+              <span class="segment-title">Disabled</span>
+              <span class="segment-desc">We will not ask you to submit your logs to the public leaderboards. You'll still see every kill in your own private history.</span>
+            </button>
+            <button class="segment" type="button" data-mode="ask">
+              <span class="segment-title">Ask before submit</span>
+              <span class="segment-desc">We will ask you after a real leaderboard boss kill (never trash) if you want to publish that run.</span>
+            </button>
+            <button class="segment" type="button" data-mode="auto">
+              <span class="segment-title">Always auto-submit</span>
+              <span class="segment-desc">When you kill a leaderboard boss, we will automatically publish it. If it beats your previous best on that boss, it replaces it.</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section" data-searchable="window tray keep running closing minimize startup launch windows boot everquest">
+        <p class="section-label">Window</p>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="set-keepintray"> Keep running in the system tray when I close the window</label>
+        </div>
+        <p class="hint" id="keepintray-hint">Closing the window quits Dyrelog and closes its overlays.</p>
+        <div class="row" style="margin-top:10px;">
+          <label class="check"><input type="checkbox" id="set-launchatstartup"> Launch Dyrelog when Windows starts</label>
+        </div>
+        <p class="hint">Combine this with "Keep in tray" so Dyrelog is already running before you open EverQuest.</p>
+      </div>
+    </section>
+
+    <!-- ==================== About & Feedback ==================== -->
+    <section class="tab-panel" data-tab-panel="about" hidden>
+      <div class="settings-section" data-searchable="about goals why made this">
+        <p class="section-label">About Dyrelog</p>
+        <p class="about-copy">
+          Dyrelog started out as a project to get a sleek and lightweight dps
+          meter in EQL for myself and a group of friends. I found other
+          options, and they're fantastic as well, but I get overwhelmed when
+          there's too much data and information at my disposal, so I wanted
+          something that did just dps, and did it really well.
+        </p>
+        <p class="about-copy">
+          I'm a software engineer and enjoy building projects, and I've been
+          playing MMOs my whole life. I took inspiration from dps meters from
+          other games so that Dyrelog feels familiar, and added a fun
+          leaderboard for us all to track our dps on if we so choose.
+        </p>
+        <p class="about-copy">
+          This is a fan project, built and maintained by one person in their
+          spare time, not an official tool. If you have any feedback or bug
+          reports, please submit them below.
+        </p>
+      </div>
+
+      <div class="settings-section" data-searchable="feedback bug report feature request issue github">
+        <p class="section-label">Feedback</p>
+        <p class="hint" style="margin-top:0;">Found a bug, or want to see
+          something added? Open an issue on GitHub and it comes straight to
+          me.</p>
+        <a class="btn-link" id="feedback-link" href="#" target="_blank" rel="noopener">Report a bug or suggest a feature &#8599;</a>
+      </div>
+
+      <div class="settings-section" data-searchable="credits thanks sources wiki data">
+        <p class="section-label">Credits</p>
+        <p class="hint" style="margin-top:0;">Boss and zone data in the
+          curated leaderboard list draws on research from these community
+          sites, run by people who've spent years documenting this game.
+          Neither is affiliated with Dyrelog.</p>
+        <ul class="credits-list">
+          <li><a href="#" class="credit-link" data-url="https://eqlwiki.com">eqlwiki.com</a></li>
+          <li><a href="#" class="credit-link" data-url="https://eqlegends.com/wiki">eqlegends.com/wiki</a></li>
+          <li><a href="#" class="credit-link" data-url="https://www.loadoutlegends.com">loadoutlegends.com</a></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ==================== What's New ==================== -->
+    <section class="tab-panel" data-tab-panel="whatsnew" hidden>
+      <div class="settings-section">
+        <div class="version-block">
+          <div class="version-badge" id="whatsnew-version">Dyrelog</div>
+          <a class="github-link" id="whatsnew-github" href="#">View on GitHub &#8599;</a>
+        </div>
+        <div id="changelog"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="app-footer">
+    <span id="footer-version">Dyrelog</span>
+    <a class="github-link" id="footer-github" href="#">GitHub &#8599;</a>
+  </footer>
+
+  <script src="settings.js"></script>
+</body>
+</html>

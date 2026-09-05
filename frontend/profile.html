@@ -6,21 +6,60 @@
   <title>Dyrelog — Character Profile</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="./css/dyrelog.css" />
+  <link rel="icon" type="image/png" href="./assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="./assets/logo-180.png" />
 </head>
 <body>
   <div class="container">
     <header class="site-header">
-      <div class="wordmark">Dyrelog</div>
+      <div class="wordmark"><img class="logo-mark" src="./assets/logo-64.png" alt="" width="28" height="28">Dyrelog<span class="game-badge">EverQuest Legends</span></div>
       <nav class="site-nav">
         <a href="./index.html">Leaderboards</a>
+        <a href="./analyze.html">Analyze Log</a>
+        <a href="./about.html">About</a>
+        <a href="./download.html">Download Dyrelog</a>
         <span id="auth-slot"></span>
       </nav>
     </header>
 
     <main>
+      <!-- Log out lives here now instead of the header — "remove the log
+           out button from the headers completely and just embed that into
+           the My Profile section." -->
+      <div class="plate" style="margin-bottom:24px;">
+        <div class="analyze-detail-head">
+          <h2 style="margin:0;">My Profile</h2>
+          <button class="btn" id="logout-btn" type="button" hidden>Log out</button>
+        </div>
+        <p class="muted" id="profile-username" style="margin-top:6px; margin-bottom:0;"></p>
+      </div>
+
       <div class="plate">
         <h2>Your characters</h2>
         <div id="char-list"><p class="muted">Loading…</p></div>
+      </div>
+
+      <div class="plate">
+        <h2>Personal history</h2>
+        <p class="muted" style="margin-top:-6px;">
+          Every boss kill the overlay sees is tracked here automatically,
+          privately — win or lose, whether or not you've ever hit Publish.
+          Only your best attempt per boss/tier shows. Publish shares that
+          run on the public leaderboard; nothing here is public until you do.
+        </p>
+        <div id="personal-list"><p class="muted">Loading…</p></div>
+      </div>
+
+      <!-- Admin-only, and tucked down here instead of the main nav so it
+           doesn't congest the header for the one account that sees it —
+           "I know it only shows up for me, but it would be nice if it
+           looked better for me." Hidden entirely for everyone else. -->
+      <div class="plate" id="admin-section" hidden style="margin-top:24px;">
+        <h3 style="margin-bottom:8px;">Moderation</h3>
+        <p class="muted" style="margin-top:0; margin-bottom:12px; font-size:0.9rem;">
+          Visible only to you as an admin.
+        </p>
+        <a class="btn" href="./admin.html">Open review queue</a>
       </div>
     </main>
 
@@ -30,12 +69,51 @@
     </footer>
   </div>
 
+  <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
   <script>
+    // Class picker — three dropdowns (Primary/Secondary/Tertiary) instead of
+    // free text, so a character's class_combo can only ever be built out of
+    // real EQ classes. "on the website you can manually edit your classes,
+    // but i want it to not be 'typed' because that can cause degen
+    // behavior... You can select 3 classes from a drop down menu, or
+    // primary/secondary/tertiary. we dont want manually typing." Still
+    // stored/sent as the same "Warrior/Cleric/Wizard"-style slash-joined
+    // string the API already expects (updateCharacterClassCombo in the
+    // worker's db.js) — only how it's edited changes, not the data shape.
+    function classSelect(slot, existingCombo) {
+      // A combo saved before this change (free text) only pre-fills a slot
+      // when its part happens to exactly match a real class name — anything
+      // that doesn't match (typos, jokes, "DPS", etc.) just leaves that slot
+      // blank rather than guessing.
+      const parts = (existingCombo || '').split('/').map((s) => s.trim());
+      const slotIndex = { primary: 0, secondary: 1, tertiary: 2 }[slot];
+      const current = parts[slotIndex] || '';
+      const label = slot[0].toUpperCase() + slot.slice(1);
+      const options = EQ_CLASSES.map(
+        (cls) => `<option value="${cls}" ${cls === current ? 'selected' : ''}>${cls}</option>`
+      ).join('');
+      return `
+        <label class="class-picker-slot">
+          <span class="muted">${label}</span>
+          <select class="class-select" data-slot="${slot}">
+            <option value="">—</option>
+            ${options}
+          </select>
+        </label>`;
+    }
+
     async function loadProfile() {
       const listEl = document.getElementById('char-list');
       try {
-        const { user, characters } = await api('/api/me');
+        const { user, characters, isAdmin } = await api('/api/me');
+        if (isAdmin) document.getElementById('admin-section').hidden = false;
+        if (user) {
+          document.getElementById('profile-username').textContent = user.username;
+          document.getElementById('logout-btn').hidden = false;
+        } else {
+          document.getElementById('profile-username').textContent = 'Not logged in.';
+        }
         if (!user) {
           listEl.innerHTML = `<p class="empty-state">Log in with Discord to see your characters.</p>`;
           return;
@@ -51,10 +129,19 @@
               ${characters
                 .map(
                   (c) => `
-                <tr>
+                <tr data-char-id="${c.id}">
                   <td>${c.character_name}</td>
                   <td class="muted">${c.realm}</td>
-                  <td class="muted">${c.class_combo || '—'}</td>
+                  <td class="muted">
+                    <span class="class-display">${c.class_combo || '—'}</span>
+                    <div class="class-picker" style="display:none;">
+                      ${classSelect('primary', c.class_combo)}
+                      ${classSelect('secondary', c.class_combo)}
+                      ${classSelect('tertiary', c.class_combo)}
+                    </div>
+                    <button class="btn class-edit-btn" type="button">Edit</button>
+                    <button class="btn class-save-btn" type="button" style="display:none;">Save</button>
+                  </td>
                   <td class="muted">${fmtDate(c.linked_at)}</td>
                 </tr>`
                 )
@@ -62,11 +149,167 @@
             </tbody>
           </table>
         `;
+
+        // Self-declared, like difficulty — nothing in the combat log can
+        // tell us a character's class, so this is still a manual field, just
+        // a constrained one now: three dropdowns instead of free text. See
+        // updateCharacterClassCombo in the worker's db.js for the trust
+        // model (owner-only, capped length) — that part is unchanged.
+        listEl.querySelectorAll('.class-edit-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const row = btn.closest('tr');
+            row.querySelector('.class-display').style.display = 'none';
+            row.querySelector('.class-picker').style.display = '';
+            row.querySelector('.class-edit-btn').style.display = 'none';
+            row.querySelector('.class-save-btn').style.display = '';
+          });
+        });
+        listEl.querySelectorAll('.class-save-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const row = btn.closest('tr');
+            const charId = row.dataset.charId;
+            const selects = row.querySelectorAll('.class-select');
+            // Joined in Primary/Secondary/Tertiary order, skipping any left
+            // blank — "Warrior/Cleric" if only two are picked, "—" (empty
+            // string) if none are.
+            const value = [...selects].map((sel) => sel.value).filter(Boolean).join('/');
+            btn.disabled = true;
+            btn.textContent = 'Saving…';
+            try {
+              const { character } = await api(`/api/characters/${charId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ classCombo: value }),
+              });
+              row.querySelector('.class-display').textContent = character.class_combo || '—';
+              row.querySelector('.class-display').style.display = '';
+              row.querySelector('.class-picker').style.display = 'none';
+              row.querySelector('.class-edit-btn').style.display = '';
+              btn.style.display = 'none';
+            } catch (err) {
+              alert("Couldn't save that — try again.");
+            } finally {
+              btn.disabled = false;
+              btn.textContent = 'Save';
+            }
+          });
+        });
       } catch (err) {
         listEl.innerHTML = `<p class="empty-state">Can't reach the API right now.</p>`;
       }
     }
+
+    // "Personal history for bosses" — every row here is the caller's own
+    // best parse per boss/tier (see getPersonalBests() in the worker's
+    // db.js), public or still-private. A row is private until Publish is
+    // clicked (or the overlay's own Publish button was used instead) —
+    // see 0005_submission_visibility.sql for why that's the default.
+    function statusBadge(status, visibility) {
+      if (visibility !== 'public') return '<span class="badge">Private</span>';
+      if (status === 'verified') return '<span class="badge badge-good">✓ On leaderboard</span>';
+      if (status === 'pending_review') return '<span class="badge badge-warn">Pending review</span>';
+      return '<span class="badge badge-bad">Flagged</span>';
+    }
+
+    async function loadPersonalHistory() {
+      const listEl = document.getElementById('personal-list');
+      try {
+        const { user } = await api('/api/me');
+        if (!user) {
+          listEl.innerHTML = `<p class="empty-state">Log in with Discord to see your personal history.</p>`;
+          return;
+        }
+        const { bests } = await api('/api/me/personal-bests');
+        if (bests.length === 0) {
+          listEl.innerHTML = `<p class="empty-state">No boss kills tracked yet — this fills in automatically the next time the overlay sees you fight one, streaming on.</p>`;
+          return;
+        }
+        listEl.innerHTML = `
+          <table>
+            <thead>
+              <tr><th>Boss</th><th class="num">DPS</th><th class="num">Damage</th><th>Killed</th><th>Date</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              ${bests
+                .map(
+                  (b) => `
+                <tr data-submission-id="${b.submission_id}">
+                  <td>${b.boss_name || 'Unknown'} <span class="muted">(${fmtDifficulty(b.difficulty)})</span></td>
+                  <td class="num tabular">${fmtNumber(b.dps)}</td>
+                  <td class="num tabular">${fmtNumber(b.damage)}</td>
+                  <td class="muted">${b.killed ? 'Yes' : 'No'}</td>
+                  <td class="muted">${fmtDateOnly(b.start_time)}</td>
+                  <td>
+                    <a class="btn" href="./analyze.html?submissionId=${b.submission_id}&name=${encodeURIComponent(b.character_name || '')}">Analyze</a>
+                  </td>
+                  <td class="publish-cell">
+                    ${
+                      b.visibility === 'public'
+                        ? statusBadge(b.status, b.visibility)
+                        : `
+                      ${
+                        b.difficulty
+                          ? ''
+                          : `<select class="difficulty-input">
+                               <option value="" selected disabled>Difficulty…</option>
+                               <option value="base">Base</option>
+                               <option value="D1">D1 · Awakened</option>
+                               <option value="D2">D2 · Adaptive</option>
+                               <option value="D3">D3 · Fused</option>
+                               <option value="D4">D4 · Refined</option>
+                             </select>`
+                      }
+                      <button class="btn publish-btn" type="button" ${b.difficulty ? '' : 'disabled'}>Publish</button>
+                    `
+                    }
+                  </td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        `;
+
+        listEl.querySelectorAll('.difficulty-input').forEach((sel) => {
+          sel.addEventListener('change', () => {
+            sel.closest('tr').querySelector('.publish-btn').disabled = !sel.value;
+          });
+        });
+        listEl.querySelectorAll('.publish-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const row = btn.closest('tr');
+            const submissionId = row.dataset.submissionId;
+            const sel = row.querySelector('.difficulty-input');
+            // The select's own "Base" option maps to null, not the string
+            // "base" — mirrors the overlay's own dropdown (see
+            // renderSubmitCell() in dyrelog-overlay.html).
+            const difficulty = sel ? (sel.value === 'base' ? null : sel.value) : null;
+            btn.disabled = true;
+            btn.textContent = 'Publishing…';
+            try {
+              const result = await api(`/api/submissions/${submissionId}/publish`, {
+                method: 'POST',
+                body: JSON.stringify({ difficulty }),
+              });
+              row.querySelector('.publish-cell').innerHTML = statusBadge(result.status, result.visibility);
+            } catch (err) {
+              btn.disabled = false;
+              btn.textContent = 'Publish';
+              alert("Couldn't publish that — try again.");
+            }
+          });
+        });
+      } catch (err) {
+        listEl.innerHTML = `<p class="empty-state">Can't reach the API right now.</p>`;
+      }
+    }
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await api('/api/auth/logout', { method: 'POST' });
+      window.location.reload();
+    });
+
     document.addEventListener('DOMContentLoaded', loadProfile);
+    document.addEventListener('DOMContentLoaded', loadPersonalHistory);
   </script>
 </body>
 </html>

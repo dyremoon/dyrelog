@@ -7,21 +7,30 @@
   <meta name="description" content="EverQuest Legends DPS leaderboard by boss — top parses submitted from the Dyrelog overlay, re-verified server-side." />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="./css/dyrelog.css" />
+  <link rel="icon" type="image/png" href="./assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="./assets/logo-180.png" />
 </head>
 <body>
   <div class="container">
     <header class="site-header">
-      <div class="wordmark">Dyrelog</div>
+      <div class="wordmark"><img class="logo-mark" src="./assets/logo-64.png" alt="" width="28" height="28">Dyrelog<span class="game-badge">EverQuest Legends</span></div>
       <nav class="site-nav">
-        <a href="./index.html">Leaderboards</a>
+        <a href="./index.html" class="active">Leaderboards</a>
+        <a href="./analyze.html">Analyze Log</a>
+        <a href="./about.html">About</a>
+        <a href="./download.html">Download Dyrelog</a>
         <span id="auth-slot"></span>
       </nav>
     </header>
 
     <main>
-      <div id="boss-header" style="margin-bottom:20px;">
-        <h1 id="boss-name">Loading…</h1>
-        <p class="muted" id="boss-zone"></p>
+      <div id="boss-header" class="boss-header-row" style="margin-bottom:20px;">
+        <img id="boss-portrait" class="boss-portrait" alt="" hidden />
+        <div>
+          <h1 id="boss-name">Loading…</h1>
+          <p class="muted" id="boss-zone"></p>
+          <a id="boss-wiki-link" class="boss-wiki-link" href="#" target="_blank" rel="noopener" hidden>Wiki &#8599;</a>
+        </div>
       </div>
 
       <div class="plate">
@@ -38,6 +47,7 @@
     </footer>
   </div>
 
+  <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
   <script>
     async function loadLeaderboard() {
@@ -51,7 +61,24 @@
       try {
         const { boss, parses } = await api(`/api/bosses/${bossId}/leaderboard`);
         document.getElementById('boss-name').textContent = boss.name;
-        document.getElementById('boss-zone').textContent = boss.zone || '';
+        document.getElementById('boss-zone').textContent =
+          (boss.zone || '') + (boss.zone ? ' · ' : '') + fmtDifficulty(boss.difficulty) +
+          (boss.category ? ' · ' + boss.category : '');
+
+        // Both optional — a boss with neither just shows the plain header it
+        // always has. wiki_url/image_url come from worker/seed/bosses_voidling_and_sky.sql;
+        // nobody's supplied portraits yet, so image_url is null for now.
+        const wikiLink = document.getElementById('boss-wiki-link');
+        if (boss.wiki_url) {
+          wikiLink.href = boss.wiki_url;
+          wikiLink.hidden = false;
+        }
+        const portrait = document.getElementById('boss-portrait');
+        if (boss.image_url) {
+          portrait.src = boss.image_url;
+          portrait.alt = boss.name;
+          portrait.hidden = false;
+        }
 
         if (parses.length === 0) {
           listEl.innerHTML = '<p class="empty-state">No verified parses for this boss yet — be the first to submit one.</p>';
@@ -60,7 +87,7 @@
         listEl.innerHTML = `
           <table>
             <thead>
-              <tr><th>#</th><th>Character</th><th>Class</th><th class="num">DPS</th><th class="num">Damage</th><th>When</th></tr>
+              <tr><th>#</th><th>Character</th><th>Class</th><th class="num">DPS</th><th class="num">Damage</th><th>Date</th></tr>
             </thead>
             <tbody>
               ${parses
@@ -72,7 +99,7 @@
                   <td class="muted">${p.class_combo || '—'}</td>
                   <td class="num tabular">${fmtNumber(p.dps)}</td>
                   <td class="num tabular">${fmtNumber(p.damage)}</td>
-                  <td class="muted">${fmtDate(p.start_time)}</td>
+                  <td class="muted">${fmtDateOnly(p.start_time)}</td>
                 </tr>`
                 )
                 .join('')}

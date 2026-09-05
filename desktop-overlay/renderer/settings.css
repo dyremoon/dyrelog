@@ -1,0 +1,449 @@
+/* Settings window — its own popup (see main.js's createSettingsWindow()),
+   not an in-card panel. Self-contained (a separate HTML document can't
+   share CSS with style.css/analysis.css) rather than a fragment of them.
+
+   Deliberately its OWN cool-graphite palette, distinct from the overlay's
+   own warm near-black default (style.css's --bg: #14120f et al, still
+   selectable in Appearance > Theme below) — "I like how his settings page
+   is very clean... change our color schemes too to not be that brown
+   color you're doing." The overlay's own theme system is untouched; this
+   is just the chrome OF the settings window itself.
+
+   --ink-2/--ink-3 were bumped lighter than the first pass (was #99a2b5 /
+   #626b80) after "the text is hard to read with the current color
+   format" — both now clear 4.5:1 contrast against --bg-card at their
+   actual on-screen sizes, not just against pure --bg. */
+:root {
+  --bg: #0e1015;
+  --bg-card: #151922;
+  --bg-elevated: #1b202b;
+  --hair: #262c39;
+  --hair-strong: #333c4d;
+  --ink: #f3f5f9;
+  --ink-2: #b3bcce;
+  --ink-3: #8992a6;
+  --accent: #6f9bff;
+  --accent-2: #35d1b8; /* teal — tab underline, badges, the "live" note */
+  --accent-ink: #06101f;
+}
+* { box-sizing: border-box; }
+html {
+  margin: 0;
+  height: 100%;
+  /* Base size for every rem in this file — "Settings text size" (below)
+     just changes this one number via JS, and every font-size, being in
+     rem, scales together. Nothing else (padding, control widths) scales
+     with it, on purpose — this is a *readability* control, not a zoom. */
+  font-size: 13.5px;
+}
+body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
+  font-size: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+header { flex: none; padding: 14px 18px 0; border-bottom: 1px solid var(--hair); }
+.header-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+.live-note {
+  font-size: 0.78rem; color: var(--accent-2); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.header-links-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.site-link { font-size: 0.85rem; font-weight: 600; color: var(--accent-2); text-decoration: none; cursor: pointer; }
+.site-link:hover { text-decoration: underline; }
+
+/* "Have a text size option for the settings menu too" — scoped to THIS
+   window only (see set-uiscale in settings.js), separate from the main
+   overlay's own Text size slider in Appearance below, which sizes the
+   in-game overlay itself, not this settings UI. */
+.textsize-row { display: flex; align-items: center; gap: 8px; }
+.textsize-row label { font-size: 0.78rem; color: var(--ink-3); }
+.textsize-row select {
+  background: var(--bg-elevated); color: var(--ink); border: 1px solid var(--hair-strong);
+  border-radius: 6px; padding: 3px 6px; font-size: 0.78rem;
+}
+
+/* "I want a search bar at the top for people to find an option they're
+   looking for by searching" — see filterSettings() in settings.js, which
+   toggles .search-hidden on any .settings-section whose data-searchable
+   text (or visible label/hint text) doesn't match, across every tab at
+   once, then jumps to the first tab that still has a visible match. */
+.search-row { margin-bottom: 10px; }
+#settings-search {
+  width: 100%;
+  background: var(--bg-elevated); color: var(--ink);
+  border: 1px solid var(--hair-strong); border-radius: 8px;
+  padding: 7px 10px; font-size: 0.926rem;
+}
+#settings-search::placeholder { color: var(--ink-3); }
+.search-hidden { display: none !important; }
+
+/* Real tabs — "We should have a section like that in our settings, with
+   proper tabs, whats new, etc." Same underline-on-active convention
+   analysis.css's .detail-tab already uses, for a little visual continuity
+   between this window and Combat Analysis. */
+.tabs { display: flex; gap: 4px; }
+.tab {
+  background: transparent; border: none; border-bottom: 2px solid transparent;
+  color: var(--ink-2); font-size: 0.926rem; font-weight: 600;
+  padding: 7px 4px 9px; margin-right: 14px; cursor: pointer;
+}
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+
+.panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hair) transparent;
+}
+.panel::-webkit-scrollbar { width: 9px; }
+.panel::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 999px; border: 2px solid var(--bg); background-clip: padding-box; }
+.panel::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+
+.tab-panel { display: flex; flex-direction: column; gap: 14px; }
+/* THE actual "tabs aren't working" bug: [hidden] and .tab-panel{display:flex}
+   have equal specificity, and this author rule loads after the browser's
+   own [hidden]{display:none} default — so without this override, EVERY
+   panel stayed visibly stacked (Appearance's content always on top,
+   scroll down to reach the others) no matter which tab looked active.
+   This wins on specificity (two classes/attrs beats one) so hidden panels
+   actually disappear now. */
+.tab-panel[hidden] { display: none; }
+
+/* Bordered section cards — "we need more formatting/borders inside of the
+   settings to differentiate the different sections" — each Sizing/Layout/
+   Color/Classes/Pets/Submission group from here on lives in one of these
+   instead of floating directly in .panel. */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.section-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.778rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--ink-2); margin: 0;
+}
+.section-label::before {
+  content: "";
+  width: 10px; height: 2px; border-radius: 999px; flex: none;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+.row { display: flex; align-items: center; gap: 10px; }
+.hint { margin: -6px 0 0; font-size: 0.85rem; color: var(--ink-3); line-height: 1.45; }
+.row-stack > .hint { margin-top: 0; }
+.row-stack { flex-direction: column; align-items: stretch; gap: 7px; }
+/* Fixed label column for a plain slider row (e.g. "Timer / DPS") — widened
+   from the original 96px, which was clipping/wrapping the longer labels
+   ("fix text wrapping on the appearance screen to not wrap like it
+   currently is"). */
+.row > label:not(.check) { flex: none; width: 116px; font-size: 0.963rem; color: var(--ink-2); }
+/* A label inside a STACKED row (e.g. "When you kill a leaderboard boss")
+   needs to win over the fixed-width rule above — its parent carries BOTH
+   .row and .row-stack, so ".row > label:not(.check)" also matches it, and
+   that selector has higher specificity (an extra :not() class) than a
+   plain ".row-stack > label", regardless of which is declared later. THIS
+   was the real "leaderboard settings submission shows weird formatting"
+   bug: the label was silently pinned to 96px and wrapped one word per
+   line instead of stretching to the row's actual width. Matching the
+   compound ".row.row-stack" parent brings the specificity back to a tie,
+   which this rule then wins by coming later in the file. */
+.row.row-stack > label:not(.check) { width: auto; flex: 1 1 auto; }
+.range-val { flex: none; width: 28px; text-align: right; font-size: 0.889rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--hair-strong);
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--hair-strong);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--accent-ink);
+  cursor: pointer;
+}
+
+.row select {
+  width: 100%;
+  background: var(--bg-elevated);
+  color: var(--ink);
+  border: 1px solid var(--hair-strong);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.963rem;
+}
+.row select:disabled { opacity: 0.6; }
+label.check { display: flex; align-items: center; gap: 6px; font-size: 0.963rem; color: var(--ink-2); }
+label.check input { accent-color: var(--accent); }
+
+.theme-swatches { display: flex; gap: 8px; }
+.theme-swatch {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--hair-strong);
+  cursor: pointer;
+  padding: 0;
+}
+.theme-swatch.theme-blue { background: linear-gradient(135deg, #14120f 50%, #4c8bf5 50%); }
+.theme-swatch.theme-brass { background: linear-gradient(135deg, #1c130b 50%, #c9922e 50%); }
+.theme-swatch.theme-druidic { background: linear-gradient(135deg, #10160f 50%, #7fb238 50%); }
+.theme-swatch.theme-magical { background: linear-gradient(135deg, #140f22 50%, #9b6bf2 50%); }
+.theme-swatch.theme-girly { background: linear-gradient(135deg, #1c1017 50%, #f24ea0 50%); }
+.theme-swatch.theme-hardcore { background: linear-gradient(135deg, #0d0b0b 50%, #e31c1c 50%); }
+.theme-swatch.theme-metal { background: linear-gradient(135deg, #15171a 50%, #7d92a8 50%); }
+.theme-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+
+.color-pickers { display: flex; gap: 12px; flex-wrap: wrap; }
+.color-field { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 0.85rem; color: var(--ink-2); }
+.color-field input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 32px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--hair-strong);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.color-field input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.color-field input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
+.link-btn {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 0.85rem;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.link-btn:hover { filter: brightness(1.2); }
+
+.class-color-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 12px;
+}
+.class-color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+.class-color-row input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--hair-strong);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  flex: none;
+}
+.class-color-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.class-color-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
+
+/* Segmented control — a single pill-shaped group with a solid active
+   segment, closer to a native macOS/iOS segmented control than a row of
+   separate buttons. Used two ways: horizontal (Display style — Bars/
+   Circle, both short) and vertical (below — Submission's three labels are
+   too long to sit side by side in a ~330px-wide window without wrapping
+   unevenly, "text wrapping is off and formated wrong"). */
+.segmented { display: flex; gap: 2px; background: var(--bg-elevated); border: 1px solid var(--hair-strong); border-radius: 9px; padding: 2px; }
+.segment {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--ink-2);
+  border-radius: 7px;
+  padding: 7px 6px;
+  font-size: 0.889rem;
+  cursor: pointer;
+  line-height: 1.3;
+}
+.segment:hover { color: var(--ink); }
+.segment.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+.segmented-vertical { flex-direction: column; }
+.segmented-vertical .segment {
+  flex: none; text-align: left; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.segment-title { font-size: 0.926rem; font-weight: 700; }
+.segment-desc { font-size: 0.8rem; font-weight: 400; color: var(--ink-2); line-height: 1.4; }
+.segment.active .segment-desc { color: var(--accent-ink); opacity: 0.85; }
+
+/* ---- Live preview (Appearance tab) ------------------------------------ */
+.preview-group + .preview-group { margin-top: 12px; }
+.preview-group-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); margin: 0 0 6px; }
+
+.preview-frame {
+  display: flex; flex-direction: column; gap: 6px;
+  /* Only the BACKGROUND fades with the Background slider, same as the real
+     overlay's own --panel-alpha, text/bars/rank numbers stay fully opaque
+     regardless (see renderPreview() in settings.js, which sets
+     --preview-bg-alpha, not the whole element's opacity). */
+  background: color-mix(in srgb, var(--preview-bg-color, #14120f) calc(var(--preview-bg-alpha, 1) * 100%), transparent);
+  border-radius: 8px; padding: 10px;
+}
+/* "Fade UI when idle" — .preview-idle mirrors exactly what the real
+   overlay hides once the mouse has been off it for fadeIdleSeconds:
+   header/timer/rank numbers fade to near-nothing, name and dps stay put.
+   Toggled by armIdleFadeWatcher() in settings.js, not a hover pseudo-class,
+   since the real feature keys off idle TIME, not the pointer being over
+   this specific card. */
+.preview-header, .preview-rank { transition: opacity 0.4s ease; }
+.preview-idle .preview-header, .preview-idle .preview-rank { opacity: 0.08; }
+
+.preview-header {
+  display: flex; align-items: center; gap: 6px;
+  font-size: calc(0.72rem * var(--preview-secondaryscale, 1));
+  color: var(--preview-secondary-color, #a89f8d);
+  padding: 0 2px 2px;
+}
+.preview-header-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--preview-my-color, #b3423a); flex: none; }
+.preview-header-sub { flex: 1; }
+.preview-header-timer { font-variant-numeric: tabular-nums; }
+
+.preview-row {
+  position: relative;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--preview-row-bg, rgba(255,255,255,0.06));
+  border: 1px solid var(--preview-border, rgba(255,255,255,0.12));
+  border-radius: 6px;
+  padding: calc(4px * var(--preview-barheight, 1)) 10px;
+  font-size: calc(0.9rem * var(--preview-textscale, 1));
+  color: var(--preview-text, #f2ede1);
+  font-family: var(--preview-font, inherit);
+  overflow: hidden;
+}
+/* Bar length reflects each row's own share of dps (see renderPreview() in
+   settings.js) — it is NOT the same width for every row; a pet doing a
+   quarter of your damage gets roughly a quarter-width fill, same as the
+   real meter. */
+.preview-fill {
+  position: absolute; inset: 0; z-index: 0;
+  width: 0%; /* set inline per row */
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+#preview-fill-you { background: color-mix(in srgb, var(--preview-my-color, #b3423a) 38%, transparent); }
+#preview-fill-pet { background: color-mix(in srgb, var(--preview-pet-color, #4fa8c9) 38%, transparent); }
+.preview-rank, .preview-name, .preview-dps { position: relative; z-index: 1; }
+.preview-rank { flex: none; width: 16px; color: var(--preview-text, #f2ede1); opacity: 0.6; font-variant-numeric: tabular-nums; }
+.preview-name { flex: 1; font-weight: 600; }
+#preview-name-you, #preview-mini-name { color: var(--preview-my-color, #b3423a); }
+#preview-name-pet { color: var(--preview-pet-color, #4fa8c9); }
+.preview-dps {
+  flex: none; font-variant-numeric: tabular-nums;
+  font-size: calc(0.85rem * var(--preview-secondaryscale, 1));
+  color: var(--preview-secondary-color, #a89f8d);
+}
+
+/* Mini-bar preview — a compact stand-in for the actual mini-mode widget
+   (see the README's own "Overlay art direction (mini mode reference)"),
+   just enough of its shape (wordmark row, name+dps line, pet sub-line) to
+   show what "Mini-bar pet text" and Show pets as separate bars do there
+   specifically, separate from the full Bars card above. */
+.preview-frame-mini { gap: 4px; }
+.preview-mini-word { font-weight: 700; letter-spacing: 0.04em; font-size: calc(0.7rem * var(--preview-secondaryscale, 1)); }
+.preview-mini-name-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  color: var(--preview-text, #f2ede1); font-family: var(--preview-font, inherit);
+}
+.preview-mini-name-row .preview-name { font-size: calc(1rem * var(--preview-textscale, 1)); }
+.preview-mini-name-row .preview-dps { font-size: calc(0.95rem * var(--preview-secondaryscale, 1)); font-weight: 700; }
+.preview-mini-pet-row {
+  font-size: calc(0.8rem * var(--preview-minipetscale, 1));
+  color: var(--preview-pet-color, #4fa8c9);
+  font-family: var(--preview-font, inherit);
+}
+
+/* ---- About & Feedback tab ---------------------------------------------- */
+.about-copy { font-size: 0.926rem; line-height: 1.6; color: var(--ink-2); margin: 0; }
+.btn-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent); color: var(--accent-ink);
+  font-weight: 700; font-size: 0.889rem;
+  padding: 8px 14px; border-radius: 8px;
+  text-decoration: none; cursor: pointer;
+}
+.btn-link:hover { filter: brightness(1.08); }
+.credits-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.credits-list li { font-size: 0.889rem; }
+.credits-list a { color: var(--accent-2); text-decoration: none; }
+.credits-list a:hover { text-decoration: underline; }
+
+/* ---- What's New tab -------------------------------------------------- */
+.version-block { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
+.version-badge {
+  font-size: 0.963rem; font-weight: 700; color: var(--ink);
+  background: var(--bg-elevated); border: 1px solid var(--hair-strong);
+  border-radius: 999px; padding: 5px 12px;
+  font-variant-numeric: tabular-nums;
+}
+.github-link {
+  font-size: 0.889rem; font-weight: 600; color: var(--accent-2);
+  text-decoration: none; cursor: pointer;
+}
+.github-link:hover { text-decoration: underline; }
+
+.changelog-entry { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: 1px solid var(--hair); }
+.changelog-entry:first-child { border-top: none; padding-top: 4px; }
+.changelog-head { display: flex; align-items: baseline; gap: 8px; }
+.changelog-title { font-size: 0.963rem; font-weight: 700; color: var(--ink); }
+.changelog-tag {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--accent-2); background: color-mix(in srgb, var(--accent-2) 16%, transparent);
+  border-radius: 5px; padding: 2px 6px;
+}
+.changelog-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.changelog-list li { font-size: 0.889rem; color: var(--ink-2); line-height: 1.5; }
+
+/* ---- Persistent footer ------------------------------------------------ */
+.app-footer {
+  flex: none;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 18px; border-top: 1px solid var(--hair);
+  background: var(--bg-card);
+  font-size: 0.85rem; color: var(--ink-3);
+}
+.app-footer .github-link { font-size: 0.85rem; }

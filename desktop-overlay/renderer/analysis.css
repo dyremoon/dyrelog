@@ -1,0 +1,462 @@
+/* Shared by the Analysis and Leaderboards windows — normal desktop-app
+   sizing (no text-scale setting here, that's a mini-mode-only concern),
+   same color tokens as the mini-mode card for a consistent Dyrelog look. */
+:root {
+  --bg: #14120f;
+  --bg-card: #1b1813;
+  --hair: #2c2a24;
+  --ink: #f2ede1;
+  --ink-2: #a89f8d;
+  --ink-3: #6f6858;
+  --accent: #4c8bf5;
+  --accent-2: #e8a13c; /* warm second accent — item 7.5, "more visual flare and color" */
+  --accent-ink: #06121f;
+  /* Same six rank hues the mini-mode bar list uses (style.css's --rank1..
+     --rank6) — ties a combatant's accent color here to the same one
+     they'd show as a bar in the overlay itself. */
+  --rank1: #b3423a;
+  --rank2: #9c3f8f;
+  --rank3: #6c6fd1;
+  --rank4: #8a8a2f;
+  --rank5: #3f7a52;
+  --rank6: #c9932f;
+  /* DPS-over-time chart only — a semantic "incoming" line color, kept
+     separate from the categorical --rank hues above so it always reads as
+     "damage taken" rather than as one more combatant's color. */
+  --line-in: #c1554c;
+}
+
+/* Settings > Theme swatches — same 6 presets as the mini-mode card
+   (style.css's :root[data-theme="X"] blocks), applied here too so the
+   Analysis and Leaderboards windows actually follow the selected theme
+   instead of always showing this default palette. --bg is this window's
+   own token (mini-mode has no separate page background, just --bg-card),
+   scaled down from each theme's --bg-card by the same ratio the default
+   palette uses; --hair/--ink/--ink-2/--ink-3/--accent/--accent-ink are
+   copied straight from style.css's palettes. --accent-2 and --line-in
+   don't exist over there — accent-2 is a bespoke complementary shade
+   chosen per theme (it drives the header/badge gradients below), and
+   --line-in (the "damage taken" chart line) stays constant across every
+   theme on purpose, same as style.css's --ok: it's a semantic color, not
+   a themed one. See THEME_NAMES in app.js for the full list of theme
+   names this must stay in sync with. */
+:root[data-theme="brass"] {
+  --bg: #150e09;
+  --bg-card: #1c130b;
+  --hair: #3a2a1a;
+  --ink: #f2e2c4;
+  --ink-2: #cbad83;
+  --ink-3: #8a7256;
+  --accent: #c9922e;
+  --accent-2: #b5482e;
+  --accent-ink: #201105;
+}
+:root[data-theme="druidic"] {
+  --bg: #0c110c;
+  --bg-card: #10160f;
+  --hair: #253a20;
+  --ink: #e8f0dd;
+  --ink-2: #9ec288;
+  --ink-3: #5f7d52;
+  --accent: #7fb238;
+  --accent-2: #c9932f;
+  --accent-ink: #10200a;
+}
+:root[data-theme="magical"] {
+  --bg: #0f0b1b;
+  --bg-card: #140f22;
+  --hair: #302352;
+  --ink: #ece6fb;
+  --ink-2: #b39cdf;
+  --ink-3: #7863a8;
+  --accent: #9b6bf2;
+  --accent-2: #57c2a4;
+  --accent-ink: #140a26;
+}
+:root[data-theme="girly"] {
+  --bg: #150c12;
+  --bg-card: #1c1017;
+  --hair: #3d2430;
+  --ink: #fbe6ef;
+  --ink-2: #e2a0c0;
+  --ink-3: #9e6b83;
+  --accent: #f24ea0;
+  --accent-2: #f2b84e;
+  --accent-ink: #250013;
+}
+:root[data-theme="hardcore"] {
+  --bg: #0a0809;
+  --bg-card: #0d0b0b;
+  --hair: #2e1414;
+  --ink: #f3e6e6;
+  --ink-2: #b87a7a;
+  --ink-3: #7a4a4a;
+  --accent: #e31c1c;
+  --accent-2: #e37a1c;
+  --accent-ink: #1a0000;
+}
+:root[data-theme="metal"] {
+  --bg: #101115;
+  --bg-card: #15171a;
+  --hair: #33373d;
+  --ink: #e6e9ec;
+  --ink-2: #9aa3ac;
+  --ink-3: #656d75;
+  --accent: #7d92a8;
+  --accent-2: #c7d1da;
+  --accent-ink: #0c1116;
+}
+
+* { box-sizing: border-box; }
+/* Author CSS beats the UA stylesheet's default [hidden]{display:none} the
+   moment ANY rule sets display on that same element (#layout below is
+   display:flex; leaderboard.css's #lb-body is too) — the hidden attribute
+   then silently stops hiding anything, which is what let the Public and
+   My Kills panels show at the same time. Same fix as style.css's own copy
+   of this same rule, for every current and future hidden-toggled element
+   in both windows. */
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
+  font-size: 13.5px;
+  display: flex;
+  flex-direction: column;
+}
+header {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--hair);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+}
+header h1 { font-size: 17px; margin: 0 0 2px; }
+.muted { color: var(--ink-2); font-size: 12px; margin: 0; }
+.btn {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn.secondary { background: transparent; color: var(--ink); border: 1px solid var(--hair); }
+
+.empty { padding: 40px 20px; text-align: center; color: var(--ink-3); }
+
+#layout { display: flex; flex: 1; min-height: 0; }
+#enc-list { width: 240px; border-right: 1px solid var(--hair); overflow-y: auto; flex: none; }
+.enc-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hair);
+  cursor: pointer;
+}
+.enc-row:hover { background: var(--bg-card); }
+.enc-row.active { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.enc-row .mob { font-weight: 600; font-size: 13px; }
+.enc-row .meta { color: var(--ink-2); font-size: 11px; margin-top: 2px; }
+.enc-row .live-tag { color: var(--accent); font-weight: 700; }
+
+#enc-detail { flex: 1; overflow-y: auto; padding: 18px 20px; }
+#enc-detail h2 {
+  font-size: 17px;
+  margin: 0 0 10px;
+  padding-left: 12px;
+  border-left: 3px solid var(--accent-2);
+}
+#enc-detail .meta { color: var(--ink-2); font-size: 12.5px; margin-bottom: 16px; }
+/* Item 7.5 — small colored pills instead of a flat "a · b · c" text line,
+   so the encounter's headline numbers (total damage, raid dps) actually
+   stand out rather than reading the same as the difficulty/duration meta. */
+.stat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  background: var(--bg-card);
+  border: 1px solid var(--hair);
+  font-variant-numeric: tabular-nums;
+}
+.stat-chip.accent {
+  color: var(--accent-2);
+  border-color: color-mix(in srgb, var(--accent-2) 45%, var(--hair));
+  background: color-mix(in srgb, var(--accent-2) 12%, var(--bg-card));
+  font-weight: 700;
+}
+
+/* Boss list / boss detail — the Leaderboards window's own two-pane split,
+   same layout pattern as #enc-list/#enc-detail above (reused via #layout)
+   so a boss's leaderboard renders right here instead of jumping out to
+   the website; "View on website" in the detail pane, and "Open full
+   website" in the header, are the optional escape hatch, not the only
+   way to see it. */
+#boss-list { width: 230px; border-right: 1px solid var(--hair); overflow-y: auto; flex: none; }
+.boss-row { padding: 10px 14px; border-bottom: 1px solid var(--hair); cursor: pointer; }
+.boss-row:hover { background: var(--bg-card); }
+.boss-row.active { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.boss-row .name { font-weight: 600; font-size: 13px; }
+.boss-row .meta { color: var(--ink-2); font-size: 11px; margin-top: 2px; }
+#boss-detail { flex: 1; overflow-y: auto; padding: 18px 20px; }
+#boss-detail h2 { font-size: 16px; margin: 0 0 4px; }
+#boss-detail .meta { color: var(--ink-2); font-size: 12.5px; margin-bottom: 16px; }
+
+table { width: 100%; border-collapse: collapse; }
+table th, table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--hair); font-size: 12.5px; }
+table th { color: var(--ink-2); font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.04em; }
+/* Centered, not right-aligned (item 6), and a faint vertical rule between
+   columns so it's actually clear where one column ends and the next
+   starts (item 6.1: "I can't really tell where the graph's borders are") —
+   there was no divider of any kind before, just whitespace, which let a
+   number read as belonging to the wrong header entirely (item 6.2). */
+table th.num, table td.num { text-align: center; font-variant-numeric: tabular-nums; }
+table th:not(:first-child), table td:not(:first-child) { border-left: 1px solid var(--hair); }
+table tbody tr:hover { background: var(--bg-card); }
+/* A pet now gets its own top-level row/card (see buildAnalysisRows() in
+   analysis.js) instead of a nested footnote under its owner's — this small
+   badge is the only thing marking it as a pet rather than a player,
+   mirroring the mini-mode overlay's own .pet-tag look. */
+.pet-tag-mini {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  padding: 0 4px;
+  vertical-align: middle;
+}
+/* Ranked color dot on the main combatant table — same --swatch each row
+   carries for its accent elsewhere (see analysis.js), so a name here reads
+   as the same color it'd show as a bar in the overlay. */
+.rank-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--swatch, var(--accent));
+  margin-right: 7px;
+  vertical-align: middle;
+}
+
+/* Per-combatant deep dive (Combat Analysis window) — a stack of expandable
+   cards under the top combatant table, one per combatant, each opening
+   into its own spell/ability breakdown (and a nested card per pet with
+   its OWN breakdown) instead of a single flat total. See renderDetail()/
+   renderCombatantCards() in analysis.js. */
+/* Shared by the "Healing" table above the deep dive and the deep dive's
+   own heading — see renderHealingSection()/renderCombatantCard() in
+   analysis.js. */
+.section-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--ink-2); margin: 18px 0 8px;
+}
+.section-label::before {
+  content: "";
+  width: 10px; height: 2px; border-radius: 999px; flex: none;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+.combatants { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.combatants > .section-label { margin: 0 0 -2px; }
+
+/* "DPS over time" graph — see buildDpsChart()/renderDpsChartSection() in
+   analysis.js. A plain inline SVG (no charting library) built the same
+   way everything else here is: a string of markup from already-computed
+   numbers. viewBox + preserveAspectRatio="none" is what lets .dps-chart's
+   own width:100%/height:150px stretch the drawing to fit without any JS
+   resize-observer wiring. */
+.dps-chart-wrap { margin: 2px 0 4px; }
+.dps-chart { display: block; width: 100%; height: 150px; }
+.dps-grid { stroke: var(--hair); stroke-width: 1; }
+.dps-axis-label {
+  fill: var(--ink-3); font-size: 9px; font-variant-numeric: tabular-nums;
+}
+.dps-line-out {
+  fill: none; stroke: var(--accent); stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.dps-line-in {
+  fill: none; stroke: var(--line-in); stroke-width: 1.5; opacity: 0.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.dps-peak-dot { fill: var(--accent); stroke: var(--bg-card); stroke-width: 1.5; }
+.dps-peak-label {
+  fill: var(--ink); font-size: 10px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  /* A soft halo (paint the stroke behind the fill) so the label stays
+     legible over the grid lines/curve instead of needing its own <rect>. */
+  paint-order: stroke; stroke: var(--bg-card); stroke-width: 3px; stroke-linejoin: round;
+}
+.dps-chart-legend { display: flex; gap: 14px; margin: 2px 0 0 2px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-2); }
+.legend-swatch { width: 10px; height: 2px; border-radius: 999px; display: inline-block; }
+.legend-swatch.out { background: var(--accent); }
+.legend-swatch.in { background: var(--line-in); }
+
+/* Procs panel (Companion-inspired) — see renderProcsSection() in
+   analysis.js. .section-label-row pairs a normal .section-label on the
+   left with a right-aligned running total, without changing .section-
+   label itself everywhere else it's used (Healing, Damage by ability,
+   Mobs fought, Deep dive all reuse the plain version above). */
+.section-label-row { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 0 8px; }
+.section-label-row .section-label { margin: 0; }
+.section-stat { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
+.procs-list { display: flex; flex-direction: column; gap: 2px; }
+.proc-row {
+  display: grid;
+  grid-template-columns: 8px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  border-radius: 6px;
+}
+.proc-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.proc-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+.proc-name { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proc-ppm { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+.proc-count { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; min-width: 26px; }
+/* Left accent stripe per card, colored by the same rank swatch as the main
+   table and the mini-mode bars themselves (item 7.5) — a quick "who's
+   who" visual thread across the whole window, not just a plain grey list. */
+.combatant-card {
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--swatch, var(--hair));
+  border-radius: 10px;
+  overflow: hidden;
+}
+.combatant-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; cursor: pointer; background: var(--bg-card);
+}
+.combatant-head:hover { background: color-mix(in srgb, var(--bg-card) 70%, var(--accent) 6%); }
+.combatant-head .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.combatant-head .disclosure { color: var(--ink-3); font-size: 10px; transition: transform 0.15s ease; flex: none; }
+.combatant-card.open .combatant-head .disclosure { transform: rotate(90deg); }
+.combatant-head .cname { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combatant-head .stats { display: flex; gap: 12px; font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; flex: none; }
+.combatant-head .stats b { color: var(--ink); font-weight: 600; }
+.combatant-body { padding: 10px 12px 12px; display: none; }
+.combatant-card.open .combatant-body { display: block; }
+
+.ability-table { width: 100%; border-collapse: collapse; }
+.ability-table th, .ability-table td { text-align: left; padding: 6px 8px; font-size: 11.5px; border-bottom: 1px solid color-mix(in srgb, var(--hair) 70%, transparent); }
+.ability-table th { color: var(--ink-3); font-weight: 600; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.03em; }
+/* Same centering + column-divider treatment as the main combatant table
+   above, and for the same reason (items 6/6.1). */
+.ability-table th.num, .ability-table td.num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ability-table th:not(:first-child), .ability-table td:not(:first-child) { border-left: 1px solid color-mix(in srgb, var(--hair) 70%, transparent); }
+/* The relative bar chart now lives INSIDE the Ability cell, under the
+   name, instead of its own dedicated column — item 11 asks for an exact
+   six-column set (Ability/Hits/Damage done/DPS/Crits/Misses) with no room
+   left over for a bar column, but the bar itself is still worth keeping
+   for the at-a-glance read it gives (item 7.5's "flare"). */
+/* A visible border on the track itself (not just the fill) — the old
+   version was just a faint tinted background with nothing bounding it, so
+   a low-damage ability's tiny fill was easy to miss entirely against the
+   page background (item 6.1). */
+.ability-bar { position: relative; height: 4px; margin-top: 4px; border-radius: 999px; background: color-mix(in srgb, var(--hair) 85%, var(--ink) 6%); border: 1px solid var(--hair); overflow: hidden; }
+.ability-bar .fill {
+  position: absolute; inset: 0; width: var(--pct, 0%);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 999px;
+}
+/* How many times this ability was actually CAST (item 10) — only ever
+   populated for your own spells (see RE_CAST's comment in eqp-core.js),
+   so most rows never show one at all; a small inline badge next to the
+   name reads better than a mostly-empty seventh column would. */
+.cast-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--accent-2);
+  border: 1px solid color-mix(in srgb, var(--accent-2) 45%, var(--hair));
+  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+  vertical-align: middle;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-card);
+  color: var(--ink-2);
+  border: 1px solid var(--hair);
+}
+.badge-good { color: #7ba861; border-color: #7ba861; }
+
+/* Target selector — only shown for a multi-target session (item 12's
+   follow-up: "I can click into it to break it down... or I can click each
+   target to see what I did to each one"). "All targets combined" is
+   always first and starts active; see renderDetail()/wireTargetPills() in
+   analysis.js. */
+/* Outgoing/Incoming toggle at the top of a session's detail view — "it
+   also has an incoming tab, i like that." Real tabs (an underline on the
+   active one), not pill buttons like .target-pills below, so they read as
+   "which whole view am I looking at" rather than another filter chip row.
+   See renderDetail()/renderIncomingTab() in analysis.js. */
+.detail-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hair); margin-bottom: 16px; }
+.detail-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 4px;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+.detail-tab:hover { color: var(--ink); }
+.detail-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.target-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.target-pill {
+  background: var(--bg-card);
+  border: 1px solid var(--hair);
+  color: var(--ink-2);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.target-pill:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--hair)); }
+.target-pill.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+/* Themed scrollbar instead of the flat native OS one (item 1 — "I still
+   see html scroll bars on settings windows... its still there in analysis
+   too"). A visible but styled thin thumb, not fully hidden — several of
+   these panes can genuinely run long (a big encounter list, a deep
+   ability breakdown). */
+#enc-list, #enc-detail, #boss-list, #boss-detail {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hair) transparent;
+}
+#enc-list::-webkit-scrollbar, #enc-detail::-webkit-scrollbar,
+#boss-list::-webkit-scrollbar, #boss-detail::-webkit-scrollbar { width: 9px; }
+#enc-list::-webkit-scrollbar-track, #enc-detail::-webkit-scrollbar-track,
+#boss-list::-webkit-scrollbar-track, #boss-detail::-webkit-scrollbar-track { background: transparent; }
+#enc-list::-webkit-scrollbar-thumb, #enc-detail::-webkit-scrollbar-thumb,
+#boss-list::-webkit-scrollbar-thumb, #boss-detail::-webkit-scrollbar-thumb {
+  background: var(--hair);
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+}
+#enc-list::-webkit-scrollbar-thumb:hover, #enc-detail::-webkit-scrollbar-thumb:hover,
+#boss-list::-webkit-scrollbar-thumb:hover, #boss-detail::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
