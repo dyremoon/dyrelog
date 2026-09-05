@@ -52,6 +52,16 @@
     blue: "#2c2a24", brass: "#3a2a1a", druidic: "#253a20", magical: "#302352",
     girly: "#3d2430", hardcore: "#2e1414", metal: "#33373d"
   };
+  // Mirrors each theme's own --accent in style.css — the real overlay's
+  // dps-number/circle-badge color, which is NOT the same thing as this
+  // Settings window's own chrome accent (--accent in settings.css, a fixed
+  // #6f9bff used for tab underlines/buttons regardless of overlay theme).
+  // The live preview's dps numbers and Circle border need the OVERLAY's
+  // accent to actually look like what each theme produces in-game.
+  var THEME_ACCENT = {
+    blue: "#4c8bf5", brass: "#c9922e", druidic: "#7fb238", magical: "#9b6bf2",
+    girly: "#f24ea0", hardcore: "#e31c1c", metal: "#7d92a8"
+  };
   // "i'd want the entire window to change themes, not just the text" — this
   // window's whole palette (background, cards, borders, ink, accent) now
   // switches with whichever theme is picked in Appearance > Color, not just
@@ -183,13 +193,17 @@
     search: document.getElementById("settings-search"),
     previewFrame: document.getElementById("preview-frame"),
     previewFrameMini: document.getElementById("preview-frame-mini"),
+    previewCircle: document.getElementById("preview-circle"),
     previewFillYou: document.getElementById("preview-fill-you"),
     previewFillPet: document.getElementById("preview-fill-pet"),
     previewRowPet: document.getElementById("preview-row-pet"),
     previewDpsYou: document.getElementById("preview-dps-you"),
     previewDpsPet: document.getElementById("preview-dps-pet"),
+    previewDpsTotal: document.getElementById("preview-dps-total"),
     previewMiniDps: document.getElementById("preview-mini-dps"),
-    previewMiniPetRow: document.getElementById("preview-mini-pet-row")
+    previewMiniPetRow: document.getElementById("preview-mini-pet-row"),
+    previewMiniPetDps: document.getElementById("preview-mini-pet-dps"),
+    previewCircleDpsNum: document.getElementById("preview-circle-dps-num")
   };
 
   // ---- tabs -----------------------------------------------------------
@@ -281,6 +295,16 @@
       s.classColorsEnabled && s.myClass
         ? (s.classColorOverrides || {})[s.myClass] || EQ_CLASS_COLORS[s.myClass] || DEFAULT_MY_COLOR
         : s.myBarColor || DEFAULT_MY_COLOR;
+    var textColor = s.textColor || THEME_INK[theme];
+    // Name TEXT color is its own separate setting from the bar/dot color
+    // above (see app.js's colorForRow() vs. nameColorForRow()) — defaults
+    // to the same neutral text every other row uses, only overridden by
+    // Text colors > My name / Pet name. The old preview conflated these
+    // two (colored the name with the bar color), which never matched what
+    // the real overlay actually shows.
+    var myNameColor = s.myNameTextColor || textColor;
+    var petNameColor = s.petNameTextColor || textColor;
+    var accent = THEME_ACCENT[theme] || THEME_ACCENT.blue;
     var showPets = s.showPets !== false;
     // Off folds the pet's mock damage back into You's own number, same as
     // the real meter does, so the preview actually demonstrates the toggle
@@ -288,47 +312,63 @@
     var youDps = showPets ? PREVIEW_YOU_DPS : PREVIEW_YOU_DPS + PREVIEW_PET_DPS;
     var bgAlpha = s.opacity != null ? s.opacity : 1;
 
-    [els.previewFrame, els.previewFrameMini].forEach(function (frame) {
+    [els.previewFrame, els.previewFrameMini, els.previewCircle].forEach(function (frame) {
       if (!frame) return;
       // Only the background fades with the Background slider (--preview-bg-alpha,
       // consumed by settings.css's color-mix()) — text/bars/icons stay fully
-      // opaque, same as the real overlay's own panel opacity behavior.
+      // opaque, same as the real overlay's own panel opacity behavior. The
+      // Circle preview reads several of these too (accent, secondary color,
+      // circle scale) even though it ignores bar/text-scale ones entirely.
       frame.style.setProperty("--preview-bg-color", s.bgColor || THEME_BG[theme]);
       frame.style.setProperty("--preview-bg-alpha", String(bgAlpha));
-      frame.style.setProperty("--preview-text", s.textColor || THEME_INK[theme]);
+      frame.style.setProperty("--preview-text", textColor);
       frame.style.setProperty("--preview-border", s.borderColor || THEME_HAIR[theme]);
       frame.style.setProperty("--preview-my-color", myColor);
       frame.style.setProperty("--preview-pet-color", s.petBarColor || DEFAULT_PET_COLOR);
+      frame.style.setProperty("--preview-my-name-color", myNameColor);
+      frame.style.setProperty("--preview-pet-name-color", petNameColor);
       frame.style.setProperty("--preview-secondary-color", s.secondaryTextColor || THEME_INK2[theme]);
+      frame.style.setProperty("--preview-accent", accent);
       frame.style.setProperty("--preview-barheight", String(s.barHeight != null ? s.barHeight : 1));
       frame.style.setProperty("--preview-textscale", String(s.textScale || 1));
       frame.style.setProperty("--preview-secondaryscale", String(s.secondaryTextScale != null ? s.secondaryTextScale : 1));
       frame.style.setProperty("--preview-minipetscale", String(s.miniPetTextScale != null ? s.miniPetTextScale : 1));
+      frame.style.setProperty("--preview-circlescale", String(s.circleScale != null ? s.circleScale : 1));
       frame.style.setProperty("--preview-font", FONT_STACKS[s.fontFamily || "system"] || "inherit");
     });
 
     // Bars preview — You is rank 1, so its fill spans the full row; Pet's
     // fill is scaled to its actual share of You's dps (roughly a quarter
     // width here, not a copy-pasted full bar), and its row disappears
-    // entirely (rather than sitting at 0 width) when Show pets is off.
+    // entirely (rather than sitting at 0 width) when Show pets is off. The
+    // "dps"/"total" unit labels are static markup now (see settings.html),
+    // so only the bare numbers get written here.
     els.previewFillYou.style.width = "100%";
-    els.previewDpsYou.textContent = youDps + " dps";
+    els.previewDpsYou.textContent = String(youDps);
+    els.previewDpsTotal.textContent = String(youDps);
     if (showPets) {
       els.previewRowPet.style.display = "";
       els.previewFillPet.style.width = Math.round((PREVIEW_PET_DPS / PREVIEW_YOU_DPS) * 100) + "%";
-      els.previewDpsPet.textContent = PREVIEW_PET_DPS + " dps";
+      els.previewDpsPet.textContent = String(PREVIEW_PET_DPS);
     } else {
       els.previewRowPet.style.display = "none";
     }
 
-    // Mini-bar preview — same fold-together behavior for the pet sub-line.
-    els.previewMiniDps.textContent = youDps + " dps";
+    // Mini-bar preview — same fold-together behavior for the pet sub-line,
+    // and (unlike the old code) only the number gets rewritten, not the
+    // whole row's textContent, which used to wipe out the name span next
+    // to it.
+    els.previewMiniDps.textContent = String(youDps);
     if (showPets) {
       els.previewMiniPetRow.style.display = "";
-      els.previewMiniPetRow.textContent = "Pet " + PREVIEW_PET_DPS + " dps";
+      els.previewMiniPetDps.textContent = PREVIEW_PET_DPS + " dps";
     } else {
       els.previewMiniPetRow.style.display = "none";
     }
+
+    // Circle preview — always your own combined number, same as the real
+    // watch-badge, which has no separate pet display at all.
+    els.previewCircleDpsNum.textContent = String(youDps);
   }
 
   // "Live preview doesn't get affected by Fade UI when idle, it should" —
@@ -338,18 +378,19 @@
   // goes on both preview frames (settings.css fades their header/rank
   // numbers, same as the live overlay). Keyed off idle TIME, not a hover
   // pseudo-class, since that's what the real feature does too.
+  // Only the Bars preview participates — the real overlay's idle-fade
+  // never touches mini mode or the Circle badge either (see style.css's
+  // body.idle-faded rule, which only targets .header/.mob-line/.fight-
+  // timer/.dps-number/.bar-row .rank/.pet-tag, none of which mini or
+  // watch mode show in the first place).
   var idleFadeTimer = null;
   function scheduleIdlePreviewFade() {
     clearTimeout(idleFadeTimer);
-    [els.previewFrame, els.previewFrameMini].forEach(function (f) {
-      if (f) f.classList.remove("preview-idle");
-    });
+    if (els.previewFrame) els.previewFrame.classList.remove("preview-idle");
     if (!currentSettings.fadeIdleEnabled) return;
     var secs = currentSettings.fadeIdleSeconds != null ? currentSettings.fadeIdleSeconds : 10;
     idleFadeTimer = setTimeout(function () {
-      [els.previewFrame, els.previewFrameMini].forEach(function (f) {
-        if (f) f.classList.add("preview-idle");
-      });
+      if (els.previewFrame) els.previewFrame.classList.add("preview-idle");
     }, secs * 1000);
   }
   ["mousemove", "mousedown", "keydown", "input", "click"].forEach(function (evt) {

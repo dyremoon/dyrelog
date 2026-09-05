@@ -122,6 +122,23 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
    actually disappear now. */
 .tab-panel[hidden] { display: none; }
 
+/* Two-column Appearance layout — "the sizing bars are so far down that as
+   you go down to test them, you have to scroll up to see the test bar."
+   The live preview is now a sticky sidebar next to the settings controls
+   instead of sitting inline above them, so it stays in view (position:
+   sticky, relative to .panel above, the actual scroll container) no
+   matter how far down the left column you've scrolled. Collapses back to
+   the original single stacked column under 560px (main.js's Settings
+   window can still be resized down to its 480px minWidth) so nothing
+   overlaps at the smallest usable size. */
+.tab-panel-appearance { flex-direction: row; align-items: flex-start; gap: 16px; }
+.appearance-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.appearance-preview-col { flex: none; width: 224px; position: sticky; top: 0; }
+@media (max-width: 560px) {
+  .tab-panel-appearance { flex-direction: column; }
+  .appearance-preview-col { width: auto; position: static; }
+}
+
 /* Bordered section cards — "we need more formatting/borders inside of the
    settings to differentiate the different sections" — each Sizing/Layout/
    Color/Classes/Pets/Submission group from here on lives in one of these
@@ -171,6 +188,7 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
 
 input[type="range"] {
   flex: 1;
+  max-width: 220px;
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
@@ -198,6 +216,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 .row select {
   width: 100%;
+  max-width: 240px;
   background: var(--bg-elevated);
   color: var(--ink);
   border: 1px solid var(--hair-strong);
@@ -205,6 +224,10 @@ input[type="range"]::-webkit-slider-thumb {
   padding: 6px 8px;
   font-size: 0.963rem;
 }
+/* A select inside a STACKED row (e.g. "Your class") should still fill the
+   row's own width rather than being capped to the plain-row width above —
+   .row-stack rows aren't cramped the way inline label+control rows are. */
+.row-stack select { max-width: 100%; }
 .row select:disabled { opacity: 0.6; }
 label.check { display: flex; align-items: center; gap: 6px; font-size: 0.963rem; color: var(--ink-2); }
 label.check input { accent-color: var(--accent); }
@@ -302,7 +325,7 @@ label.check input { accent-color: var(--accent); }
 .segment:hover { color: var(--ink); }
 .segment.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
-.segmented-vertical { flex-direction: column; }
+.segmented-vertical { flex-direction: column; max-width: 440px; }
 .segmented-vertical .segment {
   flex: none; text-align: left; padding: 10px 12px;
   display: flex; flex-direction: column; gap: 3px;
@@ -311,7 +334,18 @@ label.check input { accent-color: var(--accent); }
 .segment-desc { font-size: 0.8rem; font-weight: 400; color: var(--ink-2); line-height: 1.4; }
 .segment.active .segment-desc { color: var(--accent-ink); opacity: 0.85; }
 
-/* ---- Live preview (Appearance tab) ------------------------------------ */
+/* ---- Live preview (Appearance tab) ------------------------------------
+   Markup mirrors the real overlay's own structure (style.css's .header/
+   .subhead/.bar-row/.mini-bar/.watch-badge) rather than a loose
+   approximation, right down to the grid columns and font-size ratios, so a
+   slider or color change here actually looks like what it'll do live —
+   "the live preview doesn't look like the dps meter in mini bar form or
+   bar form really, and it doesn't show circle form." Each rank dot is
+   colored separately from the name text now (--preview-my-color/
+   --preview-pet-color vs. --preview-my-name-color/--preview-pet-name-
+   color) — the OLD preview colored the name text with the bar color,
+   which the real overlay has never done (name text defaults to neutral
+   --ink unless you specifically set a name color under Text colors). */
 .preview-group + .preview-group { margin-top: 12px; }
 .preview-group-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); margin: 0 0 6px; }
 
@@ -322,35 +356,86 @@ label.check input { accent-color: var(--accent); }
      regardless (see renderPreview() in settings.js, which sets
      --preview-bg-alpha, not the whole element's opacity). */
   background: color-mix(in srgb, var(--preview-bg-color, #14120f) calc(var(--preview-bg-alpha, 1) * 100%), transparent);
-  border-radius: 8px; padding: 10px;
+  border-radius: 8px; padding: 9px;
 }
 /* "Fade UI when idle" — .preview-idle mirrors exactly what the real
-   overlay hides once the mouse has been off it for fadeIdleSeconds:
-   header/timer/rank numbers fade to near-nothing, name and dps stay put.
-   Toggled by armIdleFadeWatcher() in settings.js, not a hover pseudo-class,
-   since the real feature keys off idle TIME, not the pointer being over
-   this specific card. */
-.preview-header, .preview-rank { transition: opacity 0.4s ease; }
-.preview-idle .preview-header, .preview-idle .preview-rank { opacity: 0.08; }
+   overlay hides once the mouse has been off it for fadeIdleSeconds: the
+   topbar, mob line, timer, header dps total, rank numbers and pet tags
+   fade to near-nothing, while each row's own name + dps stay fully
+   legible — same split the real body.idle-faded rule draws in style.css.
+   Toggled by scheduleIdlePreviewFade() in settings.js on real idle TIME,
+   not a hover pseudo-class, since the real feature doesn't key off the
+   pointer being over this specific card either. Mini/Circle previews
+   aren't included — the real mini and watch modes don't participate in
+   idle-fade at all (there's nothing in either of them idle-fade targets). */
+.preview-topbar, .preview-mobline, .preview-timer, .preview-dpsnum,
+.preview-rank, .preview-pet-tag { transition: opacity 0.4s ease; }
+.preview-idle .preview-topbar, .preview-idle .preview-mobline,
+.preview-idle .preview-timer, .preview-idle .preview-dpsnum,
+.preview-idle .preview-rank, .preview-idle .preview-pet-tag { opacity: 0.08; }
 
-.preview-header {
-  display: flex; align-items: center; gap: 6px;
-  font-size: calc(0.72rem * var(--preview-secondaryscale, 1));
-  color: var(--preview-secondary-color, #a89f8d);
-  padding: 0 2px 2px;
+/* Top drag-handle row (style.css's .header) — wordmark + status dot +
+   decorative window-icon dots, just enough to read as "the app's title
+   bar" without wiring up real icon behavior in a static mockup. */
+.preview-topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  margin-bottom: 2px;
 }
-.preview-header-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--preview-my-color, #b3423a); flex: none; }
-.preview-header-sub { flex: 1; }
-.preview-header-timer { font-variant-numeric: tabular-nums; }
+.preview-status-dot {
+  flex: none; width: 6px; height: 6px; border-radius: 50%;
+  background: #3ecf7d; box-shadow: 0 0 5px rgba(62, 207, 125, 0.6);
+}
+.preview-wordmark {
+  flex: 1; min-width: 0; margin: 0 6px;
+  font-weight: 700; font-size: 0.72rem; letter-spacing: 0.03em;
+  color: var(--preview-text, #f2ede1); font-family: var(--preview-font, inherit);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.preview-icons { display: flex; gap: 3px; flex: none; }
+.preview-icons i {
+  display: block; width: 11px; height: 11px; border-radius: 4px;
+  border: 1px solid var(--preview-border, rgba(255,255,255,0.14));
+}
 
+/* Mob name / dps-total subhead (style.css's .subhead) — the same "dps ·
+   total dmg" format the real header and mini bar both show now. */
+.preview-subhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+.preview-mobline {
+  display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden;
+  font-size: calc(0.7rem * var(--preview-secondaryscale, 1));
+  color: var(--preview-secondary-color, #a89f8d);
+}
+.preview-mobline-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-mobline-diff { opacity: 0.75; }
+.preview-dpsside { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
+.preview-dpsnum {
+  display: flex; align-items: baseline; gap: 3px;
+  color: var(--preview-accent, #6f9bff); font-weight: 700;
+  font-size: calc(1rem * var(--preview-secondaryscale, 1));
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.preview-dpsunit, .preview-dps-abbrev {
+  font-size: 0.68em; font-weight: 600; color: var(--preview-secondary-color, #a89f8d);
+}
+.preview-timer {
+  color: var(--preview-secondary-color, #a89f8d);
+  font-size: calc(0.66rem * var(--preview-secondaryscale, 1));
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bar rows (style.css's .bar-row) — same 4-column grid (rank | dot | name
+   | amount), same proportional fill-width-by-dps behavior. */
 .preview-row {
   position: relative;
-  display: flex; align-items: center; gap: 8px;
+  display: grid;
+  grid-template-columns: 11px auto 1fr auto;
+  align-items: center;
+  gap: 6px;
   background: var(--preview-row-bg, rgba(255,255,255,0.06));
   border: 1px solid var(--preview-border, rgba(255,255,255,0.12));
   border-radius: 6px;
-  padding: calc(4px * var(--preview-barheight, 1)) 10px;
-  font-size: calc(0.9rem * var(--preview-textscale, 1));
+  padding: calc(4px * var(--preview-barheight, 1)) 8px;
+  font-size: calc(0.78rem * var(--preview-textscale, 1));
   color: var(--preview-text, #f2ede1);
   font-family: var(--preview-font, inherit);
   overflow: hidden;
@@ -367,39 +452,111 @@ label.check input { accent-color: var(--accent); }
 }
 #preview-fill-you { background: color-mix(in srgb, var(--preview-my-color, #b3423a) 38%, transparent); }
 #preview-fill-pet { background: color-mix(in srgb, var(--preview-pet-color, #4fa8c9) 38%, transparent); }
-.preview-rank, .preview-name, .preview-dps { position: relative; z-index: 1; }
-.preview-rank { flex: none; width: 16px; color: var(--preview-text, #f2ede1); opacity: 0.6; font-variant-numeric: tabular-nums; }
-.preview-name { flex: 1; font-weight: 600; }
-#preview-name-you, #preview-mini-name { color: var(--preview-my-color, #b3423a); }
-#preview-name-pet { color: var(--preview-pet-color, #4fa8c9); }
-.preview-dps {
-  flex: none; font-variant-numeric: tabular-nums;
-  font-size: calc(0.85rem * var(--preview-secondaryscale, 1));
-  color: var(--preview-secondary-color, #a89f8d);
+.preview-rank, .preview-dot, .preview-name, .preview-amount { position: relative; z-index: 1; }
+.preview-rank { color: var(--preview-secondary-color, #a89f8d); font-size: 0.78em; text-align: right; }
+.preview-dot { width: 7px; height: 7px; border-radius: 50%; }
+#preview-dot-you { background: var(--preview-my-color, #b3423a); }
+#preview-dot-pet { background: var(--preview-pet-color, #4fa8c9); }
+.preview-name {
+  font-weight: 600; display: flex; align-items: center; gap: 5px;
+  overflow: hidden; min-width: 0;
 }
+.preview-name-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Name TEXT color is separate from the dot/bar color above — defaults to
+   the same neutral text color every other row uses, only overridden by
+   Text colors > My name / Pet name below. This is the mismatch the old
+   preview had backwards (it colored the whole name with the bar color). */
+#preview-name-you, #preview-mini-name { color: var(--preview-my-name-color, var(--preview-text, #f2ede1)); }
+#preview-name-pet, #preview-mini-pet-name { color: var(--preview-pet-name-color, var(--preview-secondary-color, #a89f8d)); }
+.preview-pet-tag {
+  flex: none; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--preview-secondary-color, #a89f8d);
+  border: 1px solid var(--preview-border, rgba(255,255,255,0.14));
+  border-radius: 4px; padding: 0 4px; line-height: 1.4;
+}
+.preview-amount { text-align: right; font-variant-numeric: tabular-nums; }
+.preview-amount b { font-size: 0.95em; color: var(--preview-text, #f2ede1); font-weight: 700; }
+.preview-unit { font-size: 0.68em; color: var(--preview-secondary-color, #a89f8d); margin-left: 2px; }
 
-/* Mini-bar preview — a compact stand-in for the actual mini-mode widget
-   (see the README's own "Overlay art direction (mini mode reference)"),
-   just enough of its shape (wordmark row, name+dps line, pet sub-line) to
-   show what "Mini-bar pet text" and Show pets as separate bars do there
-   specifically, separate from the full Bars card above. */
-.preview-frame-mini { gap: 4px; }
-.preview-mini-word { font-weight: 700; letter-spacing: 0.04em; font-size: calc(0.7rem * var(--preview-secondaryscale, 1)); }
-.preview-mini-name-row {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+/* Mini-bar preview — style.css's .mini-bar: a status dot + your own
+   name/dps on one line, an optional smaller pet sub-line under it. */
+.preview-frame-mini { gap: 4px; padding: 8px 9px; }
+.preview-mini-main-row {
+  display: flex; align-items: baseline; gap: 6px; min-width: 0;
   color: var(--preview-text, #f2ede1); font-family: var(--preview-font, inherit);
 }
-.preview-mini-name-row .preview-name { font-size: calc(1rem * var(--preview-textscale, 1)); }
-.preview-mini-name-row .preview-dps { font-size: calc(0.95rem * var(--preview-secondaryscale, 1)); font-weight: 700; }
+.preview-mini-main-row .preview-status-dot { align-self: center; }
+#preview-mini-name {
+  flex: 1; min-width: 0; font-weight: 700;
+  font-size: calc(0.8rem * var(--preview-textscale, 1));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.preview-mini-dps {
+  flex: none; display: flex; align-items: baseline; gap: 2px;
+  color: var(--preview-accent, #6f9bff); font-weight: 700;
+  font-size: calc(0.85rem * var(--preview-secondaryscale, 1));
+  font-variant-numeric: tabular-nums;
+}
+.preview-mini-dps .preview-dpsunit { color: var(--preview-secondary-color, #a89f8d); }
 .preview-mini-pet-row {
-  font-size: calc(0.8rem * var(--preview-minipetscale, 1));
-  color: var(--preview-pet-color, #4fa8c9);
-  font-family: var(--preview-font, inherit);
+  display: flex; align-items: baseline; gap: 6px; min-width: 0;
+  font-size: calc(0.68rem * var(--preview-minipetscale, 1));
+}
+#preview-mini-pet-name { flex: 1; min-width: 0; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#preview-mini-pet-dps { flex: none; color: var(--preview-secondary-color, #a89f8d); font-variant-numeric: tabular-nums; }
+
+/* Circle preview — style.css's .watch-badge, which didn't have any preview
+   at all before ("it doesn't show circle form"). Sized down and clamped
+   (rather than the real 132px * scale) so it never outgrows this narrow
+   sidebar column even at the top of the Circle size range. Only Circle
+   size affects it, same as the real badge — Bars/Mini-bar's own sizing
+   and color settings don't reach it, hence the separate hint under it. */
+.preview-circle-wrap { display: flex; justify-content: center; padding: 4px 0 2px; }
+.preview-circle {
+  --preview-circle-d: clamp(56px, calc(80px * var(--preview-circlescale, 1)), 160px);
+  position: relative;
+  width: var(--preview-circle-d); height: var(--preview-circle-d);
+  border-radius: 50%;
+  background: var(--preview-bg-color, #14120f);
+  border: 3px solid var(--preview-accent, #6f9bff);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.45);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px;
+}
+.preview-circle-menu {
+  position: absolute; top: 5px; right: 5px;
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 1px solid var(--preview-border, rgba(255,255,255,0.14));
+  background: color-mix(in srgb, var(--preview-bg-color, #14120f) 80%, transparent);
+  color: var(--preview-secondary-color, #a89f8d);
+  font-size: 9px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.preview-circle-dps { display: flex; align-items: baseline; gap: 2px; }
+#preview-circle-dps-num {
+  color: var(--preview-accent, #6f9bff); font-weight: 700;
+  font-size: calc(1.1rem * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
+  font-variant-numeric: tabular-nums;
+}
+.preview-circle-unit {
+  color: var(--preview-secondary-color, #a89f8d);
+  font-size: calc(0.6rem * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
+}
+.preview-circle-timer {
+  color: var(--preview-secondary-color, #a89f8d);
+  font-size: calc(0.66rem * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- About & Feedback tab ---------------------------------------------- */
 .about-copy { font-size: 0.926rem; line-height: 1.6; color: var(--ink-2); margin: 0; }
 .btn-link {
+  /* Without this, .settings-section's own column-flex (no align-items set,
+     so it defaults to stretch) stretches this button to the section's full
+     width — "report a bug ... needs to be a button, not a whole long width
+     button to the edge of the screen." .link-btn just above already has
+     this exact fix; this class was the one still missing it. */
+  align-self: flex-start;
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--accent); color: var(--accent-ink);
   font-weight: 700; font-size: 0.889rem;

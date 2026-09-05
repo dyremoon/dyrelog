@@ -37,58 +37,8 @@
   <div class="panel" id="panel">
 
     <!-- ==================== Appearance ==================== -->
-    <section class="tab-panel" data-tab-panel="appearance">
-
-      <!-- "I want to be able to test the visuals without having a log in" —
-           two mockup meters (Bars and Mini-bar), always visible here,
-           redrawn from the same settings object every slider/color-pick
-           already saves — no real fight needed to see what a change
-           actually looks like. Bar length is proportional to dps (Pet is
-           roughly a quarter of You's, so its fill is roughly a quarter as
-           wide, not a copy-pasted full bar), and both previews fade the
-           same way Fade UI when idle does on the real overlay. -->
-      <div class="settings-section" data-searchable="preview live example test visuals bars mini-bar meter idle fade">
-        <p class="section-label">Live preview</p>
-        <p class="hint" style="margin-top:0;">Preview size, layout, color, and text changes to your meter using this preview.</p>
-
-        <div class="preview-group">
-          <p class="preview-group-label">Bars</p>
-          <div class="preview-frame" id="preview-frame">
-            <div class="preview-header" id="preview-header-bars">
-              <span class="preview-header-dot"></span>
-              <span class="preview-header-sub">Master Yael · D2 (live)</span>
-              <span class="preview-header-timer">2:14</span>
-            </div>
-            <div class="preview-row" id="preview-row-you">
-              <span class="preview-fill" id="preview-fill-you"></span>
-              <span class="preview-rank">1</span>
-              <span class="preview-name" id="preview-name-you">You</span>
-              <span class="preview-dps" id="preview-dps-you">842 dps</span>
-            </div>
-            <div class="preview-row" id="preview-row-pet">
-              <span class="preview-fill" id="preview-fill-pet"></span>
-              <span class="preview-rank">2</span>
-              <span class="preview-name" id="preview-name-pet">Pet</span>
-              <span class="preview-dps" id="preview-dps-pet">211 dps</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="preview-group">
-          <p class="preview-group-label">Mini-bar</p>
-          <div class="preview-frame preview-frame-mini" id="preview-frame-mini">
-            <div class="preview-header" id="preview-header-mini">
-              <span class="preview-header-dot"></span>
-              <span class="preview-mini-word">DYRELOG</span>
-            </div>
-            <div class="preview-mini-name-row">
-              <span class="preview-name" id="preview-mini-name">You</span>
-              <span class="preview-dps" id="preview-mini-dps">842 dps</span>
-            </div>
-            <div class="preview-mini-pet-row" id="preview-mini-pet-row">Pet 211 dps</div>
-          </div>
-        </div>
-      </div>
+    <section class="tab-panel tab-panel-appearance" data-tab-panel="appearance">
+    <div class="appearance-main">
 
       <div class="settings-section" data-searchable="pets show pets separate bars">
         <p class="section-label">Pets</p>
@@ -246,6 +196,86 @@
           <button class="link-btn" id="btn-reset-classcolors" type="button">Reset class colors to defaults</button>
         </div>
       </div>
+
+    </div>
+    <!-- End of the scrollable settings column; the live preview below is
+         its own sibling column (sticky-positioned, see settings.css) so it
+         stays in view as the column above scrolls, instead of sitting at
+         the top of one long stack — "as you go down to test [sliders], you
+         have to scroll up to see the test bar." Collapses back to a
+         stacked single column below settings.css's own width breakpoint. -->
+    <aside class="appearance-preview-col">
+      <div class="settings-section preview-live" data-searchable="preview live example test visuals bars mini-bar circle meter idle fade">
+        <p class="section-label">Live preview</p>
+        <p class="hint" style="margin-top:0;">Preview size, layout, color, and text changes to your meter using this preview.</p>
+
+        <!-- Markup mirrors the real overlay's own structure (see style.css's
+             .header/.subhead/.bar-row/.mini-bar/.watch-badge) rather than a
+             loose approximation, so a slider or color change actually looks
+             like what it'll do live — rank dot + neutral name text (not a
+             colored name, that was never how the real bar looked), the same
+             "dps · total dmg" header format, and now a Circle preview too
+             (there wasn't one at all before). -->
+        <div class="preview-group">
+          <p class="preview-group-label">Bars</p>
+          <div class="preview-frame" id="preview-frame">
+            <div class="preview-topbar">
+              <span class="preview-status-dot"></span>
+              <span class="preview-wordmark">DYRELOG</span>
+              <span class="preview-icons"><i></i><i></i><i></i><i></i></span>
+            </div>
+            <div class="preview-subhead">
+              <div class="preview-mobline"><span class="preview-mobline-name">Master Yael</span><span class="preview-mobline-diff">D2</span></div>
+              <div class="preview-dpsside">
+                <div class="preview-dpsnum"><span id="preview-dps-total">842</span><span class="preview-dpsunit">dps</span><span class="preview-dps-abbrev">· 22.5k</span></div>
+                <div class="preview-timer">2:14</div>
+              </div>
+            </div>
+            <div class="preview-row" id="preview-row-you">
+              <span class="preview-fill" id="preview-fill-you"></span>
+              <span class="preview-rank">1</span>
+              <span class="preview-dot" id="preview-dot-you"></span>
+              <span class="preview-name" id="preview-name-you"><span class="preview-name-label">You</span></span>
+              <span class="preview-amount"><b id="preview-dps-you">842</b><span class="preview-unit">dps</span></span>
+            </div>
+            <div class="preview-row" id="preview-row-pet">
+              <span class="preview-fill" id="preview-fill-pet"></span>
+              <span class="preview-rank">2</span>
+              <span class="preview-dot" id="preview-dot-pet"></span>
+              <span class="preview-name" id="preview-name-pet"><span class="preview-name-label">Pet</span><span class="preview-pet-tag">PET</span></span>
+              <span class="preview-amount"><b id="preview-dps-pet">211</b><span class="preview-unit">dps</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="preview-group">
+          <p class="preview-group-label">Mini-bar</p>
+          <div class="preview-frame preview-frame-mini" id="preview-frame-mini">
+            <div class="preview-mini-main-row">
+              <span class="preview-status-dot"></span>
+              <span class="preview-name" id="preview-mini-name"><span class="preview-name-label">You</span></span>
+              <span class="preview-dps preview-mini-dps"><span id="preview-mini-dps">842</span><span class="preview-dpsunit">dps</span></span>
+            </div>
+            <div class="preview-mini-pet-row" id="preview-mini-pet-row">
+              <span class="preview-name" id="preview-mini-pet-name"><span class="preview-name-label">Pet</span></span>
+              <span class="preview-dps" id="preview-mini-pet-dps">211 dps</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="preview-group">
+          <p class="preview-group-label">Circle</p>
+          <div class="preview-circle-wrap">
+            <div class="preview-circle" id="preview-circle">
+              <span class="preview-circle-menu">&#8942;</span>
+              <div class="preview-circle-dps"><span id="preview-circle-dps-num">842</span><span class="preview-circle-unit">dps</span></div>
+              <div class="preview-circle-timer">2:14</div>
+            </div>
+          </div>
+          <p class="hint" style="margin-top:8px;">Only reflects Circle size below &mdash; Bars/Mini-bar's own sizing and color settings above don't apply to Circle.</p>
+        </div>
+      </div>
+    </aside>
     </section>
 
     <!-- ==================== Options ==================== -->
@@ -313,7 +343,7 @@
         <p class="hint" style="margin-top:0;">Found a bug, or want to see
           something added? Open an issue on GitHub and it comes straight to
           me.</p>
-        <a class="btn-link" id="feedback-link" href="#" target="_blank" rel="noopener">Report a bug or suggest a feature &#8599;</a>
+        <a class="btn-link" id="feedback-link" href="#" target="_blank" rel="noopener">Report a bug or submit feedback &#8599;</a>
       </div>
 
       <div class="settings-section" data-searchable="credits thanks sources wiki data">

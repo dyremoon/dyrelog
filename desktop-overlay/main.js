@@ -560,13 +560,18 @@ function createSettingsWindow() {
   settingsWin = new BrowserWindow({
     x: b ? b.x : undefined,
     y: b ? b.y : undefined,
-    // Widened from 360/320 now that the header carries a website link, a
-    // text-size picker, and a search bar on top of the tabs, and Appearance
-    // opens on a live preview card.
-    width: b ? Math.max(340, Math.round(b.width)) : 390,
-    height: b ? Math.max(420, Math.round(b.height)) : 520,
-    minWidth: 340,
-    minHeight: 420,
+    // Widened again (was 390/340 min) so Appearance's live preview can sit
+    // in its own sticky right-hand column next to the settings controls
+    // instead of stacking above them — "as you go down to test [sizing
+    // sliders], you have to scroll up to see the test bar." Below
+    // minWidth's own two-column breakpoint (settings.css's 560px media
+    // query) it collapses back to the original stacked layout, so a window
+    // dragged down to minWidth still works, just without the side-by-side
+    // preview.
+    width: b ? Math.max(480, Math.round(b.width)) : 640,
+    height: b ? Math.max(460, Math.round(b.height)) : 580,
+    minWidth: 480,
+    minHeight: 460,
     frame: true,
     alwaysOnTop: true,
     title: "Dyrelog Settings",
