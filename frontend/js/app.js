@@ -20,19 +20,19 @@ async function renderAuthNav() {
   const slot = document.getElementById('auth-slot');
   if (!slot) return;
   try {
+    // "Review queue" used to live here too, but it only ever applies to one
+    // admin account — it now lives inside profile.html instead, so the nav
+    // itself stays the same for everyone. See loadAdminSection() there.
+    // Log out lives on profile.html now too ("remove the log out button
+    // from the headers completely and just embed that into the My Profile
+    // section") — the header's own job is just getting you there.
     const { user } = await api('/api/me');
-    if (user) {
-      slot.innerHTML = `
-        <a class="muted" href="./profile.html">${user.username}</a>
-        <button class="btn" id="logout-btn">Log out</button>
+    slot.innerHTML = user
+      ? `<a href="./profile.html">My Profile (${user.username})</a>`
+      : `
+        <a href="./profile.html">My Profile</a>
+        <a class="btn btn-brass" href="${API_BASE}/api/auth/login">Log in with Discord</a>
       `;
-      document.getElementById('logout-btn').addEventListener('click', async () => {
-        await api('/api/auth/logout', { method: 'POST' });
-        window.location.reload();
-      });
-    } else {
-      slot.innerHTML = `<a class="btn btn-brass" href="${API_BASE}/api/auth/login">Log in with Discord</a>`;
-    }
   } catch (err) {
     slot.innerHTML = `<span class="muted">Can't reach the API</span>`;
   }
@@ -46,4 +46,61 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleString();
 }
 
+// Date only, no time-of-day — used in leaderboard tables where the full
+// timestamp was more precision than the row needed.
+function fmtDateOnly(iso) {
+  return new Date(iso).toLocaleDateString();
+}
+
+const DIFFICULTY_LABELS = { D1: 'D1 · Awakened', D2: 'D2 · Adaptive', D3: 'D3 · Fused', D4: 'D4 · Refined' };
+function fmtDifficulty(difficulty) {
+  return difficulty ? (DIFFICULTY_LABELS[difficulty] || difficulty) : 'Base';
+}
+
+// Same 16-class list as desktop-overlay/renderer/settings.js's EQ_CLASSES —
+// kept here too since this is a separate static site with no shared build
+// step. Used by profile.html's class picker (see "on the website you can
+// manually edit your classes... it needs to be selectable" — no free text).
+const EQ_CLASSES = [
+  'Berserker', 'Warrior', 'Cleric', 'Bard', 'Paladin', 'Necromancer',
+  'Ranger', 'Druid', 'Monk', 'Beastlord', 'Magician', 'Shaman',
+  'Rogue', 'Shadow Knight', 'Wizard', 'Enchanter'
+];
+
 document.addEventListener('DOMContentLoaded', renderAuthNav);
+
+function renderSiteFooter() {
+  const footer = document.querySelector('.site-footer');
+  if (!footer) return;
+
+  footer.innerHTML = `
+    <div class="footer-row">
+      <strong>Dyrelog</strong>
+      <span>•</span>
+      <a href="./index.html">Leaderboards</a>
+      <span>•</span>
+      <a href="./analyze.html">Analyze Log</a>
+      <span>•</span>
+      <a href="./about.html">About</a>
+      <span>•</span>
+      <a href="./download.html">Download Dyrelog</a>
+    </div>
+
+    <div class="footer-row">
+      Created by <strong>Dyremoon - Freeport</strong>
+      <span>•</span>
+      <a href="https://github.com/dyremoon/dyrelog" target="_blank" rel="noopener">GitHub</a>
+      <span>•</span>
+      <a href="https://github.com/dyremoon/dyrelog/issues/new" target="_blank" rel="noopener">
+        Report a bug or submit feedback
+      </a>
+    </div>
+
+    <div class="footer-row footer-disclaimer">
+      Dyrelog is an unofficial project and is not affiliated with
+      Daybreak Game Company or EverQuest Legends.
+    </div>
+  `;
+}
+
+document.addEventListener('DOMContentLoaded', renderSiteFooter);

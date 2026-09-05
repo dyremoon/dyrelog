@@ -1,25 +1,45 @@
-/* Dyrelog shared styles — tokens carried over from the approved mockup
-   (https://claude.ai/code/artifact/a9be2a12-8c57-4a53-990c-5c4f55aaef24),
-   including the WCAG-checked --muted fix. Dark-only by design (leather /
-   brass chrome pulled from classic EverQuest's own UI), same as the mockup. */
+/* Dyrelog shared styles. "Something more everquest-like" than the old
+   leather/brass parchment palette — this is a frostbound arcane-steel
+   theme instead: near-black icy blue, steel and cyan accents, tying the
+   site to the new bear-head logo's own ice/lightning look. Variable NAMES
+   are unchanged from the old palette (--brass/--oxblood/etc. still exist)
+   so nothing downstream had to be rewired, only their values changed.
+   Contrast re-checked against these new colors, same bar as before: --ink
+   and --muted both clear 4.5:1 against --bg AND --surface at actual
+   on-screen sizes, not just against the darkest background. Dark-only by
+   design, same as the original mockup.
 
+   Warmth pass: "very cold with the icy blue and metal themes... some gold
+   for EverQuest Legends, some purple, some other colors too, but im okay
+   with the background being themed blue." So the ground stays exactly the
+   icy palette above — --gold/--gold-2 and --arcane/--arcane-2 are new,
+   separate tokens layered on top at specific spots (primary CTA buttons,
+   the weekly-highlights panel, a couple of badges), not a repaint of the
+   base theme. Contrast for both re-checked the same way: gold clears
+   ~7-13:1 against bg/surface/surface-2, arcane clears ~5-10.5:1, gold-ink
+   clears 7.8:1+ as button text on either gold step. */
 :root {
   color-scheme: dark;
-  --bg: #150d08;
-  --surface: #2b1810;
-  --surface-2: #351f15;
-  --surface-3: #40251a;
-  --ink: #f2e2c4;
-  --ink-2: #cbad83;
-  --muted: #b09169;
-  --hair: rgba(242, 226, 196, 0.12);
-  --hair-strong: rgba(242, 226, 196, 0.22);
-  --brass: #c9922e;
-  --brass-2: #e8b559;
-  --brass-ink: #201105;
-  --oxblood: #6b2a20;
-  --oxblood-2: #8a3a2c;
-  --good: #4fb85b;
+  --bg: #0a0e15;
+  --surface: #131a26;
+  --surface-2: #1a2433;
+  --surface-3: #212e40;
+  --ink: #eef3fa;
+  --ink-2: #a9c2dd;
+  --muted: #8ba3c2;
+  --hair: rgba(169, 194, 221, 0.14);
+  --hair-strong: rgba(169, 194, 221, 0.26);
+  --brass: #3fa9dc;
+  --brass-2: #7dd3f0;
+  --brass-ink: #041420;
+  --oxblood: #7a2e3a;
+  --oxblood-2: #e0798a;
+  --good: #46c97a;
+  --gold: #d9a441;
+  --gold-2: #f3d17e;
+  --gold-ink: #241703;
+  --arcane: #9b7fe0;
+  --arcane-2: #c9b6f2;
   --c1: #3987e5;
   --c2: #d95926;
   --c3: #199e70;
@@ -61,6 +81,36 @@ a:hover { color: var(--brass); }
   max-width: 960px;
   margin: 0 auto;
   padding: 0 20px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Side banners (index.html only) — decorative art in the empty gutters on
+   a wide viewport. Fixed, non-interactive, and hidden once the viewport
+   isn't wide enough to show them without crowding the real (960px)
+   content column — see the comment on the markup itself for what they
+   are and aren't. */
+.side-banner {
+  /* Anchored a fixed distance below the header and a fixed height, not
+     stretched to the full viewport — pinning it to the viewport's actual
+     height (which varies with content and window size) was what made the
+     nodes line up with nothing on shorter pages. This way the same rail
+     appears in the same place relative to the page top on every screen. */
+  position: fixed;
+  top: 150px;
+  width: 140px;
+  height: 640px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+}
+.side-banner svg { width: 100%; height: 100%; }
+.side-banner-left { left: max(0px, calc(50% - 640px)); }
+.side-banner-right { right: max(0px, calc(50% - 640px)); }
+@media (max-width: 1360px) {
+  .side-banner { display: none; }
 }
 
 header.site-header {
@@ -70,23 +120,70 @@ header.site-header {
   gap: 16px;
   padding: 20px 0;
   border-bottom: 1px solid var(--hair-strong);
+  flex-wrap: wrap;
+  row-gap: 12px;
 }
 
 header.site-header .wordmark {
   font-size: 1.5rem;
   color: var(--brass-2);
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wordmark .logo-mark { width: 28px; height: 28px; border-radius: 6px; flex: none; }
+
+/* "We need something that screams this is for EverQuest so people know
+   its an everquest dps meter... or people wont trust it as much." A text
+   badge rather than any Daybreak/EverQuest Legends artwork — this is a
+   fan project with no license to reuse their actual logo, so the trust
+   signal is typographic: gold (the site's one warm brand color), on
+   every page, right next to the Dyrelog name itself. */
+.game-badge {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--gold-2);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: rgba(217, 164, 65, 0.1);
 }
 
-nav.site-nav { display: flex; gap: 20px; align-items: center; }
-nav.site-nav a { color: var(--ink-2); text-decoration: none; font-weight: 500; }
-nav.site-nav a:hover { color: var(--ink); }
+/* Nav links read as buttons now — a bordered pill each, per "add some
+   sort of borders around the text so people know its a button" — and
+   `flex-wrap` on both the header and the nav itself, plus `white-space:
+   nowrap` on each link, means a narrow window wraps whole pills onto a
+   second row instead of breaking "Analyze Log"/"Download Dyrelog" apart
+   mid-phrase the way plain text did. */
+nav.site-nav { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; row-gap: 8px; }
+nav.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.92rem;
+  padding: 7px 13px;
+  border: 1px solid var(--hair-strong);
+  border-radius: 999px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+nav.site-nav a:hover { color: var(--ink); border-color: var(--brass); background: var(--surface-2); }
+nav.site-nav a.active { color: var(--brass-ink); font-weight: 700; background: var(--brass-2); border-color: var(--brass-2); }
 
 main { padding: 32px 0 64px; }
 
 /* Card component — no corner ornaments, per the mockup's final revision */
 .plate {
-  background: radial-gradient(120% 140% at 20% 0%, rgba(242, 226, 196, 0.05), transparent 60%),
+  background: radial-gradient(120% 140% at 20% 0%, rgba(169, 194, 221, 0.06), transparent 60%),
     var(--surface);
   border: 1px solid var(--hair-strong);
   border-radius: 8px;
@@ -109,10 +206,14 @@ main { padding: 32px 0 64px; }
   font-size: 0.95rem;
 }
 .btn:hover { background: var(--surface-3); }
+/* Primary call-to-action — gold, not the site's blue accent. This is the
+   one warm spot every visitor's eye lands on first (download, log in,
+   report a bug), so it's where the "some gold for EverQuest Legends"
+   warmth actually reads instead of getting lost against the icy ground. */
 .btn-brass {
-  background: linear-gradient(180deg, var(--brass-2), var(--brass));
-  color: var(--brass-ink);
-  border-color: var(--brass);
+  background: linear-gradient(180deg, var(--gold-2), var(--gold));
+  color: var(--gold-ink);
+  border-color: var(--gold);
 }
 .btn-brass:hover { filter: brightness(1.05); }
 
@@ -143,8 +244,100 @@ table tbody tr:hover { background: var(--surface-2); }
   border: 1px solid var(--hair);
 }
 .badge-good { color: var(--good); border-color: var(--good); }
+.badge-warn { color: var(--gold-2); border-color: var(--gold); }
+.badge-bad { color: var(--oxblood-2); border-color: var(--oxblood-2); }
 
 .muted { color: var(--muted); }
+.brand-highlight { color: var(--gold-2); }
+
+/* Weekly highlights panel (index.html) — the purple accent, kept separate
+   from the gold CTA color and the site's own blue, so "Top 10 of the
+   week" reads as its own featured moment rather than just another plate. */
+.plate-highlight {
+  border-color: var(--arcane);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(155, 127, 224, 0.18);
+}
+.plate-highlight h2, .plate-highlight h3 { color: var(--arcane-2); }
+.plate-highlight td.mono { color: var(--arcane-2); }
+
+/* Gold counterpart to .plate-highlight above — "we need to add more
+   colors and flare to the other parts of the website too." Same
+   treatment, warm instead of purple, used on the panels that already
+   carry a gold CTA button so the accent border and the button read as
+   one deliberate color choice rather than two unrelated ones. */
+.plate-gold {
+  border-color: var(--gold);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(217, 164, 65, 0.18);
+}
+.plate-gold h2, .plate-gold h3 { color: var(--gold-2); }
+
+/* Boss list grouped by category (index.html) — a subtle colored dot per
+   raid grouping, reusing the shared --c1..--c8 categorical set rather than
+   introducing a second palette. */
+.boss-category + .boss-category { margin-top: 28px; }
+.boss-category-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+.category-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* Boss picker (index.html) — a dropdown replacing the old always-visible
+   grouped table list; selecting a boss loads its leaderboard inline below,
+   see loadBossLeaderboard() in index.html's own script. */
+.leaderboard-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.leaderboard-controls label { font-weight: 600; color: var(--ink-2); }
+.leaderboard-controls select {
+  flex: 1;
+  max-width: 360px;
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--hair-strong);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 0.95rem;
+}
+.boss-picker-heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; }
+
+/* Boss page header (boss.html) — wiki link + optional portrait, "where/who
+   this boss is" per DJ's ask, shown above the leaderboard table itself. */
+.boss-header-row { display: flex; gap: 16px; align-items: flex-start; }
+.boss-portrait {
+  width: 96px;
+  height: 96px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--hair-strong);
+  background: var(--surface-2);
+  flex: none;
+}
+.boss-wiki-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Class picker (profile.html) — three dropdowns replacing free-text class
+   entry, "we dont want manually typing". */
+.class-picker { display: inline-flex; gap: 10px; align-items: flex-end; vertical-align: middle; }
+.class-picker-slot { display: flex; flex-direction: column; gap: 2px; font-size: 0.7rem; }
+.class-picker-slot select {
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--hair-strong);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+}
 
 .empty-state {
   text-align: center;
@@ -152,9 +345,99 @@ table tbody tr:hover { background: var(--surface-2); }
   color: var(--muted);
 }
 
+/* About page — same copy/structure as the desktop overlay's own About &
+   Feedback tab, so the story reads the same wherever someone finds it. */
+.about-copy { color: var(--ink-2); line-height: 1.65; }
+.about-copy + .about-copy { margin-top: 14px; }
+.credits-list { margin: 0; padding-left: 20px; }
+.credits-list li { margin: 4px 0; }
+
+/* Screenshot gallery (about.html, download.html) — real captures of the
+   actual overlay/analysis windows, not mockups, framed to a consistent
+   height since Bars/Circle are small square-ish windows and Combat
+   Analysis is a wide one. "images of what the analytics look like, the
+   ui of the bar, the ui of circle mode... what the addon actually looks
+   like." */
+.screenshot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.screenshot-card { display: flex; flex-direction: column; gap: 8px; }
+.screenshot-card .frame {
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--hair-strong);
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 10px;
+}
+.screenshot-card .frame img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; }
+.screenshot-card .cap { font-size: 0.85rem; color: var(--muted); text-align: center; }
+
+/* Download page — a short numbered setup flow, plus a system-requirements
+   note. Numbering is real here (an ordered install sequence), unlike a
+   decorative 01/02/03 — see step. */
+.download-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; }
+.download-steps li { color: var(--ink-2); line-height: 1.55; }
+.download-steps li::marker { color: var(--brass-2); font-weight: 700; }
+
+/* Analyze Log page — a drop zone plus an encounter list/detail view, all
+   client-side (eqp-core.js, same engine the overlay and worker share).
+   "It should have the same functionality as the overlay or more" — v1
+   scope is the encounter list and per-combatant breakdown; the graph and
+   Incoming tab are noted as a fast-follow rather than silently missing. */
+.dropzone {
+  border: 2px dashed var(--hair-strong);
+  border-radius: 10px;
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover, .dropzone.drag { border-color: var(--brass); background: var(--surface-2); }
+.dropzone .dz-title { font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.dropzone .dz-sub { color: var(--muted); font-size: 0.9rem; }
+
+.encounter-row { cursor: pointer; }
+.encounter-row:hover { background: var(--surface-2); }
+.encounter-row.active { background: var(--surface-3); }
+.encounter-row.active td { color: var(--ink); }
+
+.analyze-detail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.analyze-stat-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+
 footer.site-footer {
   border-top: 1px solid var(--hair-strong);
   padding: 24px 0;
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.site-footer {
+  margin-top: 28px;
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.footer-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.site-footer a {
+  text-decoration: underline;
+}
+
+.footer-disclaimer {
+  opacity: 0.7;
 }
