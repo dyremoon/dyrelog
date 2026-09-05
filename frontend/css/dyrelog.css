@@ -456,7 +456,219 @@ table tbody tr:hover { background: var(--surface-2); }
 .encounter-row.active td { color: var(--ink); }
 
 .analyze-detail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
-.analyze-stat-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* Analyze Log — search + capped/scrollable fight list. "It shows 650
+   fights, maybe we should just show the last 50, with an option to show
+   more... in a drop down window to select from instead of scrolling the
+   whole page." A literal <select> can't carry per-fight columns (result,
+   duration, top parser), so the compromise is a bounded, self-scrolling
+   panel: the list scrolls inside its own short box instead of stretching
+   the whole page down further with every fight. Newest-first by default
+   (see handleFile()/loadFromSubmission() reversing the parsed array), 50
+   rows at a time via #show-more-btn, filterable by mob name via
+   #fight-search. */
+.fight-search {
+  display: block;
+  width: 100%;
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--hair-strong);
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+}
+.fight-search::placeholder { color: var(--muted); }
+.encounter-list-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hair-strong) transparent;
+}
+.encounter-list-wrap table { margin: 0; }
+.encounter-list-wrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.show-more-row:not([hidden]) { display: flex; justify-content: center; margin-top: 12px; }
+
+/* Analyze Log — deep-dive breakdown, ported from the desktop overlay's own
+   Combat Analysis window (analysis.js/analysis.css) so the website tool
+   has the same dps chart, procs, ability breakdown, healing, and Incoming
+   tab, scoped to one encounter at a time (no session-merging here — see
+   DYRELOG_GUIDE.md for why that's out of scope for the site). Token
+   mapping from the overlay's analysis.css: --accent -> --brass, --accent-2
+   -> --gold, --bg-card (hover fill) -> --surface-2, --ink-3 -> --muted,
+   --line-in (incoming-dps line, a fixed semantic color, never themed) ->
+   --oxblood-2, and the overlay's 6 --rank swatches -> the site's own 8
+   --c1..--c8 categorical set. */
+.stat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--hair);
+  font-variant-numeric: tabular-nums;
+}
+.stat-chip.accent {
+  color: var(--gold-2);
+  border-color: var(--gold);
+  background: rgba(217, 164, 65, 0.12);
+  font-weight: 700;
+}
+
+.detail-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hair); margin-bottom: 16px; }
+.detail-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 4px;
+  margin-bottom: -1px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.detail-tab:hover { color: var(--ink); }
+.detail-tab.active { color: var(--brass-2); border-bottom-color: var(--brass-2); }
+
+.section-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted); margin: 22px 0 10px;
+}
+.section-label::before {
+  content: "";
+  width: 10px; height: 2px; border-radius: 999px; flex: none;
+  background: linear-gradient(90deg, var(--brass), var(--gold));
+}
+.section-label-row { display: flex; align-items: baseline; justify-content: space-between; margin: 22px 0 10px; }
+.section-label-row .section-label { margin: 0; }
+.section-stat { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+
+.rank-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--swatch, var(--brass));
+  margin-right: 7px;
+  vertical-align: middle;
+}
+.pet-tag-mini {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  padding: 0 4px;
+  vertical-align: middle;
+}
+
+/* "DPS over time" graph — a plain inline SVG built from already-computed
+   numbers (EQP.computeStats(enc).timeline), same as the overlay's own
+   chart. viewBox + preserveAspectRatio="none" lets .dps-chart's own
+   width:100%/height stretch to fit with no JS resize wiring. */
+.dps-chart-wrap { margin: 2px 0 4px; }
+.dps-chart { display: block; width: 100%; height: 160px; }
+.dps-grid { stroke: var(--hair); stroke-width: 1; }
+.dps-axis-label { fill: var(--muted); font-size: 9.5px; font-variant-numeric: tabular-nums; }
+.dps-line-out {
+  fill: none; stroke: var(--brass); stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.dps-line-in {
+  fill: none; stroke: var(--oxblood-2); stroke-width: 1.5; opacity: 0.85;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.dps-peak-dot { fill: var(--brass); stroke: var(--surface); stroke-width: 1.5; }
+.dps-peak-label {
+  fill: var(--ink); font-size: 10.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round;
+}
+.dps-chart-legend { display: flex; gap: 14px; margin: 4px 0 0 2px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: var(--ink-2); }
+.legend-swatch { width: 10px; height: 2px; border-radius: 999px; display: inline-block; }
+.legend-swatch.out { background: var(--brass); }
+.legend-swatch.in { background: var(--oxblood-2); }
+
+/* Procs panel — a Companion-style list of passive/triggered abilities,
+   procs-per-minute instead of damage/dps. See MELEE_BUCKET_NAMES in
+   analyze.html for how "proc" is told apart from an actively-cast spell. */
+.procs-list { display: flex; flex-direction: column; gap: 2px; }
+.proc-row {
+  display: grid;
+  grid-template-columns: 8px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 4px;
+  border-radius: 6px;
+}
+.proc-row:hover { background: var(--surface-2); }
+.proc-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brass); flex: none; }
+.proc-name { font-size: 0.85rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proc-ppm { font-size: 0.8rem; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+.proc-count { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; min-width: 26px; }
+
+/* Per-combatant deep dive — an expandable card per combatant (you, your
+   pet, anyone else's pet), opening into its own per-ability breakdown.
+   Only shown when the encounter has one confirmed target (byMob.length
+   <= 1) — see renderDetail() in analyze.html for why. */
+.combatants { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.combatant-card {
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--swatch, var(--hair));
+  border-radius: 10px;
+  overflow: hidden;
+}
+.combatant-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 11px 13px; cursor: pointer; background: var(--surface-2);
+}
+.combatant-head:hover { background: var(--surface-3); }
+.combatant-head .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.combatant-head .disclosure { color: var(--muted); font-size: 10px; transition: transform 0.15s ease; flex: none; }
+.combatant-card.open .combatant-head .disclosure { transform: rotate(90deg); }
+.combatant-head .cname { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combatant-head .stats { display: flex; gap: 12px; font-size: 0.78rem; color: var(--ink-2); font-variant-numeric: tabular-nums; flex: none; }
+.combatant-head .stats b { color: var(--ink); font-weight: 600; }
+.combatant-body { padding: 10px 13px 13px; display: none; }
+.combatant-card.open .combatant-body { display: block; }
+
+.ability-table { width: 100%; border-collapse: collapse; }
+.ability-table th, .ability-table td { text-align: left; padding: 7px 9px; font-size: 0.78rem; border-bottom: 1px solid var(--hair); }
+.ability-table th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.03em; }
+.ability-table th.num, .ability-table td.num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ability-bar { position: relative; height: 4px; margin-top: 5px; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--hair); overflow: hidden; }
+.ability-bar .fill {
+  position: absolute; inset: 0; width: var(--pct, 0%);
+  background: linear-gradient(90deg, var(--brass), var(--gold));
+  border-radius: 999px;
+}
+.cast-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--gold-2);
+  border: 1px solid var(--gold);
+  background: rgba(217, 164, 65, 0.12);
+  vertical-align: middle;
+}
 
 footer.site-footer {
   border-top: 1px solid var(--hair-strong);

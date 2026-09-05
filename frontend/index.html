@@ -299,11 +299,19 @@
           if (picker.value) loadBossLeaderboard(picker.value);
         });
 
-        // Open on the first boss so the page shows real content immediately
-        // rather than an empty picker waiting on a click.
-        const firstId = bosses[0].id;
-        picker.value = firstId;
-        loadBossLeaderboard(firstId);
+        // Open on the boss with the most tracked parses (entrant_count,
+        // from /api/bosses — same number the per-boss page already shows
+        // as "(N entries)"), not just whichever boss sorts first
+        // alphabetically. Falls back to the first boss if the API hasn't
+        // been redeployed with entrant_count yet, or every boss is tied
+        // at zero.
+        const defaultBoss = bosses.reduce((best, b) => {
+          const count = Number(b.entrant_count) || 0;
+          const bestCount = best ? (Number(best.entrant_count) || 0) : -1;
+          return count > bestCount ? b : best;
+        }, null) || bosses[0];
+        picker.value = defaultBoss.id;
+        loadBossLeaderboard(defaultBoss.id);
       } catch (err) {
         picker.innerHTML = '<option value="">Couldn\'t load bosses</option>';
         document.getElementById('boss-leaderboard').innerHTML = `<p class="empty-state">Couldn't load the boss list right now — try refreshing in a moment.</p>`;

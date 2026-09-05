@@ -175,8 +175,17 @@
         if (picker.value) selectBoss(picker.value);
       });
       if (bosses.length) {
-        picker.value = bosses[0].id;
-        selectBoss(bosses[0].id);
+        // Same "default to whichever boss has the most tracked parses"
+        // change as the website's picker (see handleBossList()'s
+        // entrant_count in worker/src/leaderboard.js), not just whichever
+        // boss sorts first alphabetically.
+        var defaultBoss = bosses.reduce(function (best, b) {
+          var count = Number(b.entrant_count) || 0;
+          var bestCount = best ? (Number(best.entrant_count) || 0) : -1;
+          return count > bestCount ? b : best;
+        }, null) || bosses[0];
+        picker.value = defaultBoss.id;
+        selectBoss(defaultBoss.id);
       } else {
         document.getElementById("boss-detail").innerHTML = '<p class="muted">No bosses in the curated list yet.</p>';
       }

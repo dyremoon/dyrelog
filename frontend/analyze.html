@@ -29,9 +29,9 @@
         <p class="muted" style="margin-top:-6px;">
           Drop a raw EverQuest Legends log file below and Dyrelog breaks
           every fight in it down by combatant &mdash; damage, dps, hits,
-          crits. It runs entirely in your browser: the file is never
-          uploaded anywhere, the same way the desktop overlay never sends
-          your log anywhere either.
+          crits, procs, even a dps-over-time graph. It runs entirely in
+          your browser: the file is never uploaded anywhere, the same way
+          the desktop overlay never sends your log anywhere either.
         </p>
         <div class="dropzone" id="dropzone">
           <div class="dz-title" id="dz-title">Drop your log file here, or click to choose one</div>
@@ -42,45 +42,45 @@
       </div>
 
       <div id="results" hidden>
-        <div class="plate plate-highlight" style="margin-bottom:24px;">
-          <h3 style="margin-bottom:8px;">Fights in this log</h3>
-          <p class="muted" id="results-summary" style="margin-top:0; margin-bottom:12px; font-size:0.9rem;"></p>
-          <table>
-            <thead>
-              <tr><th>Fight</th><th>Difficulty</th><th>Result</th><th class="num">Duration</th><th class="num">Total dmg</th><th class="num">Top parser</th></tr>
-            </thead>
-            <tbody id="encounter-list"></tbody>
-          </table>
-        </div>
-
-        <div class="plate" id="detail-plate" hidden>
+        <!-- Analysis lives at the TOP of the results, above the fight list —
+             "if i drop a log in and click on a fight, it scrolls me all the
+             way to the bottom to see the analysis, and i dont want that,
+             the analysis should be at the top." The newest fight is
+             selected by default the moment a log is parsed (see
+             handleFile()), so the breakdown is already showing here before
+             you ever touch the list below, and clicking a different fight
+             updates this same panel in place — nothing scrolls. -->
+        <div class="plate" id="detail-plate" style="margin-bottom:24px;" hidden>
           <div class="analyze-detail-head">
             <h3 id="detail-title" style="margin:0;"></h3>
             <span class="badge" id="detail-result-badge"></span>
           </div>
-          <div class="analyze-stat-row">
-            <span class="badge" id="detail-duration"></span>
-            <span class="badge" id="detail-damage"></span>
-            <span class="badge" id="detail-dps"></span>
+          <div class="stat-chips" id="detail-stat-chips"></div>
+          <div class="detail-tabs" id="detail-tabs">
+            <button class="detail-tab active" data-tab="outgoing" type="button">Outgoing</button>
+            <button class="detail-tab" data-tab="incoming" type="button">Incoming</button>
           </div>
-          <table>
-            <thead>
-              <tr><th>Combatant</th><th class="num">Damage</th><th class="num">DPS</th><th class="num">% of total</th><th class="num">Hits</th><th class="num">Crits</th></tr>
-            </thead>
-            <tbody id="combatant-table"></tbody>
-          </table>
+          <div id="detail-body"></div>
         </div>
-      </div>
 
-      <div class="plate">
-        <h3 style="margin-bottom:6px;">What's here now, and what's next</h3>
-        <p class="muted" style="margin-top:0; margin-bottom:0; font-size:0.9rem;">
-          This first version covers the fight list and the per-combatant
-          breakdown &mdash; the same numbers the overlay's own Combat
-          Analysis window shows. A dps-over-time graph and an Incoming
-          (damage taken) tab are planned as a fast-follow. For those right
-          now, open Combat Analysis from the desktop overlay itself.
-        </p>
+        <div class="plate plate-highlight" style="margin-bottom:24px;">
+          <div class="analyze-detail-head" style="margin-bottom:12px;">
+            <h3 style="margin:0;">Fights in this log</h3>
+          </div>
+          <p class="muted" id="results-summary" style="margin-top:0; margin-bottom:12px; font-size:0.9rem;"></p>
+          <input type="text" id="fight-search" class="fight-search" placeholder="Search fights by name&hellip;">
+          <div class="encounter-list-wrap">
+            <table>
+              <thead>
+                <tr><th>Fight</th><th>Difficulty</th><th>Result</th><th>Time</th><th class="num">Duration</th><th class="num">Total dmg</th><th class="num">Top parser</th></tr>
+              </thead>
+              <tbody id="encounter-list"></tbody>
+            </table>
+          </div>
+          <div class="show-more-row" id="show-more-row" hidden>
+            <button class="btn" id="show-more-btn" type="button"></button>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -94,9 +94,24 @@
   <script src="./js/app.js"></script>
   <script src="./js/eqp-core.js"></script>
   <script>
-    var encounters = [];
+    var encounters = []; // newest-first, see handleFile()/loadFromSubmission()
     var activeIndex = null;
     var characterName = null;
+    var visibleCount = 50;
+    var searchQuery = '';
+    var activeDetailTab = 'outgoing';
+    // Which per-combatant deep-dive cards are expanded, keyed by
+    // "<encounter index>::<row name>" so re-rendering the same fight
+    // (switching tabs, etc.) doesn't forget what was open, and switching
+    // to a different fight doesn't leak one fight's expanded rows into
+    // another that happens to share a combatant name.
+    var expanded = new Set();
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
 
     // Same "You" -> real character name swap the desktop overlay's own
     // Combat Analysis window does — cosmetic only, EQP itself always
@@ -108,6 +123,12 @@
     function fmtNum(n) {
       return new Intl.NumberFormat('en-US').format(Math.round(n || 0));
     }
+    function fmtAbbrevNum(n) {
+      n = Math.max(0, n || 0);
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'm';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+      return String(Math.round(n));
+    }
     function fmtDur(sec) {
       sec = Math.max(0, Math.round(sec || 0));
       var m = Math.floor(sec / 60), s = sec % 60;
@@ -118,11 +139,28 @@
       return enc.difficulty ? EQP_DIFFICULTY_LABELS[enc.difficulty] || enc.difficulty : 'Base';
     }
     var EQP_DIFFICULTY_LABELS = { D1: 'D1 · Awakened', D2: 'D2 · Adaptive', D3: 'D3 · Fused', D4: 'D4 · Refined' };
+    // A wall-clock timestamp for the fight list and the detail header —
+    // "if possible, add time stamps to the fights."
+    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    function fmtTimestamp(ms) {
+      if (!ms) return '—';
+      var d = new Date(ms);
+      var h = d.getHours(), m = d.getMinutes();
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12; if (h === 0) h = 12;
+      return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + h + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+    }
+
+    // Same rank hues the site's boss-category dots use (--c1..--c8 in
+    // dyrelog.css), reused here so a combatant's accent color in the deep
+    // dive ties back to a color already used elsewhere on the site.
+    var RANK_SWATCHES = ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6', '--c7', '--c8'];
 
     // Same split as the desktop overlay's own Combat Analysis window
     // (buildAnalysisRows() in analysis.js) — a pet gets its own row here
     // too, instead of staying folded silently inside its owner's combined
-    // total.
+    // total, and keeps each row's own per-ability breakdown for the deep
+    // dive below.
     function buildAnalysisRows(rows, totalDamage, duration) {
       var out = [];
       (rows || []).forEach(function (r) {
@@ -135,13 +173,15 @@
           dps: duration > 0 ? r.selfDamage / duration : 0,
           hits: r.hits - petHits,
           crits: r.crits - petCrits,
-          pct: totalDamage > 0 ? (r.selfDamage / totalDamage) * 100 : 0
+          pct: totalDamage > 0 ? (r.selfDamage / totalDamage) * 100 : 0,
+          abilities: r.abilities
         });
         pets.forEach(function (p) {
           out.push({
             name: p.name, isPet: true,
             damage: p.damage, dps: p.dps, hits: p.hits, crits: p.crits,
-            pct: totalDamage > 0 ? (p.damage / totalDamage) * 100 : 0
+            pct: totalDamage > 0 ? (p.damage / totalDamage) * 100 : 0,
+            abilities: p.abilities
           });
         });
       });
@@ -172,46 +212,372 @@
       return state.encounters;
     }
 
+    // ---- fight list (search + capped/scrollable) ---------------------------
+
+    function getFilteredIndices() {
+      var q = (searchQuery || '').trim().toLowerCase();
+      var out = [];
+      for (var i = 0; i < encounters.length; i++) {
+        if (!q || (encounters[i].mobName || '').toLowerCase().indexOf(q) !== -1) out.push(i);
+      }
+      return out; // encounters is stored newest-first, so this stays newest-first too
+    }
+
     function renderEncounterList() {
       var listEl = document.getElementById('encounter-list');
       var summaryEl = document.getElementById('results-summary');
+      var showMoreRow = document.getElementById('show-more-row');
+      var showMoreBtn = document.getElementById('show-more-btn');
+
       if (encounters.length === 0) {
         document.getElementById('results').hidden = false;
         summaryEl.textContent = 'No fights found in that log — Dyrelog looks for melee/spell damage lines, so a log with no combat in it won\'t show anything here.';
         listEl.innerHTML = '';
+        showMoreRow.hidden = true;
         document.getElementById('detail-plate').hidden = true;
         return;
       }
-      summaryEl.textContent = encounters.length + (encounters.length === 1 ? ' fight found.' : ' fights found.') + ' Click one for its full breakdown.';
-      listEl.innerHTML = encounters
-        .map(function (enc, i) {
+
+      var indices = getFilteredIndices();
+      var visible = indices.slice(0, visibleCount);
+      var remaining = indices.length - visible.length;
+      var q = searchQuery.trim();
+
+      summaryEl.textContent = q
+        ? (indices.length + (indices.length === 1 ? ' fight matches "' : ' fights match "') + q + '" (of ' + encounters.length + ' total). Click one for its full breakdown.')
+        : (encounters.length + (encounters.length === 1 ? ' fight found' : ' fights found') + ', newest first. Click one for its full breakdown.');
+
+      listEl.innerHTML = visible
+        .map(function (idx) {
+          var enc = encounters[idx];
           var stats = EQP.computeStats(enc);
           var top = stats.rows[0];
           var dur = EQP.durationSeconds(enc);
           return (
-            '<tr class="encounter-row' + (i === activeIndex ? ' active' : '') + '" data-idx="' + i + '">' +
-              '<td>' + (enc.mobName || 'Unknown') + '</td>' +
+            '<tr class="encounter-row' + (idx === activeIndex ? ' active' : '') + '" data-idx="' + idx + '">' +
+              '<td>' + esc(enc.mobName || 'Unknown') + '</td>' +
               '<td class="muted">' + fmtDifficultyLabel(enc) + '</td>' +
               '<td>' + (enc.mobKilled ? '<span class="badge badge-good">Killed</span>' : '<span class="badge">No kill</span>') + '</td>' +
+              '<td class="muted">' + fmtTimestamp(enc.startTime) + '</td>' +
               '<td class="num tabular">' + fmtDur(dur) + '</td>' +
               '<td class="num tabular">' + fmtNum(enc.totalDamage) + '</td>' +
-              '<td class="num tabular">' + (top ? displayName(top.name) + ' · ' + fmtNum(top.dps) + ' dps' : '—') + '</td>' +
+              '<td class="num tabular">' + (top ? esc(displayName(top.name)) + ' · ' + fmtNum(top.dps) + ' dps' : '—') + '</td>' +
             '</tr>'
           );
         })
         .join('');
+
       listEl.querySelectorAll('.encounter-row').forEach(function (row) {
         row.addEventListener('click', function () {
           activeIndex = parseInt(row.dataset.idx, 10);
           renderEncounterList();
           renderDetail();
-          // Always scroll the breakdown into view on click — with only one
-          // fight in the log the row is already selected by default, so
-          // without this a click on it looks like nothing happened.
-          var plate = document.getElementById('detail-plate');
-          if (plate && !plate.hidden) {
-            plate.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
+        });
+      });
+
+      if (remaining > 0) {
+        showMoreRow.hidden = false;
+        showMoreBtn.textContent = 'Show ' + Math.min(50, remaining) + ' more (' + remaining + ' left)';
+      } else {
+        showMoreRow.hidden = true;
+      }
+    }
+
+    // ---- fight detail (ported from the overlay's Combat Analysis window) --
+
+    // "id also like to see Peak DPS like this graph does" — reconstructed
+    // from eqp-core.js's per-second timeline (stats.timeline). A short
+    // centered moving average is applied only to what gets drawn; nothing
+    // it touches feeds back into any real total.
+    function smoothSeries(values, windowSize) {
+      var n = values.length;
+      var half = Math.floor(windowSize / 2);
+      var out = new Array(n);
+      for (var i = 0; i < n; i++) {
+        var sum = 0, count = 0;
+        for (var j = Math.max(0, i - half); j <= Math.min(n - 1, i + half); j++) { sum += values[j]; count++; }
+        out[i] = sum / count;
+      }
+      return out;
+    }
+
+    function buildDpsChart(timeline, duration) {
+      if (!timeline || timeline.length < 2) return '';
+      var outVals = timeline.map(function (p) { return p.out; });
+      var inVals = timeline.map(function (p) { return p.in; });
+      var smoothOut = smoothSeries(outVals, 5);
+      var smoothIn = smoothSeries(inVals, 5);
+      var showIn = inVals.some(function (v) { return v > 0; });
+      var maxVal = Math.max(1, Math.max.apply(null, smoothOut), showIn ? Math.max.apply(null, smoothIn) : 0);
+      maxVal *= 1.2;
+
+      var W = 640, H = 160, padL = 40, padR = 10, padT = 14, padB = 20;
+      var plotW = W - padL - padR, plotH = H - padT - padB;
+      var n = timeline.length;
+      function xAt(i) { return padL + (n <= 1 ? 0 : (i / (n - 1)) * plotW); }
+      function yAt(v) { return padT + plotH - (v / maxVal) * plotH; }
+      function pathFor(vals) {
+        return vals.map(function (v, i) { return (i === 0 ? 'M' : 'L') + xAt(i).toFixed(1) + ',' + yAt(v).toFixed(1); }).join(' ');
+      }
+
+      var peakIdx = 0, peakVal = -1;
+      smoothOut.forEach(function (v, i) { if (v > peakVal) { peakVal = v; peakIdx = i; } });
+      var peakX = xAt(peakIdx), peakY = yAt(peakVal);
+      var peakLabelX = Math.min(Math.max(peakX, padL + 30), W - padR - 30);
+      var peakAbove = peakY > padT + 18;
+
+      var gridHtml = [0.5, 1].map(function (frac) {
+        var y = padT + plotH * (1 - frac);
+        return (
+          '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '" class="dps-grid" />' +
+          '<text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" class="dps-axis-label" text-anchor="end">' + fmtAbbrevNum(maxVal * frac) + '</text>'
+        );
+      }).join('');
+
+      return (
+        '<div class="dps-chart-wrap">' +
+          '<svg class="dps-chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+            gridHtml +
+            (showIn ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in" fill="none" />' : '') +
+            '<path d="' + pathFor(smoothOut) + '" class="dps-line-out" fill="none" />' +
+            '<circle cx="' + peakX.toFixed(1) + '" cy="' + peakY.toFixed(1) + '" r="3.5" class="dps-peak-dot" />' +
+            '<text x="' + peakLabelX.toFixed(1) + '" y="' + (peakAbove ? peakY - 8 : peakY + 16).toFixed(1) + '" class="dps-peak-label" text-anchor="middle">Peak ' + fmtAbbrevNum(peakVal) + ' dps</text>' +
+            '<text x="' + padL + '" y="' + (H - 4) + '" class="dps-axis-label">0:00</text>' +
+            '<text x="' + (W - padR) + '" y="' + (H - 4) + '" class="dps-axis-label" text-anchor="end">' + fmtDur(duration) + '</text>' +
+          '</svg>' +
+          '<div class="dps-chart-legend">' +
+            '<span class="legend-item"><span class="legend-swatch out"></span>Your DPS</span>' +
+            (showIn ? '<span class="legend-item"><span class="legend-swatch in"></span>Incoming</span>' : '') +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    function renderDpsChartSection(stats) {
+      var chart = buildDpsChart(stats.timeline, stats.duration);
+      if (!chart) return '';
+      return '<p class="section-label">DPS over time</p>' + chart;
+    }
+
+    // A compact at-a-glance list of every distinct target this encounter
+    // actually confirmed (stats.byMob) — only shown once there's more than
+    // one, e.g. an add fought concurrently alongside the main target. A
+    // single-target fight has nothing to break down here; its own header/
+    // stat-chips already say everything this table would.
+    function renderMobsFoughtSection(stats) {
+      var byMob = stats.byMob || [];
+      if (byMob.length <= 1) return '';
+      var rowsHtml = byMob.map(function (m) {
+        return (
+          '<tr>' +
+            '<td>' + esc((m.name || 'Unknown target') + (m.generation > 1 ? ' (' + m.generation + ')' : '')) +
+              (m.mobKilled ? ' <span class="badge badge-good">killed</span>' : '') + '</td>' +
+            '<td class="num tabular">' + fmtDur(m.duration) + '</td>' +
+            '<td class="num tabular">' + m.dps.toFixed(1) + '</td>' +
+            '<td class="num tabular">' + (m.mobKillCount || 0) + '</td>' +
+            '<td class="num tabular">' + fmtNum(m.damage) + '</td>' +
+          '</tr>'
+        );
+      }).join('');
+      return (
+        '<p class="section-label">Mobs fought this encounter</p>' +
+        '<table><thead><tr><th>Mob</th><th class="num">Duration</th><th class="num">DPS</th><th class="num">Kills</th><th class="num">Damage dealt</th></tr></thead>' +
+        '<tbody>' + rowsHtml + '</tbody></table>'
+      );
+    }
+
+    function renderCombatantTable(stats) {
+      var rows = buildAnalysisRows(stats.rows, stats.totalDamage, stats.duration);
+      var showPct = rows.length > 1;
+      var rowsHtml = rows.map(function (r, i) {
+        var swatch = 'var(' + RANK_SWATCHES[i % RANK_SWATCHES.length] + ')';
+        var petTag = r.isPet ? ' <span class="pet-tag-mini">Pet</span>' : '';
+        return (
+          '<tr style="--swatch:' + swatch + '">' +
+            '<td><span class="rank-dot"></span>' + esc(r.name) + petTag + '</td>' +
+            '<td class="num tabular">' + fmtNum(r.damage) + '</td>' +
+            '<td class="num tabular">' + r.dps.toFixed(1) + '</td>' +
+            (showPct ? '<td class="num tabular">' + r.pct.toFixed(1) + '%</td>' : '') +
+            '<td class="num tabular">' + r.hits + '</td>' +
+            '<td class="num tabular">' + r.crits + '</td>' +
+          '</tr>'
+        );
+      }).join('');
+      return {
+        rows: rows,
+        html: (
+          '<table><thead><tr><th>Combatant</th><th class="num">Damage</th><th class="num">DPS</th>' +
+            (showPct ? '<th class="num">% of total</th>' : '') +
+            '<th class="num">Hits</th><th class="num">Crits</th></tr></thead>' +
+          '<tbody>' + (rowsHtml || '<tr><td colspan="' + (showPct ? 6 : 5) + '" class="muted">No damage recorded.</td></tr>') + '</tbody></table>'
+        )
+      };
+    }
+
+    function renderHealingSection(healing) {
+      if (!healing || !healing.length) return '';
+      var rowsHtml = healing.map(function (h) {
+        return (
+          '<tr>' +
+            '<td>' + esc(displayName(h.name)) + '</td>' +
+            '<td class="num tabular">' + fmtNum(h.amount) + '</td>' +
+            '<td class="num tabular">' + h.hps.toFixed(1) + '</td>' +
+            '<td class="num tabular">' + h.hits + '</td>' +
+          '</tr>'
+        );
+      }).join('');
+      return (
+        '<p class="section-label">Healing</p>' +
+        '<table><thead><tr><th>Healer</th><th class="num">Amount</th><th class="num">HPS</th><th class="num">Hits</th></tr></thead>' +
+        '<tbody>' + rowsHtml + '</tbody></table>'
+      );
+    }
+
+    // "it also has an incoming tab, i like that" — damage taken during
+    // this fight, broken down by mob, plus healing received. See
+    // renderIncomingTab() in the overlay's analysis.js for the full
+    // reasoning behind the "Unattributed (spell/DoT)" row.
+    function renderIncomingTab(enc, stats) {
+      var byMob = (stats.byMob || []).filter(function (m) { return m.totalTaken > 0; });
+      var taken = EQP.computeTakenStats(enc);
+      var totalTaken = taken.totalTaken;
+      var dur = Math.max(stats.duration || 0, 1);
+      var healTotal = (stats.healing || []).reduce(function (sum, h) { return sum + h.amount; }, 0);
+      var attributed = byMob.reduce(function (sum, m) { return sum + m.totalTaken; }, 0);
+      var unattributed = Math.max(0, totalTaken - attributed);
+      var rowsHtml = byMob.map(function (m) {
+        return (
+          '<tr>' +
+            '<td>' + esc(m.name + (m.generation > 1 ? ' (' + m.generation + ')' : '')) + '</td>' +
+            '<td class="num tabular">' + fmtNum(m.totalTaken) + '</td>' +
+            '<td class="num tabular">' + m.takenDps.toFixed(1) + '</td>' +
+            '<td class="num tabular">' + (totalTaken > 0 ? (m.totalTaken / totalTaken * 100).toFixed(1) : '0.0') + '%</td>' +
+          '</tr>'
+        );
+      }).join('');
+      if (unattributed > 0) {
+        rowsHtml += (
+          '<tr class="muted">' +
+            '<td>Unattributed (spell/DoT)</td>' +
+            '<td class="num tabular">' + fmtNum(unattributed) + '</td>' +
+            '<td class="num tabular">' + (unattributed / dur).toFixed(1) + '</td>' +
+            '<td class="num tabular">' + (totalTaken > 0 ? (unattributed / totalTaken * 100).toFixed(1) : '0.0') + '%</td>' +
+          '</tr>'
+        );
+      }
+      return (
+        '<div class="stat-chips">' +
+          '<span class="stat-chip accent">' + fmtNum(totalTaken) + ' dmg taken</span>' +
+          '<span class="stat-chip accent">' + (totalTaken / dur).toFixed(1) + ' dps taken</span>' +
+          (healTotal > 0 ? '<span class="stat-chip">' + fmtNum(healTotal) + ' healing received</span>' : '') +
+        '</div>' +
+        '<p class="section-label">Damage breakdown</p>' +
+        (totalTaken > 0 ?
+          '<table><thead><tr><th>Mob</th><th class="num">Damage</th><th class="num">DPS</th><th class="num">% of total</th></tr></thead>' +
+            '<tbody>' + rowsHtml + '</tbody></table>' :
+          '<p class="muted">No incoming damage recorded.</p>') +
+        '<p class="muted" style="font-size:0.85rem; margin-top:10px;">Incoming misses/resists/dodges aren\'t tracked yet — only landed hits. "Healing received" is the group\'s combined total, not split by who it landed on.</p>'
+      );
+    }
+
+    // "I want a procs window like this" — your own passive/triggered
+    // abilities (weapon procs, defensive procs, aggro procs), with a
+    // procs-per-minute rate instead of damage/dps. Told apart from an
+    // actively-cast spell by "did this ability ever appear as one of your
+    // own cast-start lines" (a.casts === 0) — only ever meaningful for the
+    // "You" row, since EQ's log only ever shows a cast-start line for the
+    // log owner's own casts.
+    var MELEE_BUCKET_NAMES = {
+      Melee: true, 'Non-melee': true, 'Unnamed DoT tick': true,
+      Slash: true, Pierce: true, Crush: true, Claw: true, Bite: true,
+      Sting: true, Maul: true, Hit: true, Punch: true, Kick: true,
+      Gore: true, Smash: true, Rend: true, Slice: true, Bash: true,
+      Shoot: true, Burn: true, Gouge: true, Cleave: true, Backstab: true,
+      Strike: true
+    };
+    function renderProcsSection(stats) {
+      var youRow = (stats.rows || []).find(function (r) { return r.name === 'You'; });
+      if (!youRow) return '';
+      var procs = (youRow.abilities || []).filter(function (a) {
+        return a.hits > 0 && a.casts === 0 && !MELEE_BUCKET_NAMES[a.name];
+      });
+      if (!procs.length) return '';
+      procs.sort(function (a, b) { return b.hits - a.hits; });
+      var durMin = Math.max(stats.duration, 1) / 60;
+      var totalHits = procs.reduce(function (sum, a) { return sum + a.hits; }, 0);
+      var rowsHtml = procs.map(function (a) {
+        return (
+          '<div class="proc-row">' +
+            '<span class="proc-dot"></span>' +
+            '<span class="proc-name">' + esc(a.name) + '</span>' +
+            '<span class="proc-ppm">' + (a.hits / durMin).toFixed(2) + ' ppm</span>' +
+            '<span class="proc-count">×' + a.hits + '</span>' +
+          '</div>'
+        );
+      }).join('');
+      return (
+        '<div class="section-label-row">' +
+          '<p class="section-label">Procs</p>' +
+          '<span class="section-stat">' + totalHits + ' procs · ' + (totalHits / durMin).toFixed(1) + ' ppm</span>' +
+        '</div>' +
+        '<div class="procs-list">' + rowsHtml + '</div>'
+      );
+    }
+
+    function renderAbilitiesTotalSection(abilitiesTotal) {
+      if (!abilitiesTotal || !abilitiesTotal.length) return '';
+      return '<p class="section-label">Damage by ability</p>' + renderAbilityTable(abilitiesTotal);
+    }
+
+    function renderAbilityTable(abilities) {
+      if (!abilities || !abilities.length) return '<p class="muted">No ability breakdown yet.</p>';
+      var maxDmg = abilities[0].damage || 0;
+      var rowsHtml = abilities.map(function (a) {
+        var barPct = maxDmg > 0 ? Math.max(4, (a.damage / maxDmg) * 100) : 0;
+        var castBadge = a.casts > 0 ? ' <span class="cast-badge" title="Times cast">&times;' + a.casts + '</span>' : '';
+        return (
+          '<tr>' +
+            '<td>' + esc(a.name) + castBadge +
+              '<div class="ability-bar"><div class="fill" style="--pct:' + barPct.toFixed(1) + '%"></div></div>' +
+            '</td>' +
+            '<td class="num tabular">' + a.hits + '</td>' +
+            '<td class="num tabular">' + fmtNum(a.damage) + '</td>' +
+            '<td class="num tabular">' + a.dps.toFixed(1) + '</td>' +
+            '<td class="num tabular">' + a.crits + '</td>' +
+            '<td class="num tabular">' + (a.misses || 0) + '</td>' +
+          '</tr>'
+        );
+      }).join('');
+      return (
+        '<table class="ability-table"><thead><tr><th>Ability</th><th class="num">Hits</th><th class="num">Damage done</th>' +
+          '<th class="num">DPS</th><th class="num">Crits</th><th class="num">Misses</th></tr></thead>' +
+        '<tbody>' + rowsHtml + '</tbody></table>'
+      );
+    }
+
+    function renderCombatantCard(r, i, viewKey) {
+      var key = viewKey + '::' + r.name;
+      var isOpen = expanded.has(key);
+      var swatch = 'var(' + RANK_SWATCHES[i % RANK_SWATCHES.length] + ')';
+      var petTag = r.isPet ? ' <span class="pet-tag-mini">Pet</span>' : '';
+      return (
+        '<div class="combatant-card' + (isOpen ? ' open' : '') + '" data-key="' + esc(key) + '" style="--swatch:' + swatch + '">' +
+          '<div class="combatant-head" data-toggle="' + esc(key) + '">' +
+            '<div class="who"><span class="disclosure">&#9656;</span><span class="cname">' + esc(r.name) + petTag + '</span></div>' +
+            '<div class="stats"><span><b>' + fmtNum(r.damage) + '</b> dmg</span><span><b>' + r.dps.toFixed(1) + '</b> dps</span>' +
+              '<span><b>' + r.pct.toFixed(1) + '%</b></span></div>' +
+          '</div>' +
+          '<div class="combatant-body">' + renderAbilityTable(r.abilities) + '</div>' +
+        '</div>'
+      );
+    }
+
+    function wireCombatantCards() {
+      document.querySelectorAll('[data-toggle]').forEach(function (head) {
+        head.addEventListener('click', function () {
+          var key = head.dataset.toggle;
+          if (expanded.has(key)) expanded.delete(key); else expanded.add(key);
+          head.closest('.combatant-card').classList.toggle('open', expanded.has(key));
         });
       });
     }
@@ -223,28 +589,54 @@
       var stats = EQP.computeStats(enc);
       var dur = EQP.durationSeconds(enc);
       plate.hidden = false;
+
       document.getElementById('detail-title').textContent = enc.mobName || 'Unknown';
       document.getElementById('detail-result-badge').outerHTML = enc.mobKilled
         ? '<span class="badge badge-good" id="detail-result-badge">Killed</span>'
         : '<span class="badge" id="detail-result-badge">No kill</span>';
-      document.getElementById('detail-duration').textContent = fmtDur(dur) + ' elapsed';
-      document.getElementById('detail-damage').textContent = fmtNum(enc.totalDamage) + ' total dmg';
-      document.getElementById('detail-dps').textContent = fmtNum(enc.totalDamage / (dur || 1)) + ' combined dps';
-      var displayRows = buildAnalysisRows(stats.rows, enc.totalDamage, dur);
-      document.getElementById('combatant-table').innerHTML = displayRows
-        .map(function (r) {
-          return (
-            '<tr>' +
-              '<td>' + r.name + (r.isPet ? ' <span class="muted">(pet)</span>' : '') + '</td>' +
-              '<td class="num tabular">' + fmtNum(r.damage) + '</td>' +
-              '<td class="num tabular">' + fmtNum(r.dps) + '</td>' +
-              '<td class="num tabular">' + r.pct.toFixed(1) + '%</td>' +
-              '<td class="num tabular">' + r.hits + '</td>' +
-              '<td class="num tabular">' + r.crits + '</td>' +
-            '</tr>'
-          );
-        })
-        .join('');
+
+      document.getElementById('detail-stat-chips').innerHTML =
+        '<span class="stat-chip">' + fmtDifficultyLabel(enc) + '</span>' +
+        '<span class="stat-chip">' + fmtTimestamp(enc.startTime) + '</span>' +
+        '<span class="stat-chip">' + fmtDur(dur) + ' elapsed</span>' +
+        (enc.mobKillCount > 1 ? '<span class="stat-chip">' + enc.mobKillCount + ' kills</span>' : '') +
+        '<span class="stat-chip accent">' + fmtNum(enc.totalDamage) + ' total dmg</span>' +
+        '<span class="stat-chip accent">' + (stats.raidDps || 0).toFixed(1) + ' combined dps</span>';
+
+      document.getElementById('detail-tabs').innerHTML =
+        '<button class="detail-tab' + (activeDetailTab === 'outgoing' ? ' active' : '') + '" data-tab="outgoing" type="button">Outgoing</button>' +
+        '<button class="detail-tab' + (activeDetailTab === 'incoming' ? ' active' : '') + '" data-tab="incoming" type="button">Incoming</button>';
+      document.querySelectorAll('.detail-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          activeDetailTab = btn.dataset.tab;
+          renderDetail();
+        });
+      });
+
+      if (activeDetailTab === 'incoming') {
+        document.getElementById('detail-body').innerHTML = renderIncomingTab(enc, stats);
+        return;
+      }
+
+      var combatantTable = renderCombatantTable(stats);
+      var byMob = stats.byMob || [];
+      var showDeepDive = byMob.length <= 1;
+      var deepDiveMobName = byMob.length === 1 ? byMob[0].name + (byMob[0].generation > 1 ? ' (' + byMob[0].generation + ')' : '') : null;
+      var viewKey = String(activeIndex);
+
+      document.getElementById('detail-body').innerHTML =
+        renderDpsChartSection(stats) +
+        renderMobsFoughtSection(stats) +
+        combatantTable.html +
+        renderHealingSection(stats.healing) +
+        renderProcsSection(stats) +
+        renderAbilitiesTotalSection(stats.abilitiesTotal) +
+        (showDeepDive ?
+          '<p class="section-label">Deep dive — click a combatant for its spell/ability breakdown' +
+            (deepDiveMobName ? ' against ' + esc(deepDiveMobName) : '') + '</p>' +
+          '<div class="combatants">' + combatantTable.rows.map(function (r, i) { return renderCombatantCard(r, i, viewKey); }).join('') + '</div>'
+          : '');
+      wireCombatantCards();
     }
 
     function handleFile(file) {
@@ -255,8 +647,20 @@
       reader.onload = function () {
         try {
           characterName = parseCharacterFromFilename(file.name);
-          encounters = parseLogText(String(reader.result), characterName);
-          activeIndex = encounters.length ? 0 : null;
+          // Newest-first — "the sorting of the logs is backwards, it has
+          // the oldest fights at the top and most recent at the bottom."
+          // EQP.newState()'s encounters array is built oldest-first as the
+          // log is read top to bottom, so this just reverses the finished
+          // array once, up front, and every render/index downstream stays
+          // consistent with it.
+          encounters = parseLogText(String(reader.result), characterName).slice().reverse();
+          visibleCount = 50;
+          searchQuery = '';
+          var searchInput = document.getElementById('fight-search');
+          if (searchInput) searchInput.value = '';
+          expanded.clear();
+          activeDetailTab = 'outgoing';
+          activeIndex = encounters.length ? 0 : null; // the newest fight
           document.getElementById('results').hidden = false;
           renderEncounterList();
           renderDetail();
@@ -288,6 +692,16 @@
       handleFile(file);
     });
 
+    document.getElementById('fight-search').addEventListener('input', function (e) {
+      searchQuery = e.target.value;
+      visibleCount = 50;
+      renderEncounterList();
+    });
+    document.getElementById('show-more-btn').addEventListener('click', function () {
+      visibleCount += 50;
+      renderEncounterList();
+    });
+
     // "have the option to click on the parse in your personal history to
     // analyze it, it will open that parse in the analyze log window" —
     // profile.html links here as analyze.html?submissionId=123&name=You.
@@ -300,19 +714,16 @@
       document.getElementById('dz-title').textContent = 'Loading your parse…';
       api('/api/me/submissions/' + submissionId + '/log')
         .then(function (data) {
-          encounters = parseLogText(data.rawLogText, characterName);
+          encounters = parseLogText(data.rawLogText, characterName).slice().reverse();
+          visibleCount = 50;
+          searchQuery = '';
+          expanded.clear();
+          activeDetailTab = 'outgoing';
           activeIndex = encounters.length ? 0 : null;
           document.getElementById('results').hidden = false;
           renderEncounterList();
           renderDetail();
           document.getElementById('dz-title').textContent = 'Loaded from your personal history — drop another log file to analyze something else';
-          // The breakdown is already selected and shown at this point (it's
-          // the only fight in most single-kill logs), which is easy to miss
-          // since it renders below the fold — jump straight to it.
-          var plate = document.getElementById('detail-plate');
-          if (plate && !plate.hidden) {
-            plate.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
         })
         .catch(function () {
           showError("Couldn't load that parse — it may not be yours, or may no longer be available.");
