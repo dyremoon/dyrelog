@@ -40,6 +40,19 @@
   --gold-ink: #241703;
   --arcane: #9b7fe0;
   --arcane-2: #c9b6f2;
+  /* "Dusk" warm accent — a burnt-orange counterpart to the existing gold
+     and purple, so the site reads as a gold/orange/purple dusk-sky palette
+     sitting on the icy-blue ground, not just one warm color (gold) plus
+     one cool one (blue). Contrast-checked the same way as everything else
+     here: --ember clears ~7.3:1 against bg and ~5.9:1 against surface,
+     --ember-2 clears ~10.7:1 against bg — both safe as text/icon color,
+     not just decoration. Orange sits between gold and purple on the color
+     wheel the same way it does at an actual dusk horizon (warm gold near
+     the light source fading through orange into the sky's cool purple/
+     blue), which is the actual reasoning for using it as the bridge color
+     between the two rather than introducing a third unrelated hue. */
+  --ember: #e08a3f;
+  --ember-2: #f5b378;
   --c1: #3987e5;
   --c2: #d95926;
   --c3: #199e70;
@@ -113,6 +126,12 @@ a:hover { color: var(--brass); }
   .side-banner { display: none; }
 }
 
+/* A soft dusk-sky wash behind the header only — two low-opacity radial
+   glows (purple upper-left, orange upper-right) fading into the page's
+   normal icy background within a couple hundred pixels, not a full
+   repaint. Layered as extra background-images on the header itself
+   (rather than a separate positioned pseudo-element) so there's no
+   z-index/stacking-context bookkeeping to get wrong. */
 header.site-header {
   display: flex;
   align-items: center;
@@ -122,15 +141,27 @@ header.site-header {
   border-bottom: 1px solid var(--hair-strong);
   flex-wrap: wrap;
   row-gap: 12px;
+  background:
+    radial-gradient(55% 220% at 8% 0%, rgba(155, 127, 224, 0.12), transparent 70%),
+    radial-gradient(45% 220% at 92% 0%, rgba(224, 138, 63, 0.11), transparent 70%);
 }
 
 header.site-header .wordmark {
   font-size: 1.5rem;
-  color: var(--brass-2);
   margin: 0;
   display: flex;
   align-items: center;
   gap: 10px;
+  /* Warm gold->ember gradient text, echoing the gold game-badge that sits
+     right next to it — was flat icy --brass-2 before, which visually
+     fought the badge instead of pairing with it. `color` is the fallback
+     for a browser that ignores background-clip:text (renders solid gold
+     instead of losing the wordmark entirely). */
+  color: var(--gold-2);
+  background: linear-gradient(120deg, var(--gold-2), var(--ember));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .wordmark .logo-mark { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 
@@ -176,8 +207,21 @@ nav.site-nav a {
   border-radius: 999px;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-nav.site-nav a:hover { color: var(--ink); border-color: var(--brass); background: var(--surface-2); }
-nav.site-nav a.active { color: var(--brass-ink); font-weight: 700; background: var(--brass-2); border-color: var(--brass-2); }
+/* Nav pills — was an icy-blue active state (same hue as the body links and
+   most buttons), which was a big part of "very one-note colored." Gold
+   now, matching the game-badge and wordmark so the whole header reads as
+   one warm identity band above the cooler icy content below it — a
+   gold->ember gradient rather than flat gold so it still ties to the new
+   ember accent, not just gold in isolation. Hover uses a gold border only
+   (not the full fill) so it reads as "about to select," distinct from the
+   solid-filled active state. */
+nav.site-nav a:hover { color: var(--ink); border-color: var(--gold); background: var(--surface-2); }
+nav.site-nav a.active {
+  color: var(--gold-ink);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--gold-2), var(--ember));
+  border-color: var(--gold);
+}
 
 main { padding: 32px 0 64px; }
 
@@ -211,7 +255,10 @@ main { padding: 32px 0 64px; }
    report a bug), so it's where the "some gold for EverQuest Legends"
    warmth actually reads instead of getting lost against the icy ground. */
 .btn-brass {
-  background: linear-gradient(180deg, var(--gold-2), var(--gold));
+  /* Same gold->ember dusk gradient as the nav/wordmark, tying every warm
+     "identity" element on the site (brand mark, active nav, primary CTA)
+     to one consistent gradient language instead of flat gold alone. */
+  background: linear-gradient(160deg, var(--gold-2), var(--ember));
   color: var(--gold-ink);
   border-color: var(--gold);
 }
