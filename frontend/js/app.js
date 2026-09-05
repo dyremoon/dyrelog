@@ -84,6 +84,7 @@ function renderSiteFooter() {
       <a href="./about.html">About</a>
       <span>•</span>
       <a href="./download.html">Download Dyrelog</a>
+      <span id="footer-version"></span>
     </div>
 
     <div class="footer-row">
@@ -101,6 +102,36 @@ function renderSiteFooter() {
       Daybreak Game Company or EverQuest Legends.
     </div>
   `;
+
+  loadFooterVersion();
+}
+
+// Shows the current overlay release version in the footer, on every page
+// (the footer is this one shared component). Fetched client-side from the
+// same public GitHub Releases endpoint the desktop overlay's own update
+// check already uses (see desktop-overlay/main.js's checkForUpdates/
+// UPDATE_CHECK_URL) rather than hand-maintaining a version number here.
+// Same "quietly skip" handling as that update check on any failure — no
+// releases published yet, offline, rate-limited — since a missing version
+// number in the footer is cosmetic, never worth surfacing as an error.
+async function loadFooterVersion() {
+  const slot = document.getElementById('footer-version');
+  if (!slot) return;
+  try {
+    const res = await fetch('https://api.github.com/repos/dyremoon/dyrelog/releases/latest', {
+      headers: { Accept: 'application/vnd.github+json' },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const tag = data && data.tag_name;
+    if (!tag) return;
+    slot.innerHTML = `
+      <span>•</span>
+      <a href="https://github.com/dyremoon/dyrelog/releases/latest" target="_blank" rel="noopener">${tag}</a>
+    `;
+  } catch (err) {
+    // Offline, DNS hiccup, no releases published yet — never worth surfacing.
+  }
 }
 
 document.addEventListener('DOMContentLoaded', renderSiteFooter);

@@ -19,6 +19,10 @@
     "files": ["main.js", "preload.js", "renderer/**/*"],
     "win": { "target": "nsis" },
     "mac": { "target": "dmg" },
-    "linux": { "target": "AppImage" }
+    "linux": { "target": "AppImage" },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

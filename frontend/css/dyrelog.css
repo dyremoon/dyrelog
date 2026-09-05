@@ -375,6 +375,15 @@ table tbody tr:hover { background: var(--surface-2); }
   border-radius: 8px;
   overflow: hidden;
   padding: 10px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+/* Small hover lift, backlog item "hover wobble/lift effect on
+   screenshots/images" — a subtle cue that these are real captures worth a
+   closer look, not just decoration. */
+.screenshot-card .frame:hover {
+  transform: translateY(-4px);
+  border-color: var(--brass);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
 }
 .screenshot-card .frame img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; }
 .screenshot-card .cap { font-size: 0.85rem; color: var(--muted); text-align: center; }
