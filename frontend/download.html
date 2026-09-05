@@ -31,12 +31,13 @@
           EverQuest Legends. It runs entirely on your own machine, reads
           your combat log, and shows you a live dps meter while you play.
         </p>
-        <a class="btn btn-brass" id="releases-link" href="#" target="_blank" rel="noopener">Get the latest release &#8599;</a>
+        <a class="btn btn-brass" id="releases-link" href="https://github.com/dyremoon/dyrelog/releases/latest" target="_blank" rel="noopener">Download for Windows &#8595;</a>
         <p class="muted" style="margin-top:14px; margin-bottom:0; font-size:0.85rem;">
-          Opens the GitHub releases page. The Windows installer isn't
-          code-signed yet, since that costs money a small fan project
-          doesn't have, so Windows SmartScreen may warn you the first time
-          you run it. That's expected, not a sign anything's wrong.
+          Downloads the installer straight from GitHub. The Windows
+          installer isn't code-signed yet, since that costs money a small
+          fan project doesn't have, so Windows SmartScreen may warn you the
+          first time you run it. That's expected, not a sign anything's
+          wrong.
         </p>
       </div>
 
@@ -66,7 +67,7 @@
       <div class="plate" style="margin-bottom:24px;">
         <h2>Setup</h2>
         <ol class="download-steps">
-          <li>Download the installer from the releases page above.</li>
+          <li>Click the download button above to grab the installer.</li>
           <li>Run it and follow the prompts. If Windows SmartScreen shows a
             warning, choose "More info" then "Run anyway".</li>
           <li>Launch Dyrelog and point it at your EverQuest Legends log file
@@ -95,7 +96,30 @@
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
   <script>
-    document.getElementById('releases-link').href = 'https://github.com/dyremoon/dyrelog/releases';
+    // Point the download button straight at the latest release's .exe
+    // asset instead of the releases page, so clicking it starts the
+    // download immediately (backlog item 7). Same GitHub API endpoint the
+    // footer version and the desktop overlay's own update check already
+    // use. Falls back to linking at the releases page (the href already on
+    // the button) if there's no release yet, no exe asset on it, or the
+    // request fails for any reason.
+    (async () => {
+      const link = document.getElementById('releases-link');
+      try {
+        const res = await fetch('https://api.github.com/repos/dyremoon/dyrelog/releases/latest', {
+          headers: { Accept: 'application/vnd.github+json' },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const asset = (data.assets || []).find((a) => /\.exe$/i.test(a.name));
+        if (asset && asset.browser_download_url) {
+          link.href = asset.browser_download_url;
+        }
+      } catch (err) {
+        // Offline, rate-limited, no matching asset — the releases-page
+        // fallback href already on the button still works fine.
+      }
+    })();
   </script>
   <footer class="site-footer"></footer>
 </body>

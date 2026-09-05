@@ -706,14 +706,19 @@ function applySettingsPartial(partial) {
       console.error("Failed to update startup launch setting:", err);
     }
   }
-  if (win) {
-    // Settings now lives in its own window (see createSettingsWindow()),
-    // so the mini-mode window never edits its own settings anymore — it
-    // only needs to hear about the result, live, so theme/text-size/
-    // class-color (all pure renderer-side concerns opacity/scale above
-    // don't cover) stay in sync. See onSettingsUpdate() in app.js.
-    win.webContents.send("settings-update", settings);
-  }
+  // Settings now lives in its own window (see createSettingsWindow()), so
+  // every OTHER open window only ever hears about the result, live, so
+  // theme/text-size/class-color (pure renderer-side concerns opacity/scale
+  // above don't cover) stay in sync — see onSettingsUpdate() in app.js/
+  // analysis.js/leaderboard.js. This used to only message `win` (the main
+  // mini-mode card), which is why changing the theme while Combat Analysis
+  // or Leaderboards was ALREADY OPEN never repainted it — those two
+  // windows only ever picked up a new theme by being closed and reopened
+  // (their own getSettings() call on load). All three now get the same
+  // live push.
+  [win, analysisWin, leaderboardWin].forEach(function (w) {
+    if (w && !w.isDestroyed()) w.webContents.send("settings-update", settings);
+  });
   return settings;
 }
 
