@@ -24,7 +24,7 @@
     </header>
 
     <main>
-      <div class="plate plate-gold" style="margin-bottom:24px;">
+      <div class="plate plate-gold" style="margin-bottom:24px;" id="upload-plate">
         <h2>Analyze a log</h2>
         <p class="muted">
           <strong>Where's my log?</strong>
@@ -47,15 +47,28 @@
         <p class="muted" id="dz-error" style="margin-bottom:0; display:none;"></p>
       </div>
 
+      <!-- Replaces the dropzone once a log is successfully read — "that
+           window goes away and shows a new text that says what log is
+           imported, and then below that is the boss dropdown." -->
+      <div class="plate plate-gold" style="margin-bottom:24px;" id="loaded-plate" hidden>
+        <div class="analyze-detail-head" style="margin-bottom:4px;">
+          <h3 style="margin:0;" id="loaded-title">Log imported</h3>
+          <button class="btn" id="btn-load-different" type="button">Load a different log</button>
+        </div>
+        <p class="muted" id="loaded-summary" style="margin-top:0; margin-bottom:14px; font-size:0.9rem;"></p>
+        <div id="picker-body"></div>
+      </div>
+
       <div id="results" hidden>
-        <!-- Analysis lives at the TOP of the results, above the fight list —
-             "if i drop a log in and click on a fight, it scrolls me all the
-             way to the bottom to see the analysis, and i dont want that,
-             the analysis should be at the top." The newest fight is
-             selected by default the moment a log is parsed (see
+        <!-- Analysis lives at the TOP of the results, above the (now-removed)
+             fight list — "if i drop a log in and click on a fight, it scrolls
+             me all the way to the bottom to see the analysis, and i dont
+             want that, the analysis should be at the top." The newest fight
+             is selected by default the moment a log is parsed (see
              handleFile()), so the breakdown is already showing here before
-             you ever touch the list below, and clicking a different fight
-             updates this same panel in place — nothing scrolls. -->
+             you ever touch the boss/kill picker above, and picking a
+             different fight there updates this same panel in place —
+             nothing scrolls. -->
         <div class="plate plate-highlight" id="detail-plate" style="margin-bottom:24px;" hidden>
           <div class="analyze-detail-head">
             <h3 id="detail-title" style="margin:0;"></h3>
@@ -67,25 +80,6 @@
             <button class="detail-tab" data-tab="incoming" type="button">Incoming</button>
           </div>
           <div id="detail-body"></div>
-        </div>
-
-        <div class="plate plate-gold" style="margin-bottom:24px;">
-          <div class="analyze-detail-head" style="margin-bottom:12px;">
-            <h3 style="margin:0;">Fights in this log</h3>
-          </div>
-          <p class="muted" id="results-summary" style="margin-top:0; margin-bottom:12px; font-size:0.9rem;"></p>
-          <input type="text" id="fight-search" class="fight-search" placeholder="Search fights by name&hellip;">
-          <div class="encounter-list-wrap">
-            <table>
-              <thead>
-                <tr><th>Fight</th><th>Difficulty</th><th>Result</th><th>Time</th><th class="num">Duration</th><th class="num">Total dmg</th><th class="num">Top parser</th></tr>
-              </thead>
-              <tbody id="encounter-list"></tbody>
-            </table>
-          </div>
-          <div class="show-more-row" id="show-more-row" hidden>
-            <button class="btn" id="show-more-btn" type="button"></button>
-          </div>
         </div>
       </div>
     </main>
@@ -103,9 +97,13 @@
     var encounters = []; // newest-first, see handleFile()/loadFromSubmission()
     var activeIndex = null;
     var characterName = null;
-    var visibleCount = 50;
-    var searchQuery = '';
     var activeDetailTab = 'outgoing';
+    // Fights grouped by boss name (buildBossGroups()), newest-fought boss
+    // first, and the page of that list currently shown — see
+    // renderPickerPlate()/renderBossPagination().
+    var bossGroups = [];
+    var bossPage = 0;
+    var BOSSES_PER_PAGE = 50;
     // Which per-combatant deep-dive cards are expanded, keyed by
     // "<encounter index>::<row name>" so re-rendering the same fight
     // (switching tabs, etc.) doesn't forget what was open, and switching
@@ -218,75 +216,97 @@
       return state.encounters;
     }
 
-    // ---- fight list (search + capped/scrollable) ---------------------------
+    // ---- boss dropdown -> inner kill dropdown -------------------------
 
-    function getFilteredIndices() {
-      var q = (searchQuery || '').trim().toLowerCase();
-      var out = [];
-      for (var i = 0; i < encounters.length; i++) {
-        if (!q || (encounters[i].mobName || '').toLowerCase().indexOf(q) !== -1) out.push(i);
-      }
-      return out; // encounters is stored newest-first, so this stays newest-first too
+    // Groups by mob name, preserving newest-fought-first order — encounters
+    // is already newest-first (see handleFile()/loadFromSubmission()), so
+    // the first time a given name is seen while scanning it is that boss's
+    // most recent fight, which is exactly the order groups should appear
+    // in. "not a long list of bosses" — any mob fought groups here, not
+    // just curated raid bosses.
+    function buildBossGroups(encs) {
+      var byName = {};
+      var order = [];
+      encs.forEach(function (enc, idx) {
+        var name = enc.mobName || 'Unknown';
+        if (!byName[name]) { byName[name] = []; order.push(name); }
+        byName[name].push(idx);
+      });
+      return order.map(function (name) { return { mobName: name, indices: byName[name] }; });
     }
 
-    function renderEncounterList() {
-      var listEl = document.getElementById('encounter-list');
-      var summaryEl = document.getElementById('results-summary');
-      var showMoreRow = document.getElementById('show-more-row');
-      var showMoreBtn = document.getElementById('show-more-btn');
+    function renderBossPagination(totalPages) {
+      var buttons = '';
+      for (var p = 0; p < totalPages; p++) {
+        buttons += '<button class="page-btn' + (p === bossPage ? ' active' : '') + '" data-page="' + p + '" type="button">' + (p + 1) + '</button>';
+      }
+      return '<div class="boss-pagination">' + buttons + '</div>';
+    }
 
-      if (encounters.length === 0) {
-        document.getElementById('results').hidden = false;
-        summaryEl.textContent = 'No fights found in that log — Dyrelog looks for melee/spell damage lines, so a log with no combat in it won\'t show anything here.';
-        listEl.innerHTML = '';
-        showMoreRow.hidden = true;
-        document.getElementById('detail-plate').hidden = true;
+    // "the boss drop down to be at the top with a selection drop down
+    // within that" — the outer dropdown picks a boss (paginated, 50 per
+    // page), the inner one picks which kill of that boss by timestamp, so
+    // repeat kills of the same boss are each still reachable.
+    function renderPickerPlate() {
+      var wrap = document.getElementById('picker-body');
+      if (!encounters.length) {
+        wrap.innerHTML = '<p class="muted">No fights found in that log — Dyrelog looks for melee/spell damage lines, so a log with no combat in it won\'t show anything here.</p>';
         return;
       }
 
-      var indices = getFilteredIndices();
-      var visible = indices.slice(0, visibleCount);
-      var remaining = indices.length - visible.length;
-      var q = searchQuery.trim();
+      var totalPages = Math.max(1, Math.ceil(bossGroups.length / BOSSES_PER_PAGE));
+      bossPage = Math.min(Math.max(0, bossPage), totalPages - 1);
+      var pageGroups = bossGroups.slice(bossPage * BOSSES_PER_PAGE, bossPage * BOSSES_PER_PAGE + BOSSES_PER_PAGE);
 
-      summaryEl.textContent = q
-        ? (indices.length + (indices.length === 1 ? ' fight matches "' : ' fights match "') + q + '" (of ' + encounters.length + ' total). Click one for its full breakdown.')
-        : (encounters.length + (encounters.length === 1 ? ' fight found' : ' fights found') + ', newest first. Click one for its full breakdown.');
+      var activeBossName = (activeIndex !== null && encounters[activeIndex]) ? (encounters[activeIndex].mobName || 'Unknown') : null;
+      var activeGroup = bossGroups.find(function (g) { return g.mobName === activeBossName; });
+      // If the active fight's boss isn't on the current page (e.g. right
+      // after a fresh load, or the page changed), still list it so the
+      // dropdown's selection matches what's actually showing below.
+      if (activeGroup && pageGroups.indexOf(activeGroup) === -1) pageGroups = [activeGroup].concat(pageGroups);
 
-      listEl.innerHTML = visible
-        .map(function (idx) {
-          var enc = encounters[idx];
-          var stats = EQP.computeStats(enc);
-          var top = stats.rows[0];
-          var dur = EQP.durationSeconds(enc);
-          return (
-            '<tr class="encounter-row' + (idx === activeIndex ? ' active' : '') + '" data-idx="' + idx + '">' +
-              '<td>' + esc(enc.mobName || 'Unknown') + '</td>' +
-              '<td class="muted">' + fmtDifficultyLabel(enc) + '</td>' +
-              '<td>' + (enc.mobKilled ? '<span class="badge badge-good">Killed</span>' : '<span class="badge">No kill</span>') + '</td>' +
-              '<td class="muted">' + fmtTimestamp(enc.startTime) + '</td>' +
-              '<td class="num tabular">' + fmtDur(dur) + '</td>' +
-              '<td class="num tabular">' + fmtNum(enc.totalDamage) + '</td>' +
-              '<td class="num tabular">' + (top ? esc(displayName(top.name)) + ' · ' + fmtNum(top.dps) + ' dps' : '—') + '</td>' +
-            '</tr>'
-          );
-        })
-        .join('');
+      var bossOptions = pageGroups.map(function (g) {
+        var count = g.indices.length;
+        return '<option value="' + esc(g.mobName) + '"' + (g.mobName === activeBossName ? ' selected' : '') + '>' +
+          esc(g.mobName) + ' (' + count + (count === 1 ? ' kill)' : ' kills)') + '</option>';
+      }).join('');
 
-      listEl.querySelectorAll('.encounter-row').forEach(function (row) {
-        row.addEventListener('click', function () {
-          activeIndex = parseInt(row.dataset.idx, 10);
-          renderEncounterList();
-          renderDetail();
+      var killOptions = activeGroup ? activeGroup.indices.map(function (idx) {
+        var enc = encounters[idx];
+        return '<option value="' + idx + '"' + (idx === activeIndex ? ' selected' : '') + '>' +
+          fmtTimestamp(enc.startTime) + ' &middot; ' + fmtDur(EQP.durationSeconds(enc)) + ' &middot; ' + (enc.mobKilled ? 'Killed' : 'No kill') + '</option>';
+      }).join('') : '';
+
+      wrap.innerHTML =
+        '<div class="boss-picker-row">' +
+          '<div class="boss-picker-col">' +
+            '<label class="boss-picker-label" for="boss-select">Boss</label>' +
+            '<select id="boss-select" class="boss-select">' + bossOptions + '</select>' +
+          '</div>' +
+          '<div class="boss-picker-col">' +
+            '<label class="boss-picker-label" for="kill-select">Kill</label>' +
+            '<select id="kill-select" class="boss-select">' + killOptions + '</select>' +
+          '</div>' +
+        '</div>' +
+        (totalPages > 1 ? renderBossPagination(totalPages) : '');
+
+      document.getElementById('boss-select').addEventListener('change', function (e) {
+        var g = bossGroups.find(function (gr) { return gr.mobName === e.target.value; });
+        if (!g) return;
+        activeIndex = g.indices[0];
+        renderPickerPlate();
+        renderDetail();
+      });
+      document.getElementById('kill-select').addEventListener('change', function (e) {
+        activeIndex = parseInt(e.target.value, 10);
+        renderDetail();
+      });
+      wrap.querySelectorAll('.page-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          bossPage = parseInt(btn.dataset.page, 10);
+          renderPickerPlate();
         });
       });
-
-      if (remaining > 0) {
-        showMoreRow.hidden = false;
-        showMoreBtn.textContent = 'Show ' + Math.min(50, remaining) + ' more (' + remaining + ' left)';
-      } else {
-        showMoreRow.hidden = true;
-      }
     }
 
     // ---- fight detail (ported from the overlay's Combat Analysis window) --
@@ -392,7 +412,18 @@
       );
     }
 
-    function renderCombatantTable(stats) {
+    // "remove the Deep Dive portion, and bake that into the analysis
+    // portion. It seemingly has a lot of double-up information and serves
+    // no purpose. the analysis IS the deep dive." — used to be a plain
+    // summary table here, then a SEPARATE "Deep dive" section further down
+    // repeating the same name/damage/dps/% for each combatant just to add
+    // an expand arrow. Now there's one Combatants section: still a plain
+    // table on a multi-target view (per-ability breakdown isn't reliably
+    // attributable across more than one confirmed mob), but a single-target
+    // view renders those same numbers as expandable cards instead of a
+    // table-plus-cards duplicate, with hits/crits folded into each card's
+    // own header so nothing that used to be in the table is lost.
+    function renderCombatantSection(stats) {
       var rows = buildAnalysisRows(stats.rows, stats.totalDamage, stats.duration);
       var showPct = rows.length > 1;
       var rowsHtml = rows.map(function (r, i) {
@@ -409,15 +440,27 @@
           '</tr>'
         );
       }).join('');
-      return {
-        rows: rows,
-        html: (
-          '<table><thead><tr><th>Combatant</th><th class="num">Damage</th><th class="num">DPS</th>' +
-            (showPct ? '<th class="num">% of total</th>' : '') +
-            '<th class="num">Hits</th><th class="num">Crits</th></tr></thead>' +
-          '<tbody>' + (rowsHtml || '<tr><td colspan="' + (showPct ? 6 : 5) + '" class="muted">No damage recorded.</td></tr>') + '</tbody></table>'
-        )
-      };
+
+      var byMob = stats.byMob || [];
+      var canExpand = byMob.length <= 1;
+      var deepDiveMobName = byMob.length === 1 ? byMob[0].name + (byMob[0].generation > 1 ? ' (' + byMob[0].generation + ')' : '') : null;
+      var viewKey = String(activeIndex);
+
+      if (canExpand) {
+        return (
+          '<p class="section-label">Combatants' + (deepDiveMobName ? ' against ' + esc(deepDiveMobName) : '') + '</p>' +
+          '<p class="muted" style="font-size:0.85rem; margin:-6px 0 10px;">Click a combatant for its full spell/ability breakdown.</p>' +
+          '<div class="combatants">' + rows.map(function (r, i) { return renderCombatantCard(r, i, viewKey, showPct); }).join('') + '</div>'
+        );
+      }
+      return (
+        '<p class="section-label">Combatants</p>' +
+        '<table><thead><tr><th>Combatant</th><th class="num">Damage</th><th class="num">DPS</th>' +
+          (showPct ? '<th class="num">% of total</th>' : '') +
+          '<th class="num">Hits</th><th class="num">Crits</th></tr></thead>' +
+        '<tbody>' + (rowsHtml || '<tr><td colspan="' + (showPct ? 6 : 5) + '" class="muted">No damage recorded.</td></tr>') + '</tbody></table>' +
+        '<p class="muted" style="font-size:0.85rem; margin-top:8px;">Per-ability breakdown isn\'t shown when more than one target was fought in this view — damage can\'t be reliably split by target at the ability level.</p>'
+      );
     }
 
     function renderHealingSection(healing) {
@@ -561,7 +604,7 @@
       );
     }
 
-    function renderCombatantCard(r, i, viewKey) {
+    function renderCombatantCard(r, i, viewKey, showPct) {
       var key = viewKey + '::' + r.name;
       var isOpen = expanded.has(key);
       var swatch = 'var(' + RANK_SWATCHES[i % RANK_SWATCHES.length] + ')';
@@ -571,7 +614,8 @@
           '<div class="combatant-head" data-toggle="' + esc(key) + '">' +
             '<div class="who"><span class="disclosure">&#9656;</span><span class="cname">' + esc(r.name) + petTag + '</span></div>' +
             '<div class="stats"><span><b>' + fmtNum(r.damage) + '</b> dmg</span><span><b>' + r.dps.toFixed(1) + '</b> dps</span>' +
-              '<span><b>' + r.pct.toFixed(1) + '%</b></span></div>' +
+              (showPct ? '<span><b>' + r.pct.toFixed(1) + '%</b></span>' : '') +
+              '<span><b>' + r.hits + '</b> hits</span><span><b>' + r.crits + '</b> crits</span></div>' +
           '</div>' +
           '<div class="combatant-body">' + renderAbilityTable(r.abilities) + '</div>' +
         '</div>'
@@ -624,25 +668,34 @@
         return;
       }
 
-      var combatantTable = renderCombatantTable(stats);
-      var byMob = stats.byMob || [];
-      var showDeepDive = byMob.length <= 1;
-      var deepDiveMobName = byMob.length === 1 ? byMob[0].name + (byMob[0].generation > 1 ? ' (' + byMob[0].generation + ')' : '') : null;
-      var viewKey = String(activeIndex);
-
       document.getElementById('detail-body').innerHTML =
         renderDpsChartSection(stats) +
         renderMobsFoughtSection(stats) +
-        combatantTable.html +
+        renderCombatantSection(stats) +
         renderHealingSection(stats.healing) +
         renderProcsSection(stats) +
-        renderAbilitiesTotalSection(stats.abilitiesTotal) +
-        (showDeepDive ?
-          '<p class="section-label">Deep dive — click a combatant for its spell/ability breakdown' +
-            (deepDiveMobName ? ' against ' + esc(deepDiveMobName) : '') + '</p>' +
-          '<div class="combatants">' + combatantTable.rows.map(function (r, i) { return renderCombatantCard(r, i, viewKey); }).join('') + '</div>'
-          : '');
+        renderAbilitiesTotalSection(stats.abilitiesTotal);
       wireCombatantCards();
+    }
+
+    // Shared finish-up for both a dropped file and a loaded submission —
+    // builds the boss groups, resets picker/detail state to the newest
+    // fight, and swaps the dropzone plate out for the "log imported" +
+    // picker plate. sourceLabel is the loaded-summary line's lead-in text.
+    function finishLoad(sourceLabel) {
+      bossGroups = buildBossGroups(encounters);
+      bossPage = 0;
+      expanded.clear();
+      activeDetailTab = 'outgoing';
+      activeIndex = encounters.length ? 0 : null; // the newest fight
+      document.getElementById('upload-plate').hidden = true;
+      document.getElementById('loaded-plate').hidden = false;
+      document.getElementById('loaded-summary').textContent = encounters.length
+        ? (sourceLabel + ' — ' + encounters.length + (encounters.length === 1 ? ' fight found' : ' fights found') + ', newest first.')
+        : (sourceLabel + ' — no fights found in that log.');
+      document.getElementById('results').hidden = false;
+      renderPickerPlate();
+      renderDetail();
     }
 
     function handleFile(file) {
@@ -660,16 +713,8 @@
           // array once, up front, and every render/index downstream stays
           // consistent with it.
           encounters = parseLogText(String(reader.result), characterName).slice().reverse();
-          visibleCount = 50;
-          searchQuery = '';
-          var searchInput = document.getElementById('fight-search');
-          if (searchInput) searchInput.value = '';
-          expanded.clear();
-          activeDetailTab = 'outgoing';
-          activeIndex = encounters.length ? 0 : null; // the newest fight
-          document.getElementById('results').hidden = false;
-          renderEncounterList();
-          renderDetail();
+          document.getElementById('loaded-title').textContent = 'Log imported: ' + file.name;
+          finishLoad('Imported ' + file.name);
         } catch (err) {
           showError("Couldn't read that file — make sure it's a plain-text EverQuest Legends log.");
         } finally {
@@ -698,14 +743,16 @@
       handleFile(file);
     });
 
-    document.getElementById('fight-search').addEventListener('input', function (e) {
-      searchQuery = e.target.value;
-      visibleCount = 50;
-      renderEncounterList();
-    });
-    document.getElementById('show-more-btn').addEventListener('click', function () {
-      visibleCount += 50;
-      renderEncounterList();
+    // "that window goes away and shows a new text" — brings the dropzone
+    // back and hides the loaded/results plates so a different log can be
+    // dropped in without a page reload.
+    document.getElementById('btn-load-different').addEventListener('click', function () {
+      encounters = [];
+      activeIndex = null;
+      document.getElementById('loaded-plate').hidden = true;
+      document.getElementById('results').hidden = true;
+      document.getElementById('upload-plate').hidden = false;
+      showError('');
     });
 
     // "have the option to click on the parse in your personal history to
@@ -721,18 +768,14 @@
       api('/api/me/submissions/' + submissionId + '/log')
         .then(function (data) {
           encounters = parseLogText(data.rawLogText, characterName).slice().reverse();
-          visibleCount = 50;
-          searchQuery = '';
-          expanded.clear();
-          activeDetailTab = 'outgoing';
-          activeIndex = encounters.length ? 0 : null;
-          document.getElementById('results').hidden = false;
-          renderEncounterList();
-          renderDetail();
-          document.getElementById('dz-title').textContent = 'Loaded from your personal history — drop another log file to analyze something else';
+          document.getElementById('loaded-title').textContent = 'Log imported from your personal history';
+          finishLoad('Loaded from your personal history');
         })
         .catch(function () {
           showError("Couldn't load that parse — it may not be yours, or may no longer be available.");
+        })
+        .finally(function () {
+          document.getElementById('dz-title').textContent = 'Drop your log file here, or click to choose one';
         });
     }
 

@@ -517,10 +517,10 @@ table tbody tr:hover { background: var(--surface-2); }
 .download-steps li { color: var(--ink-2); line-height: 1.55; }
 .download-steps li::marker { color: var(--brass-2); font-weight: 700; }
 
-/* Analyze Log page — a drop zone plus an encounter list/detail view, all
-   client-side (eqp-core.js, same engine the overlay and worker share).
+/* Analyze Log page — a drop zone plus a boss/kill picker and detail view,
+   all client-side (eqp-core.js, same engine the overlay and worker share).
    "It should have the same functionality as the overlay or more" — v1
-   scope is the encounter list and per-combatant breakdown; the graph and
+   scope is the fight picker and per-combatant breakdown; the graph and
    Incoming tab are noted as a fast-follow rather than silently missing. */
 .dropzone {
   border: 2px dashed var(--hair-strong);
@@ -534,56 +534,49 @@ table tbody tr:hover { background: var(--surface-2); }
 .dropzone .dz-title { font-weight: 700; color: var(--ink); margin-bottom: 4px; }
 .dropzone .dz-sub { color: var(--muted); font-size: 0.9rem; }
 
-.encounter-row { cursor: pointer; }
-.encounter-row:hover { background: var(--surface-2); }
-.encounter-row.active { background: var(--surface-3); }
-.encounter-row.active td { color: var(--ink); }
-
 .analyze-detail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
 
-/* Analyze Log — search + capped/scrollable fight list. "It shows 650
-   fights, maybe we should just show the last 50, with an option to show
-   more... in a drop down window to select from instead of scrolling the
-   whole page." A literal <select> can't carry per-fight columns (result,
-   duration, top parser), so the compromise is a bounded, self-scrolling
-   panel: the list scrolls inside its own short box instead of stretching
-   the whole page down further with every fight. Newest-first by default
-   (see handleFile()/loadFromSubmission() reversing the parsed array), 50
-   rows at a time via #show-more-btn, filterable by mob name via
-   #fight-search. */
-.fight-search {
-  display: block;
-  width: 100%;
+/* Analyze Log — boss dropdown -> inner kill dropdown, replacing what used
+   to be a single long scrollable/searchable fight table. "I want the boss
+   drop down to be at the top with a selection drop down within that, not
+   a long list of bosses." Fights are grouped by mob name (buildBossGroups()
+   in analyze.html), newest-fought boss first; picking a boss fills the
+   second dropdown with just that boss's individual kills by timestamp so
+   repeat kills of the same boss are still each reachable. The boss list
+   itself is paginated (#boss-select's page, see renderBossPagination())
+   rather than the old table's "show 50 more" — same dark-select styling
+   as .class-picker-slot select elsewhere on the site. */
+.boss-picker-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.boss-picker-col { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 200px; }
+.boss-picker-label { font-size: 0.75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.boss-select {
   background: var(--surface-2);
   color: var(--ink);
   border: 1px solid var(--hair-strong);
   border-radius: 6px;
   padding: 9px 12px;
   font-size: 0.95rem;
-  margin-bottom: 12px;
+  width: 100%;
 }
-.fight-search::placeholder { color: var(--muted); }
-.encounter-list-wrap {
-  max-height: 420px;
-  overflow-y: auto;
-  border: 1px solid var(--hair);
-  border-radius: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--hair-strong) transparent;
+.boss-pagination { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.page-btn {
+  min-width: 32px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--hair-strong);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  cursor: pointer;
 }
-.encounter-list-wrap table { margin: 0; }
-.encounter-list-wrap thead th {
-  position: sticky;
-  top: 0;
-  background: var(--surface);
-  z-index: 1;
-}
-.show-more-row:not([hidden]) { display: flex; justify-content: center; margin-top: 12px; }
+.page-btn:hover { background: var(--surface-3); }
+.page-btn.active { background: var(--surface-3); color: var(--ink); border-color: var(--brass); }
 
-/* Analyze Log — deep-dive breakdown, ported from the desktop overlay's own
-   Combat Analysis window (analysis.js/analysis.css) so the website tool
-   has the same dps chart, procs, ability breakdown, healing, and Incoming
-   tab, scoped to one encounter at a time (no session-merging here — see
+/* Analyze Log — fight detail breakdown, ported from the desktop overlay's
+   own Combat Analysis window (analysis.js/analysis.css) so the website
+   tool has the same dps chart, combatants, procs, ability breakdown,
+   healing, and Incoming tab, scoped to one encounter at a time (no
+   session-merging here — see
    DYRELOG_GUIDE.md for why that's out of scope for the site). Token
    mapping from the overlay's analysis.css: --accent -> --brass, --accent-2
    -> --gold, --bg-card (hover fill) -> --surface-2, --ink-3 -> --muted,
@@ -706,10 +699,15 @@ table tbody tr:hover { background: var(--surface-2); }
 .proc-ppm { font-size: 0.8rem; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
 .proc-count { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; min-width: 26px; }
 
-/* Per-combatant deep dive — an expandable card per combatant (you, your
-   pet, anyone else's pet), opening into its own per-ability breakdown.
-   Only shown when the encounter has one confirmed target (byMob.length
-   <= 1) — see renderDetail() in analyze.html for why. */
+/* Combatants section — an expandable card per combatant (you, your pet,
+   anyone else's pet), opening into its own per-ability breakdown, with
+   hits/crits folded into the card header. Used in place of a plain table
+   whenever the encounter has one confirmed target (byMob.length <= 1) —
+   see renderCombatantSection() in analyze.html for why a multi-target view
+   falls back to a table instead. Previously a separate "Deep dive" section
+   duplicating the same combatant list below an already-rendered summary
+   table; merged into one Combatants section since "the analysis IS the
+   deep dive." */
 .combatants { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .combatant-card {
   border: 1px solid var(--hair);
