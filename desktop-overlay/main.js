@@ -111,7 +111,21 @@ const DEFAULT_SETTINGS = {
   // (via app.setLoginItemSettings) so it's already running/in-tray by the
   // time you launch EverQuest — see applySettingsPartial() below.
   launchAtStartup: false,
-  autoSubmitMode: "off", // "off" | "ask" | "auto"
+  // "make the default option 'ask before submit' for leaderboard options
+  // instead of 'disabled'" (Sept 6) — was "off". Only affects a settings
+  // file that's never had this key written to it (loadSettings() merges
+  // this in as the fallback — see loadJson() below); anyone who already
+  // has an explicit autoSubmitMode saved keeps whatever they picked.
+  // "Add color options to edit the circle colors: border, background, text
+  // colors" (Sept 6) — Circle display style previously always used the
+  // theme's own --bg-card/--accent/--ink-3, with no way to override any of
+  // the three independent of Bars mode's own Color section. null = keep
+  // following the theme, same convention as bgColor/borderColor/textColor
+  // above. See applySettings() in app.js and .watch-badge in style.css.
+  circleBgColor: null,
+  circleBorderColor: null,
+  circleTextColor: null,
+  autoSubmitMode: "ask", // "off" | "ask" | "auto"
   autoSubmitChosen: false, // first-run toggle row (see the fight-view) only ever shows until this flips true
   // A local cache of the curated leaderboard boss list (see
   // fetchKnownBosses() in app.js) — the app used to always wait on a
@@ -711,6 +725,36 @@ ipcMain.handle("get-app-version", function () {
 // "update-available" send that happens the moment a check actually finds one.
 ipcMain.handle("get-update-info", function () {
   return updateInfo;
+});
+
+// "make sure the what's new tab shows whatever patch notes were listed in
+// the release notes, this still shows v1" (Sept 6) — settings.js used to
+// render a CHANGELOG array hand-copied into its own source for whatever
+// version was "current" at the time, which is exactly what went stale: it
+// never updates itself just because a new version ships, only if someone
+// remembers to go edit that array too. This instead reads the real
+// releases straight off GitHub (the exact same public Releases page
+// UPDATE_CHECK_URL/autoUpdater already pull from) every time the What's
+// New tab loads, so it can never show anything other than what was
+// actually typed into a release's own notes. Returns up to the 10 most
+// recent releases as [{ version, body }, ...] newest-first, or null on any
+// failure (offline, rate-limited, no releases yet) — settings.js falls
+// back to a minimal built-in message in that case rather than an empty tab.
+const RELEASE_HISTORY_URL = "https://api.github.com/repos/dyremoon/dyrelog/releases?per_page=10";
+ipcMain.handle("get-release-notes", async function () {
+  try {
+    var res = await fetch(RELEASE_HISTORY_URL, { headers: { Accept: "application/vnd.github+json" } });
+    if (!res.ok) return null;
+    var data = await res.json();
+    if (!Array.isArray(data)) return null;
+    return data
+      .filter(function (r) { return r && r.tag_name && !r.draft; })
+      .map(function (r) {
+        return { version: String(r.tag_name).replace(/^v/i, ""), body: r.body || "", publishedAt: r.published_at || null };
+      });
+  } catch (err) {
+    return null; // offline, DNS hiccup, rate-limited — settings.js has its own fallback text
+  }
 });
 
 // Real check/download/relaunch pair for the What's New tab's own buttons

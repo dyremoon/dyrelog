@@ -1,6 +1,6 @@
 {
   "name": "dyrelog-desktop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "Dyrelog's always-on-top desktop overlay (Electron) — the mini-mode DPS meter from the README art spec.",
   "main": "main.js",

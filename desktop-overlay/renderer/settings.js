@@ -173,6 +173,15 @@
     myNameTextColor: document.getElementById("set-mynametextcolor"),
     petNameTextColor: document.getElementById("set-petnametextcolor"),
     resetTextColors: document.getElementById("btn-reset-textcolors"),
+    // "Add color options to edit the circle colors: border, background,
+    // text colors" (Sept 6) — Circle display style never had any color
+    // customization at all before this, always the theme's own --bg-card/
+    // --accent/--ink-3, unlike Bars above. See circleBgColor/
+    // circleBorderColor/circleTextColor in main.js's DEFAULT_SETTINGS.
+    circleBgColor: document.getElementById("set-circlebgcolor"),
+    circleBorderColor: document.getElementById("set-circlebordercolor"),
+    circleTextColor: document.getElementById("set-circletextcolor"),
+    resetCircleColors: document.getElementById("btn-reset-circlecolors"),
     font: document.getElementById("set-font"),
     classColors: document.getElementById("set-classcolors"),
     myClass: document.getElementById("set-myclass"),
@@ -340,6 +349,16 @@
       frame.style.setProperty("--preview-circlescale", String(s.circleScale != null ? s.circleScale : 1));
       frame.style.setProperty("--preview-font", FONT_STACKS[s.fontFamily || "system"] || "inherit");
     });
+    // Circle's own colors (Sept 6) — separate variables from the shared
+    // --preview-bg-color/--preview-accent/--preview-secondary-color above,
+    // which is what Bars/Mini-bar still use unchanged; falls back to those
+    // same three so the Circle preview looks exactly as it did before until
+    // one of its own three pickers is actually touched.
+    if (els.previewCircle) {
+      els.previewCircle.style.setProperty("--preview-circle-bg", s.circleBgColor || s.bgColor || THEME_BG[theme]);
+      els.previewCircle.style.setProperty("--preview-circle-border", s.circleBorderColor || accent);
+      els.previewCircle.style.setProperty("--preview-circle-text", s.circleTextColor || accent);
+    }
 
     // Bars preview — You is rank 1, so its fill spans the full row; Pet's
     // fill is scaled to its actual share of You's dps (roughly a quarter
@@ -417,6 +436,9 @@
     els.secondaryTextColor.value = s.secondaryTextColor || THEME_INK2[s.theme || "blue"];
     els.myNameTextColor.value = s.myNameTextColor || THEME_INK[s.theme || "blue"];
     els.petNameTextColor.value = s.petNameTextColor || THEME_INK[s.theme || "blue"];
+    els.circleBgColor.value = s.circleBgColor || THEME_BG[s.theme || "blue"];
+    els.circleBorderColor.value = s.circleBorderColor || THEME_ACCENT[s.theme || "blue"];
+    els.circleTextColor.value = s.circleTextColor || THEME_ACCENT[s.theme || "blue"];
     els.font.value = s.fontFamily || "system";
     els.classColors.checked = !!s.classColorsEnabled;
     // The class dropdown used to be disabled unless "Use class colors" was
@@ -485,6 +507,12 @@
   els.resetTextColors.addEventListener("click", function () {
     save({ secondaryTextColor: null, myNameTextColor: null, petNameTextColor: null });
   });
+  els.circleBgColor.addEventListener("input", function () { save({ circleBgColor: els.circleBgColor.value }); });
+  els.circleBorderColor.addEventListener("input", function () { save({ circleBorderColor: els.circleBorderColor.value }); });
+  els.circleTextColor.addEventListener("input", function () { save({ circleTextColor: els.circleTextColor.value }); });
+  els.resetCircleColors.addEventListener("click", function () {
+    save({ circleBgColor: null, circleBorderColor: null, circleTextColor: null });
+  });
   els.font.addEventListener("change", function () { save({ fontFamily: els.font.value }); });
   els.classColors.addEventListener("change", function () { save({ classColorsEnabled: els.classColors.checked }); });
   els.myClass.addEventListener("change", function () { save({ myClass: els.myClass.value || null }); });
@@ -541,33 +569,67 @@
   });
 
   // ---- version + What's New -----------------------------------------
-  var CHANGELOG = [
-    {
-      version: null, // filled in with the real app version once it loads
-      tag: "Current",
-      items: [
-        "DPS-over-time graph in Combat Analysis, your dps (and incoming, when there was any) plotted across the whole fight, with your peak moment marked right on the line.",
-        "A fight-selector dropdown next to the mob name, pick any of your last several pulls without losing your place; it snaps back to whatever's live the moment a new pull starts.",
-        "Mob spawn numbers, fighting the same boss again this log shows “(2)”, “(3)”, etc., matching EQ Legends Companion's own repeat-kill labels.",
-        "An Incoming tab in Combat Analysis, damage your group took, broken down by mob where the log allows it, plus healing received.",
-        "Click a name in the main meter to swap in place to that combatant's own spell/ability breakdown, instead of opening a separate window.",
-        "The main meter and mini bar now show “dps · total damage” together (e.g. “322 dps · 12.2k”) instead of a bare dps number.",
-        "Peak DPS next to the fight timer, a short rolling-window reading of your best burst this pull, not just the running average.",
-        "Fixed a timing issue where the “ready to submit” prompt could be missed on a boss kill if the boss list hadn't finished loading yet.",
-        "A full Settings redesign: real tabs, a search bar, a live preview, a theme-matched look, and this changelog."
-      ]
-    }
+  // "make sure the what's new tab shows whatever patch notes were listed
+  // in the release notes, this still shows v1" (Sept 6) — this used to be
+  // a hardcoded CHANGELOG array hand-copied into this file, which is
+  // exactly what went stale: it only ever showed whatever text someone
+  // last pasted in here, with no connection at all to what actually
+  // shipped. Now it reads the real release notes straight off GitHub every
+  // time this tab loads (get-release-notes in main.js) — the same public
+  // Releases page the auto-updater itself already reads from — so this tab
+  // can never drift from what a release's own notes actually say again.
+  // FALLBACK_ITEMS only ever shows up if that fetch fails outright
+  // (offline, GitHub rate-limiting, no releases published yet), so the tab
+  // is never left blank.
+  var FALLBACK_ITEMS = [
+    "Couldn't load the real patch notes just now (offline, or GitHub is " +
+      "rate-limiting) — see github.com/dyremoon/dyrelog/releases directly, or try again in a moment."
   ];
-  function renderChangelog(version) {
-    els.changelog.innerHTML = CHANGELOG.map(function (block) {
-      var v = block.version || version || "";
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  // Same numeric-part comparison as isNewerVersion() in main.js (no shared
+  // module system between the two processes, so this is its own small
+  // copy) — tags whichever release matches the running app "Current",
+  // anything numerically ahead of it "Available now" (already published on
+  // GitHub but not yet installed here), everything else "Previous".
+  function releaseTag(version, currentVersion) {
+    if (version === currentVersion) return "Current";
+    var vp = String(version).split(".").map(function (n) { return parseInt(n, 10) || 0; });
+    var cp = String(currentVersion).split(".").map(function (n) { return parseInt(n, 10) || 0; });
+    for (var i = 0; i < Math.max(vp.length, cp.length); i++) {
+      var v = vp[i] || 0, c = cp[i] || 0;
+      if (v > c) return "Available now";
+      if (v < c) return "Previous";
+    }
+    return "Current";
+  }
+  // A release's own "body" (its notes, as typed into GitHub) is free-form
+  // markdown — this only ever needs the bullet list back out of it, so it
+  // strips a leading "-"/"*"/"•" off each line and drops anything blank,
+  // same normalization renderAvailablePreview() used to do for just the
+  // one "not yet installed" preview entry below.
+  function parseReleaseItems(body) {
+    return String(body || "")
+      .split("\n")
+      .map(function (line) { return line.replace(/^[\s*\-•]+/, "").trim(); })
+      .filter(Boolean);
+  }
+  function renderChangelog(releases, currentVersion) {
+    var blocks = (releases || [])
+      .map(function (r) { return { version: r.version, tag: releaseTag(r.version, currentVersion), items: parseReleaseItems(r.body) }; })
+      .filter(function (b) { return b.items.length; });
+    if (!blocks.length) blocks = [{ version: currentVersion, tag: "Current", items: FALLBACK_ITEMS }];
+    els.changelog.innerHTML = blocks.map(function (block) {
       return (
         '<div class="changelog-entry">' +
           '<div class="changelog-head">' +
-            (v ? '<span class="changelog-title">v' + v + "</span>" : "") +
-            '<span class="changelog-tag">' + block.tag + "</span>" +
+            (block.version ? '<span class="changelog-title">v' + esc(block.version) + "</span>" : "") +
+            '<span class="changelog-tag">' + esc(block.tag) + "</span>" +
           "</div>" +
-          '<ul class="changelog-list">' + block.items.map(function (item) { return "<li>" + item + "</li>"; }).join("") + "</ul>" +
+          '<ul class="changelog-list">' + block.items.map(function (item) { return "<li>" + esc(item) + "</li>"; }).join("") + "</ul>" +
         "</div>"
       );
     }).join("");
@@ -577,7 +639,7 @@
     var label = "Dyrelog v" + version;
     els.whatsnewVersion.textContent = label;
     els.footerVersion.textContent = label;
-    renderChangelog(version);
+    window.dyrelog.getReleaseNotes().then(function (releases) { renderChangelog(releases, version); });
   });
 
   // ---- What's New: real "check for updates" / "update now and relaunch" -
@@ -589,42 +651,14 @@
     var statusEl = document.getElementById("update-status");
     if (!btnCheck || !statusEl || !window.dyrelog.onUpdaterStatus) return;
 
-    function esc(s) {
-      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
-      });
-    }
-
-    // "Can the What's New tab show vX.X.X's patch notes before it's been
-    // downloaded?" — yes: electron-updater's GitHub provider already reads
-    // the release's own description straight off GitHub (see main.js's
-    // "update-available" handler, which passes it through as
-    // payload.releaseNotes) — no extra fetch needed here. This inserts it
-    // as its own entry at the top of the same changelog list the
-    // hardcoded CHANGELOG above renders, tagged "Available now" instead of
-    // "Current" so it reads as a preview, not as already-installed.
-    var previewedVersion = null;
-    function renderAvailablePreview(version, releaseNotes) {
-      if (!version || !releaseNotes || previewedVersion === version) return;
-      previewedVersion = version;
-      var existing = document.getElementById("changelog-preview-entry");
-      if (existing) existing.remove();
-      var items = String(releaseNotes)
-        .split("\n")
-        .map(function (line) { return line.replace(/^[\s*\-•]+/, "").trim(); })
-        .filter(Boolean);
-      if (!items.length) return;
-      var html =
-        '<div class="changelog-entry" id="changelog-preview-entry">' +
-          '<div class="changelog-head">' +
-            '<span class="changelog-title">v' + esc(version) + "</span>" +
-            '<span class="changelog-tag">Available now</span>' +
-          "</div>" +
-          '<ul class="changelog-list">' + items.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" +
-        "</div>";
-      els.changelog.insertAdjacentHTML("afterbegin", html);
-    }
-
+    // Used to also insert its own separate "Available now" preview entry
+    // here, built from payload.releaseNotes the moment electron-updater's
+    // own check found something newer. Now redundant: renderChangelog()
+    // above already fetches every recent release from GitHub directly
+    // (including anything newer than the installed version) and tags it
+    // "Available now" itself via releaseTag() — one real source of every
+    // entry instead of two separate mechanisms that could show slightly
+    // different things.
     function renderChecking() {
       statusEl.innerHTML = '<span class="update-dot" style="background:var(--ink-3);"></span>Checking&hellip;';
     }
@@ -690,7 +724,6 @@
       else if (state === "up-to-date") renderUpToDate();
       else if (state === "available") {
         renderAvailable(payload.version);
-        renderAvailablePreview(payload.version, payload.releaseNotes);
         btnCheck.disabled = true;
       }
       else if (state === "downloading") renderDownloading(payload.percent);

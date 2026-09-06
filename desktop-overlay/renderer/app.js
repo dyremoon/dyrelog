@@ -398,6 +398,17 @@
     // "there still doesn't seem to be a text font slider for dps/timer/
     // status").
     document.documentElement.style.setProperty("--secondary-text-scale", String(s.secondaryTextScale || 1));
+    // Circle's own colors (Sept 6) — same null-means-"use the theme"
+    // convention as bgColor/borderColor/textColor above, but on their own
+    // properties so picking one never touches Bars/Mini-bar's colors and
+    // vice versa. See .watch-badge/.watch-dps/.watch-unit/.watch-timer in
+    // style.css for where these three actually land.
+    if (s.circleBgColor) document.documentElement.style.setProperty("--circle-bg-color", s.circleBgColor);
+    else document.documentElement.style.removeProperty("--circle-bg-color");
+    if (s.circleBorderColor) document.documentElement.style.setProperty("--circle-border-color", s.circleBorderColor);
+    else document.documentElement.style.removeProperty("--circle-border-color");
+    if (s.circleTextColor) document.documentElement.style.setProperty("--circle-text-color", s.circleTextColor);
+    else document.documentElement.style.removeProperty("--circle-text-color");
     // Circle size BEFORE display style, so that if this save is what's
     // actually turning Circle on, the window opens at the right size the
     // first time instead of at the old scale for one frame.

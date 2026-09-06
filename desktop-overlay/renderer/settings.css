@@ -64,7 +64,13 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
 }
 
 .header-links-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-.site-link { font-size: 0.85rem; font-weight: 600; color: var(--accent-2); text-decoration: none; cursor: pointer; }
+/* "change dyrelog.pages.dev to say 'Dyrelog Website' and make it bigger
+   font and a good golden color" (Sept 6) — was --accent-2 (the purple
+   arcane-2 accent, same one the tab underline/"live" note use), swapped to
+   --accent, which IS this window's own gold token (gold-2 from the site's
+   dusk palette — see this file's :root comment above) rather than a new
+   color. */
+.site-link { font-size: 1.05rem; font-weight: 700; color: var(--accent); text-decoration: none; cursor: pointer; }
 .site-link:hover { text-decoration: underline; }
 
 /* "Have a text size option for the settings menu too" — scoped to THIS
@@ -683,8 +689,15 @@ label.check input { accent-color: var(--accent); }
   position: relative;
   width: var(--preview-circle-d); height: var(--preview-circle-d);
   border-radius: 50%;
-  background: var(--preview-bg-color, #14120f);
-  border: 3px solid var(--preview-accent, #6f9bff);
+  /* Circle's own colors (Sept 6 — "add color options to edit the circle
+     colors: border, background, text colors") — --preview-circle-bg/
+     -border/-text are set in settings.js's renderPreview(), independent of
+     the shared --preview-bg-color/-accent/-secondary-color Bars/Mini-bar
+     use, falling back to those same three (then these hardcoded literals)
+     only until circleBgColor/circleBorderColor/circleTextColor are
+     actually picked. */
+  background: var(--preview-circle-bg, var(--preview-bg-color, #14120f));
+  border: 3px solid var(--preview-circle-border, var(--preview-accent, #6f9bff));
   box-shadow: 0 6px 16px rgba(0,0,0,0.45);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 2px;
@@ -693,23 +706,23 @@ label.check input { accent-color: var(--accent); }
   position: absolute; top: 5px; right: 5px;
   width: 15px; height: 15px; border-radius: 50%;
   border: 1px solid var(--preview-border, rgba(255,255,255,0.14));
-  background: color-mix(in srgb, var(--preview-bg-color, #14120f) 80%, transparent);
-  color: var(--preview-secondary-color, #a89f8d);
+  background: color-mix(in srgb, var(--preview-circle-bg, var(--preview-bg-color, #14120f)) 80%, transparent);
+  color: var(--preview-circle-text, var(--preview-secondary-color, #a89f8d));
   font-size: 9px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
 }
 .preview-circle-dps { display: flex; align-items: baseline; gap: 2px; }
 #preview-circle-dps-num {
-  color: var(--preview-accent, #6f9bff); font-weight: 700;
+  color: var(--preview-circle-text, var(--preview-accent, #6f9bff)); font-weight: 700;
   font-size: calc(1.1em * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
   font-variant-numeric: tabular-nums;
 }
 .preview-circle-unit {
-  color: var(--preview-secondary-color, #a89f8d);
+  color: var(--preview-circle-text, var(--preview-secondary-color, #a89f8d));
   font-size: calc(0.6em * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
 }
 .preview-circle-timer {
-  color: var(--preview-secondary-color, #a89f8d);
+  color: var(--preview-circle-text, var(--preview-secondary-color, #a89f8d));
   font-size: calc(0.66em * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
   font-variant-numeric: tabular-nums;
 }

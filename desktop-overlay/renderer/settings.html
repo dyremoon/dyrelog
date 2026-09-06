@@ -12,7 +12,7 @@
       <span class="live-note">Changes apply immediately</span>
     </div>
     <div class="header-links-row">
-      <a class="site-link" id="header-website" href="#">dyrelog.pages.dev &#8599;</a>
+      <a class="site-link" id="header-website" href="#">Dyrelog Website &#8599;</a>
       <div class="textsize-row">
         <label for="set-uiscale">Settings text size</label>
         <select id="set-uiscale">
@@ -67,7 +67,7 @@
           right/bottom edge or corner instead, and it'll reopen at that size
           from now on.</p>
         <div class="row">
-          <label for="set-textscale">Text size</label>
+          <label for="set-textscale">Bar Text Size</label>
           <input type="range" id="set-textscale" min="0.85" max="1.3" step="0.05">
         </div>
         <div class="row">
@@ -75,14 +75,14 @@
           <input type="range" id="set-minipetscale" min="0.7" max="2.2" step="0.1">
         </div>
         <p class="hint">Only affects the small pet sub-line under your name in
-          mini mode, everything else uses Text size above.</p>
+          mini mode, everything else uses Bar Text Size above.</p>
         <div class="row">
-          <label for="set-secondarytextscale">Timer / DPS</label>
+          <label for="set-secondarytextscale">Info Text Size</label>
           <input type="range" id="set-secondarytextscale" min="0.7" max="2" step="0.1">
         </div>
         <p class="hint">Sizes the fight timer, the "(defeated)"/"(live)"
-          state, and the "dps" unit label on their own, separate from Text
-          size above.</p>
+          state, and the "dps" unit label on their own, separate from Bar
+          Text Size above.</p>
       </div>
 
       <div class="settings-section" data-searchable="layout fade idle display style bars circle">
@@ -162,6 +162,18 @@
             status), and your own or your pet's name specifically, wherever
             they show up in the row list.</p>
           <button class="link-btn" id="btn-reset-textcolors" type="button">Reset to default text colors</button>
+        </div>
+        <div class="row-stack">
+          <label>Circle colors</label>
+          <div class="color-pickers">
+            <label class="color-field">Background <input type="color" id="set-circlebgcolor"></label>
+            <label class="color-field">Border <input type="color" id="set-circlebordercolor"></label>
+            <label class="color-field">Text <input type="color" id="set-circletextcolor"></label>
+          </div>
+          <p class="hint">Only used by Circle display style (Layout above) —
+            Bars/Mini-bar keep their own separate colors above, this is what
+            actually recolors the round badge itself.</p>
+          <button class="link-btn" id="btn-reset-circlecolors" type="button">Reset to default circle colors</button>
         </div>
         <div class="row">
           <label for="set-font">Font</label>

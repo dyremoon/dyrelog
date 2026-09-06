@@ -182,7 +182,7 @@ header h1 { font-size: 17px; margin: 0 0 2px; }
   align-items: center;
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--ink-2);
   background: var(--bg-card);
   border: 1px solid var(--hair);
@@ -212,7 +212,7 @@ header h1 { font-size: 17px; margin: 0 0 2px; }
 #boss-detail .meta { color: var(--ink-2); font-size: 12.5px; margin-bottom: 16px; }
 
 table { width: 100%; border-collapse: collapse; }
-table th, table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--hair); font-size: 12.5px; }
+table th, table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--hair); font-size: 13.5px; }
 table th { color: var(--ink-2); font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.04em; }
 /* Centered, not right-aligned (item 6), and a faint vertical rule between
    columns so it's actually clear where one column ends and the next
@@ -228,7 +228,7 @@ table tbody tr:hover { background: var(--bg-card); }
    mirroring the mini-mode overlay's own .pet-tag look. */
 .pet-tag-mini {
   display: inline-block;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -292,6 +292,16 @@ table tbody tr:hover { background: var(--bg-card); }
   stroke-linecap: round; stroke-linejoin: round;
 }
 .dps-peak-dot { fill: var(--accent); stroke: var(--bg-card); stroke-width: 1.5; }
+/* Incoming tab's own solo chart (buildDpsChart(..., 'in')) — a single
+   damage-taken line drawn full-strength instead of the faded secondary
+   line .dps-line-in above draws alongside the Outgoing tab's own-damage
+   line. Uses the same semantic --line-in token so it still reads as
+   "damage taken" at a glance. */
+.dps-line-in-solo {
+  fill: none; stroke: var(--line-in); stroke-width: 2; opacity: 1;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.dps-peak-dot-in { fill: var(--line-in); stroke: var(--bg-card); stroke-width: 1.5; }
 .dps-peak-label {
   fill: var(--ink); font-size: 10px; font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -312,7 +322,28 @@ table tbody tr:hover { background: var(--bg-card); }
    Mobs fought, Deep dive all reuse the plain version above). */
 .section-label-row { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 0 8px; }
 .section-label-row .section-label { margin: 0; }
-.section-stat { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
+.section-stat { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
+/* "Combine pets with owner" toggle (Combatants section header) — a small
+   pill button, off by default, filled/active once toggled. Reused as-is
+   wherever a section needs its own small on/off control alongside a
+   .section-label, not just this one spot. */
+.btn-toggle-sm {
+  background: var(--bg-card);
+  color: var(--ink-2);
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: none;
+}
+.btn-toggle-sm:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--hair)); color: var(--ink); }
+.btn-toggle-sm.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
 .procs-list { display: flex; flex-direction: column; gap: 2px; }
 .proc-row {
   display: grid;
@@ -324,9 +355,9 @@ table tbody tr:hover { background: var(--bg-card); }
 }
 .proc-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .proc-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
-.proc-name { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.proc-ppm { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
-.proc-count { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; min-width: 26px; }
+.proc-name { font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proc-ppm { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+.proc-count { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; min-width: 26px; }
 /* Left accent stripe per card, colored by the same rank swatch as the main
    table and the mini-mode bars themselves (item 7.5) — a quick "who's
    who" visual thread across the whole window, not just a plain grey list. */
@@ -344,14 +375,14 @@ table tbody tr:hover { background: var(--bg-card); }
 .combatant-head .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .combatant-head .disclosure { color: var(--ink-3); font-size: 10px; transition: transform 0.15s ease; flex: none; }
 .combatant-card.open .combatant-head .disclosure { transform: rotate(90deg); }
-.combatant-head .cname { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.combatant-head .stats { display: flex; gap: 12px; font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; flex: none; }
+.combatant-head .cname { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combatant-head .stats { display: flex; gap: 12px; font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; flex: none; }
 .combatant-head .stats b { color: var(--ink); font-weight: 600; }
 .combatant-body { padding: 10px 12px 12px; display: none; }
 .combatant-card.open .combatant-body { display: block; }
 
 .ability-table { width: 100%; border-collapse: collapse; }
-.ability-table th, .ability-table td { text-align: left; padding: 6px 8px; font-size: 11.5px; border-bottom: 1px solid color-mix(in srgb, var(--hair) 70%, transparent); }
+.ability-table th, .ability-table td { text-align: left; padding: 6px 8px; font-size: 12.5px; border-bottom: 1px solid color-mix(in srgb, var(--hair) 70%, transparent); }
 .ability-table th { color: var(--ink-3); font-weight: 600; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.03em; }
 /* Same centering + column-divider treatment as the main combatant table
    above, and for the same reason (items 6/6.1). */
@@ -372,6 +403,10 @@ table tbody tr:hover { background: var(--bg-card); }
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   border-radius: 999px;
 }
+/* Full-team ability breakdown (renderTeamAbilityTable() in analysis.js)
+   reuses .ability-table wholesale but adds a leading "Who" column — this
+   keeps that name from wrapping or shrinking to fit like the rest. */
+.team-ability-table td:first-child { white-space: nowrap; font-weight: 600; }
 /* How many times this ability was actually CAST (item 10) — only ever
    populated for your own spells (see RE_CAST's comment in eqp-core.js),
    so most rows never show one at all; a small inline badge next to the
@@ -381,7 +416,7 @@ table tbody tr:hover { background: var(--bg-card); }
   margin-left: 5px;
   padding: 0 5px;
   border-radius: 999px;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--accent-2);
   border: 1px solid color-mix(in srgb, var(--accent-2) 45%, var(--hair));
@@ -460,3 +495,30 @@ table tbody tr:hover { background: var(--bg-card); }
 }
 #enc-list::-webkit-scrollbar-thumb:hover, #enc-detail::-webkit-scrollbar-thumb:hover,
 #boss-list::-webkit-scrollbar-thumb:hover, #boss-detail::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+
+/* Bordered/colored section cards (mirrors the website's own
+   .analysis-section system in dyrelog.css) — each of the six Outgoing
+   sections and both Incoming sections gets its own card with a themed
+   border, instead of one long unbroken scroll of tables. Deliberately
+   built on --rank1..--rank6/--line-in (static across every theme, see the
+   :root comment up top) rather than --accent/--accent-2 (which DO shift
+   per theme) for every section except DPS itself, which intentionally
+   tracks --accent since the chart line above it already does. See
+   wrapSection() in analysis.js for where these class names get applied. */
+.analysis-section {
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  padding: 2px 16px 16px;
+  margin: 0 0 16px;
+  background: var(--bg-card);
+}
+.analysis-section:last-child { margin-bottom: 0; }
+.analysis-section-dps { border-color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent); }
+.analysis-section-mobs { border-color: var(--hair); }
+.analysis-section-combatants { border-color: var(--accent-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-2) 14%, transparent); }
+.analysis-section-healing { border-color: var(--rank5); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rank5) 14%, transparent); }
+.analysis-section-procs { border-color: var(--rank3); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rank3) 14%, transparent); }
+.analysis-section-team { border-color: var(--rank6); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rank6) 14%, transparent); }
+.analysis-section-incoming-dps, .analysis-section-incoming-breakdown {
+  border-color: var(--line-in); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line-in) 14%, transparent);
+}

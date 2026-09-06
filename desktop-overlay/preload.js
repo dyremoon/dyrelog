@@ -25,6 +25,10 @@ contextBridge.exposeInMainWorld("dyrelog", {
   onSettingsUpdate: (cb) => ipcRenderer.on("settings-update", (_evt, settings) => cb(settings)),
   // Settings window footer only — see get-app-version in main.js.
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+  // What's New tab — real release notes straight off GitHub, replacing the
+  // old hand-maintained CHANGELOG array in settings.js. See get-release-
+  // notes in main.js.
+  getReleaseNotes: () => ipcRenderer.invoke("get-release-notes"),
   // "when I send updates, the overlay should inform the user to update" —
   // getUpdateInfo() covers a window that opened after the check already
   // found something; onUpdateAvailable() covers the live push the instant

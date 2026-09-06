@@ -42,6 +42,11 @@
   // folds in selectedMemberIndex too, so switching between "combined" and
   // one specific target doesn't share expanded state either.
   var expanded = new Set();
+  // "Create a toggle button to combine pets+pet owners into one analysis"
+  // (Sept 6) — off by default (unchanged behavior: a pet keeps its own
+  // row/card). See buildAnalysisRows()'s combinePets parameter and
+  // mergeAbilityArrays() below.
+  var combinePets = false;
 
   document.getElementById("btn-open-site").addEventListener("click", function () {
     window.dyrelog.openExternal(SITE_BASE);
@@ -109,10 +114,56 @@
   // that's still whatever eqp-core's computeStats() returned (item 4's
   // "combined total dps at the top" comes from that unmodified total, via
   // the stat-chips above this table).
-  function buildAnalysisRows(rows, totalDamage, duration) {
+  // Combines several already-computed ability arrays (abilitiesArray()'s
+  // shape in eqp-core.js — name/damage/hits/crits/misses/casts, plus a
+  // .pct computed against a DIFFERENT denominator than the merged result
+  // needs) back down to one row per ability name, dps/pct recomputed fresh
+  // against `denom`. Used by combinePets below — a render-only merge, no
+  // eqp-core.js change needed, mirroring mergeAbilities()+abilitiesArray()
+  // there but operating on arrays instead of raw tally buckets.
+  function mergeAbilityArrays(arrays, dur, denom) {
+    var bucket = {};
+    (arrays || []).forEach(function (arr) {
+      (arr || []).forEach(function (a) {
+        var d = bucket[a.name] || (bucket[a.name] = { name: a.name, damage: 0, hits: 0, crits: 0, misses: 0, casts: 0 });
+        d.damage += a.damage;
+        d.hits += a.hits;
+        d.crits += a.crits;
+        d.misses += a.misses || 0;
+        d.casts += a.casts || 0;
+      });
+    });
+    return Object.keys(bucket).map(function (name) {
+      var a = bucket[name];
+      return {
+        name: a.name, damage: a.damage, hits: a.hits, crits: a.crits, misses: a.misses, casts: a.casts,
+        dps: dur > 0 ? a.damage / dur : 0,
+        pct: denom > 0 ? (a.damage / denom) * 100 : 0
+      };
+    }).sort(function (a, b) { return b.damage - a.damage; });
+  }
+
+  // combinePets (Sept 6 — "a toggle button to combine pets+pet owners into
+  // one analysis") folds each pet's row and abilities back into its
+  // owner's single row instead, using the OWNER's already-combined
+  // damage/hits/crits (c.damage/c.hits/c.crits in eqp-core.js already
+  // include pet contributions) rather than re-summing self+pet by hand.
+  function buildAnalysisRows(rows, totalDamage, duration, combinePets) {
     var out = [];
     (rows || []).forEach(function (r) {
       var pets = r.pets || [];
+      if (combinePets && pets.length) {
+        out.push({
+          name: displayName(r.name), ownerName: r.name, isPet: false, combinedPets: true,
+          damage: r.damage,
+          dps: duration > 0 ? r.damage / duration : 0,
+          hits: r.hits,
+          crits: r.crits,
+          pct: totalDamage > 0 ? (r.damage / totalDamage) * 100 : 0,
+          abilities: mergeAbilityArrays([r.abilities].concat(pets.map(function (p) { return p.abilities; })), duration, r.damage)
+        });
+        return;
+      }
       var petHits = pets.reduce(function (sum, p) { return sum + p.hits; }, 0);
       var petCrits = pets.reduce(function (sum, p) { return sum + p.crits; }, 0);
       out.push({
@@ -302,7 +353,7 @@
     // Flattened — one row per real "thing" (you, your pet, anyone else's
     // pet), never a combined row with a footnote. See buildAnalysisRows()'s
     // own comment for why.
-    var rows = buildAnalysisRows(activeStats.rows, activeStats.totalDamage, activeStats.duration);
+    var rows = buildAnalysisRows(activeStats.rows, activeStats.totalDamage, activeStats.duration, combinePets);
     // The "% of total" column only means anything once there's someone to
     // compare against — with just you and no pet (the simplest case) it's
     // always a flat, meaningless 100.0% that just read as noise sitting
@@ -368,14 +419,22 @@
     var canExpand = activeByMob.length <= 1;
     var deepDiveMobName = activeByMob.length === 1 ?
       activeByMob[0].name + (activeByMob[0].generation > 1 ? " (" + activeByMob[0].generation + ")" : "") : null;
+    // "Create a toggle button to combine pets+pet owners into one
+    // analysis" — sits in the section header regardless of which layout
+    // (cards vs. plain table) renders below, since either one already
+    // reads combinePets via buildAnalysisRows() above.
+    var combineToggleHtml =
+      '<button class="btn-toggle-sm' + (combinePets ? " active" : "") + '" id="btn-combine-pets" type="button">' +
+        (combinePets ? "&#10003; Pets combined with owners" : "Combine pets with owners") +
+      "</button>";
     var combatantSectionHtml = canExpand
       ? (
-          '<p class="section-label">Combatants' + (deepDiveMobName ? " against " + esc(deepDiveMobName) : "") + "</p>" +
+          '<div class="section-label-row"><p class="section-label">Combatants' + (deepDiveMobName ? " against " + esc(deepDiveMobName) : "") + "</p>" + combineToggleHtml + "</div>" +
           '<p class="muted" style="font-size:0.8rem; margin:-6px 0 10px;">Click a combatant for its full spell/ability breakdown.</p>' +
           '<div class="combatants" id="combatants">' + rows.map(function (r, i) { return renderCombatantCard(r, i, viewKey, showPct); }).join("") + "</div>"
         )
       : (
-          '<p class="section-label">Combatants</p>' +
+          '<div class="section-label-row"><p class="section-label">Combatants</p>' + combineToggleHtml + "</div>" +
           "<table><thead><tr><th>Combatant</th><th class=\"num\">Damage</th><th class=\"num\">DPS</th>" +
             (showPct ? '<th class="num" title="Share of this fight\'s total damage">% of total</th>' : "") +
             '<th class="num">Hits</th><th class="num">Crits</th></tr></thead>' +
@@ -384,14 +443,13 @@
         );
 
     var outgoingHtml =
-      renderDpsChartSection(activeStats) +
-      renderMobsFoughtSection(stats) +
-      pillsHtml +
-      (pillsHtml ? '<p class="section-label">' + esc(activeLabel) + "</p>" : "") +
-      combatantSectionHtml +
-      renderHealingSection(activeStats.healing) +
-      renderProcsSection(activeStats) +
-      renderAbilitiesTotalSection(activeStats.abilitiesTotal);
+      wrapSection(renderDpsChartSection(activeStats), "analysis-section-dps") +
+      wrapSection(renderMobsFoughtSection(stats), "analysis-section-mobs") +
+      (pillsHtml ? wrapSection(pillsHtml + '<p class="section-label">' + esc(activeLabel) + "</p>", "analysis-section-mobs") : "") +
+      wrapSection(combatantSectionHtml, "analysis-section-combatants") +
+      wrapSection(renderHealingSection(activeStats.healing), "analysis-section-healing") +
+      wrapSection(renderProcsSection(activeStats), "analysis-section-procs") +
+      wrapSection(renderTeamAbilitySection(activeStats, combinePets), "analysis-section-team");
 
     els.detail.innerHTML =
       "<h2>" + esc(sessionLabel(session)) +
@@ -493,14 +551,24 @@
     return out;
   }
 
-  function buildDpsChart(timeline, duration) {
+  // mode "both" (default) is the original Outgoing chart — your own dps
+  // line, plus an incoming line whenever there was any. mode "in" is the
+  // Incoming tab's own chart (Sept 6 parity pass — "the incoming section
+  // is very lackluster compared to outgoing, add the same tools"): just
+  // the incoming line, peak-labeled the same way.
+  function buildDpsChart(timeline, duration, mode) {
+    mode = mode === "in" ? "in" : "both";
     if (!timeline || timeline.length < 2) return "";
     var outVals = timeline.map(function (p) { return p.out; });
     var inVals = timeline.map(function (p) { return p.in; });
     var smoothOut = smoothSeries(outVals, 5);
     var smoothIn = smoothSeries(inVals, 5);
-    var showIn = inVals.some(function (v) { return v > 0; });
-    var maxVal = Math.max(1, Math.max.apply(null, smoothOut), showIn ? Math.max.apply(null, smoothIn) : 0);
+    var hasIn = inVals.some(function (v) { return v > 0; });
+    if (mode === "in" && !hasIn) return "";
+    var showIn = mode === "in" ? true : hasIn;
+    var showOut = mode !== "in";
+    var primary = mode === "in" ? smoothIn : smoothOut;
+    var maxVal = Math.max(1, showOut ? Math.max.apply(null, smoothOut) : 0, showIn ? Math.max.apply(null, smoothIn) : 0);
     maxVal *= 1.2; // headroom so the peak label never sits flush against the top edge
 
     var W = 640, H = 150, padL = 38, padR = 10, padT = 14, padB = 20;
@@ -515,10 +583,11 @@
     // Peak marker sits on the SAME (smoothed) line that's actually drawn,
     // so the dot and its label always land exactly on the curve.
     var peakIdx = 0, peakVal = -1;
-    smoothOut.forEach(function (v, i) { if (v > peakVal) { peakVal = v; peakIdx = i; } });
+    primary.forEach(function (v, i) { if (v > peakVal) { peakVal = v; peakIdx = i; } });
     var peakX = xAt(peakIdx), peakY = yAt(peakVal);
     var peakLabelX = Math.min(Math.max(peakX, padL + 30), W - padR - 30);
     var peakAbove = peakY > padT + 18;
+    var peakSuffix = mode === "in" ? " dps taken" : " dps";
 
     var gridHtml = [0.5, 1].map(function (frac) {
       var y = padT + plotH * (1 - frac);
@@ -532,16 +601,18 @@
       '<div class="dps-chart-wrap">' +
         '<svg class="dps-chart" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">' +
           gridHtml +
-          (showIn ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in" fill="none" />' : "") +
-          '<path d="' + pathFor(smoothOut) + '" class="dps-line-out" fill="none" />' +
-          '<circle cx="' + peakX.toFixed(1) + '" cy="' + peakY.toFixed(1) + '" r="3.5" class="dps-peak-dot" />' +
-          '<text x="' + peakLabelX.toFixed(1) + '" y="' + (peakAbove ? peakY - 8 : peakY + 16).toFixed(1) + '" class="dps-peak-label" text-anchor="middle">Peak ' + fmtAbbrev(peakVal) + " dps</text>" +
+          (showIn && mode === "both" ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in" fill="none" />' : "") +
+          (mode === "in" ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in-solo" fill="none" />' : '<path d="' + pathFor(smoothOut) + '" class="dps-line-out" fill="none" />') +
+          '<circle cx="' + peakX.toFixed(1) + '" cy="' + peakY.toFixed(1) + '" r="3.5" class="dps-peak-dot' + (mode === "in" ? " dps-peak-dot-in" : "") + '" />' +
+          '<text x="' + peakLabelX.toFixed(1) + '" y="' + (peakAbove ? peakY - 8 : peakY + 16).toFixed(1) + '" class="dps-peak-label" text-anchor="middle">Peak ' + fmtAbbrev(peakVal) + peakSuffix + "</text>" +
           '<text x="' + padL + '" y="' + (H - 4) + '" class="dps-axis-label">0:00</text>' +
           '<text x="' + (W - padR) + '" y="' + (H - 4) + '" class="dps-axis-label" text-anchor="end">' + fmtDur(duration) + "</text>" +
         "</svg>" +
         '<div class="dps-chart-legend">' +
-          '<span class="legend-item"><span class="legend-swatch out"></span>Your DPS</span>' +
-          (showIn ? '<span class="legend-item"><span class="legend-swatch in"></span>Incoming</span>' : "") +
+          (mode === "in"
+            ? '<span class="legend-item"><span class="legend-swatch in"></span>Incoming</span>'
+            : '<span class="legend-item"><span class="legend-swatch out"></span>Your DPS</span>' +
+              (showIn ? '<span class="legend-item"><span class="legend-swatch in"></span>Incoming</span>' : "")) +
         "</div>" +
       "</div>"
     );
@@ -605,12 +676,29 @@
   // log lines don't carry enough to attribute a heal to a specific
   // recipient any more precisely than that (see the "heal" branch's own
   // comment).
-  function renderIncomingTab(activeEnc, activeStats) {
+  // "the incoming section is very lackluster compared to outgoing, add the
+  // same/some same tools from outgoing into incoming" (Sept 6) — an
+  // incoming-only DPS-over-time chart (buildDpsChart's own "in" mode) and
+  // a Hits column pulled from EQP.computeTakenStats(), which already
+  // tracks per-source hit counts that simply weren't being shown here
+  // before — no engine change needed for either. What's still deliberately
+  // NOT here (no per-ability incoming breakdown, no incoming crit count)
+  // is a real EQ-log-format limit, not an oversight — see the big comment
+  // above: an incoming hit only ever tells you which MOB dealt it, never
+  // which spell/swing type.
+  function renderIncomingChartSection(activeStats) {
+    var chart = buildDpsChart(activeStats.timeline, activeStats.duration, "in");
+    if (!chart) return "";
+    return '<p class="section-label">Incoming damage over time</p>' + chart;
+  }
+
+  function renderIncomingBreakdownSection(activeEnc, activeStats) {
     var byMob = (activeStats.byMob || []).filter(function (m) { return m.totalTaken > 0; });
     var taken = EQP.computeTakenStats(activeEnc); // still the real total — see the comment above
     var totalTaken = taken.totalTaken;
     var dur = Math.max(activeStats.duration || 0, 1);
-    var healTotal = (activeStats.healing || []).reduce(function (sum, h) { return sum + h.amount; }, 0);
+    var hitsByName = {};
+    (taken.rows || []).forEach(function (r) { hitsByName[r.name] = r.hits; });
     var attributed = byMob.reduce(function (sum, m) { return sum + m.totalTaken; }, 0);
     var unattributed = Math.max(0, totalTaken - attributed);
     var rowsHtml = byMob.map(function (m) {
@@ -620,6 +708,7 @@
           '<td class="num">' + fmtNum(m.totalTaken) + "</td>" +
           '<td class="num">' + m.takenDps.toFixed(1) + "</td>" +
           '<td class="num">' + (totalTaken > 0 ? (m.totalTaken / totalTaken * 100).toFixed(1) : "0.0") + "%</td>" +
+          '<td class="num">' + (hitsByName[m.name] || 0) + "</td>" +
         "</tr>"
       );
     }).join("");
@@ -630,22 +719,34 @@
           '<td class="num">' + fmtNum(unattributed) + "</td>" +
           '<td class="num">' + (unattributed / dur).toFixed(1) + "</td>" +
           '<td class="num">' + (totalTaken > 0 ? (unattributed / totalTaken * 100).toFixed(1) : "0.0") + "%</td>" +
+          '<td class="num">' + (hitsByName["Unknown (DoT/spell)"] || 0) + "</td>" +
         "</tr>"
       );
     }
     return (
-      '<div class="stat-chips">' +
-        '<span class="stat-chip accent">' + fmtNum(totalTaken) + " dmg taken</span>" +
-        '<span class="stat-chip accent">' + (totalTaken / dur).toFixed(1) + " dps taken</span>" +
-        (healTotal > 0 ? '<span class="stat-chip">' + fmtNum(healTotal) + " healing received</span>" : "") +
-      "</div>" +
       '<p class="section-label">Damage breakdown</p>' +
       (totalTaken > 0 ?
         '<table><thead><tr><th>Mob</th><th class="num">Damage</th><th class="num">DPS</th>' +
-          '<th class="num" title="Share of all incoming damage">% of total</th></tr></thead>' +
+          '<th class="num" title="Share of all incoming damage">% of total</th><th class="num">Hits</th></tr></thead>' +
           "<tbody>" + rowsHtml + "</tbody></table>" :
         '<p class="muted">No incoming damage recorded.</p>') +
       '<p class="muted">Incoming misses/resists/dodges aren\'t tracked yet — only landed hits. "Healing received" is the group\'s combined total, not split by who it landed on.</p>'
+    );
+  }
+
+  function renderIncomingTab(activeEnc, activeStats) {
+    var taken = EQP.computeTakenStats(activeEnc);
+    var dur = Math.max(activeStats.duration || 0, 1);
+    var healTotal = (activeStats.healing || []).reduce(function (sum, h) { return sum + h.amount; }, 0);
+    return (
+      '<div class="stat-chips">' +
+        '<span class="stat-chip accent">' + fmtNum(taken.totalTaken) + " dmg taken</span>" +
+        '<span class="stat-chip accent">' + (taken.totalTaken / dur).toFixed(1) + " dps taken</span>" +
+        (healTotal > 0 ? '<span class="stat-chip">' + fmtNum(healTotal) + " healing received</span>" : "") +
+      "</div>" +
+      wrapSection(renderIncomingChartSection(activeStats), "analysis-section-incoming-dps") +
+      wrapSection(renderIncomingBreakdownSection(activeEnc, activeStats), "analysis-section-incoming-breakdown") +
+      wrapSection(renderHealingSection(activeStats.healing), "analysis-section-healing")
     );
   }
 
@@ -714,17 +815,80 @@
     );
   }
 
-  // Combined "everyone's spells added together" breakdown for the current
-  // view (item 7.4). Every combatant's AND every pet's abilities are
-  // merged into this one table by computeStats()'s abilitiesTotal field
-  // (see mergeAbilities() in eqp-core.js) — deliberately separate from the
-  // per-combatant deep dive below, which stays scoped to one combatant at
-  // a time.
-  function renderAbilitiesTotalSection(abilitiesTotal) {
-    if (!abilitiesTotal || !abilitiesTotal.length) return "";
+  // Everyone's spells, kept separate per combatant (Sept 6 — "if multiple
+  // users pierce/kick/backstab/use the same ability, those get separated
+  // in their own line") instead of the old abilitiesTotal, which silently
+  // merged e.g. every combatant's "Slash" into one row with no way to tell
+  // who actually swung it. Sourced from eqp-core.js's abilitiesByCombatant
+  // (owner/label/isPet per raw entry, pct already against
+  // activeStats.totalDamage) — grouped here by display entity (label, or
+  // owner when combinePets folds a pet's lines into its owner) + ability
+  // name, re-summed and re-computed against the SAME denominator so the
+  // combine toggle never has to touch eqp-core.js itself.
+  function buildTeamAbilityRows(abilitiesByCombatant, combinePets, dur, totalDamage) {
+    var bucket = {};
+    (abilitiesByCombatant || []).forEach(function (a) {
+      var entity = combinePets ? a.owner : a.label;
+      var key = entity + "::" + a.name;
+      var d = bucket[key] || (bucket[key] = { entity: entity, isPet: combinePets ? false : a.isPet, name: a.name, damage: 0, hits: 0, crits: 0, misses: 0, casts: 0 });
+      d.damage += a.damage;
+      d.hits += a.hits;
+      d.crits += a.crits;
+      d.misses += a.misses || 0;
+      d.casts += a.casts || 0;
+    });
+    return Object.keys(bucket).map(function (k) {
+      var d = bucket[k];
+      return {
+        entity: displayName(d.entity), isPet: d.isPet, name: d.name,
+        damage: d.damage, hits: d.hits, crits: d.crits, misses: d.misses, casts: d.casts,
+        dps: dur > 0 ? d.damage / dur : 0,
+        pct: totalDamage > 0 ? (d.damage / totalDamage) * 100 : 0
+      };
+    }).sort(function (a, b) { return b.damage - a.damage; });
+  }
+
+  function renderTeamAbilityTable(rows) {
+    if (!rows || !rows.length) return '<p class="muted">No ability breakdown yet.</p>';
+    var maxDmg = rows.reduce(function (m, a) { return Math.max(m, a.damage); }, 0);
+    var rowsHtml = rows.map(function (a) {
+      var barPct = maxDmg > 0 ? Math.max(4, (a.damage / maxDmg) * 100) : 0;
+      var castBadge = a.casts > 0 ? ' <span class="cast-badge" title="Times cast">&times;' + a.casts + "</span>" : "";
+      var petTag = a.isPet ? ' <span class="pet-tag-mini">Pet</span>' : "";
+      return (
+        "<tr>" +
+          "<td>" + esc(a.entity) + petTag + "</td>" +
+          "<td>" + esc(a.name) + castBadge +
+            '<div class="ability-bar"><div class="fill" style="--pct:' + barPct.toFixed(1) + '%"></div></div>' +
+          "</td>" +
+          '<td class="num">' + a.hits + "</td>" +
+          '<td class="num">' + fmtNum(a.damage) + "</td>" +
+          '<td class="num">' + a.pct.toFixed(1) + "%</td>" +
+          '<td class="num">' + a.dps.toFixed(1) + "</td>" +
+          '<td class="num">' + a.crits + "</td>" +
+          '<td class="num">' + (a.misses || 0) + "</td>" +
+        "</tr>"
+      );
+    }).join("");
     return (
-      '<p class="section-label">Damage by ability</p>' +
-      renderAbilityTable(abilitiesTotal)
+      '<table class="ability-table team-ability-table"><thead><tr><th>Who</th><th>Ability</th><th class="num">Hits</th><th class="num">Damage</th>' +
+        '<th class="num">% of total</th><th class="num">DPS</th><th class="num">Crits</th><th class="num">Misses</th></tr></thead>' +
+      "<tbody>" + rowsHtml + "</tbody></table>"
+    );
+  }
+
+  // "The bottom 'Damage by Ability' needs renaming/rebranding to explain
+  // that its the full teams' breakdown" (Sept 6) — was
+  // renderAbilitiesTotalSection()/abilitiesTotal, which read exactly like
+  // one combatant's own breakdown at a glance. Respects the same
+  // combinePets toggle as the Combatants section above.
+  function renderTeamAbilitySection(activeStats, combinePets) {
+    var rows = buildTeamAbilityRows(activeStats.abilitiesByCombatant, combinePets, activeStats.duration, activeStats.totalDamage);
+    if (!rows.length) return "";
+    return (
+      '<p class="section-label">Full team — damage by ability</p>' +
+      '<p class="muted" style="font-size:0.8rem; margin:-6px 0 10px;">Every participating combatant\'s damage this fight, broken down per ability — the same ability used by more than one combatant gets its own line each.</p>' +
+      renderTeamAbilityTable(rows)
     );
   }
 
@@ -780,6 +944,7 @@
           "</td>" +
           '<td class="num">' + a.hits + "</td>" +
           '<td class="num">' + fmtNum(a.damage) + "</td>" +
+          '<td class="num">' + (a.pct != null ? a.pct.toFixed(1) : "0.0") + "%</td>" +
           '<td class="num">' + a.dps.toFixed(1) + "</td>" +
           '<td class="num">' + a.crits + "</td>" +
           '<td class="num">' + (a.misses || 0) + "</td>" +
@@ -788,7 +953,7 @@
     }).join("");
     return (
       '<table class="ability-table"><thead><tr><th>Ability</th><th class="num">Hits</th><th class="num">Damage done</th>' +
-        '<th class="num">DPS</th><th class="num">Crits</th><th class="num">Misses</th></tr></thead>' +
+        '<th class="num">% of dmg</th><th class="num">DPS</th><th class="num">Crits</th><th class="num">Misses</th></tr></thead>' +
       "<tbody>" + rowsHtml + "</tbody></table>"
     );
   }
@@ -801,6 +966,13 @@
         head.closest(".combatant-card").classList.toggle("open", expanded.has(key));
       });
     });
+    var combineBtn = document.getElementById("btn-combine-pets");
+    if (combineBtn) {
+      combineBtn.addEventListener("click", function () {
+        combinePets = !combinePets;
+        render();
+      });
+    }
   }
 
   // Settings > Theme — this window has its own copy of the same palettes

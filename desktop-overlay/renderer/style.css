@@ -580,8 +580,13 @@ body.watch .watch-badge { display: flex; }
   width: calc(132px * var(--circle-scale, 1));
   height: calc(132px * var(--circle-scale, 1));
   border-radius: 50%;
-  background: var(--bg-card);
-  border: 3px solid var(--accent);
+  /* Circle's own colors (Sept 6 — "add color options to edit the circle
+     colors: border, background, text colors") — --circle-bg-color/
+     -border-color are set (or unset) in app.js's applySettings(), falling
+     back to the theme's own --bg-card/--accent exactly like before these
+     existed. */
+  background: var(--circle-bg-color, var(--bg-card));
+  border: 3px solid var(--circle-border-color, var(--accent));
   box-shadow: 0 8px 24px rgba(0,0,0,0.55);
   /* display is NOT set here — the plain ".watch-badge { display: none; }"
      rule above and "body.watch .watch-badge { display: flex; }" below are
@@ -627,9 +632,13 @@ body.watch .watch-badge { display: flex; }
 }
 .watch-menu-btn:hover { color: var(--ink); border-color: var(--accent); }
 .watch-dps { display: flex; align-items: baseline; gap: 3px; }
-.watch-dps #watch-dps-num { color: var(--accent); font-weight: 700; font-size: calc(1.7rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
-.watch-unit { color: var(--ink-3); font-size: calc(0.72rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); }
-.watch-timer { color: var(--ink-2); font-size: calc(0.82rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
+/* --circle-text-color, when set, overrides all three of dps-num/unit/timer
+   to the SAME one color (mirrors how the main overlay's own "Text" picker
+   overrides --ink everywhere at once) — falls back to each element's
+   previous distinct default (--accent/--ink-3/--ink-2) when unset. */
+.watch-dps #watch-dps-num { color: var(--circle-text-color, var(--accent)); font-weight: 700; font-size: calc(1.7rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
+.watch-unit { color: var(--circle-text-color, var(--ink-3)); font-size: calc(0.72rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); }
+.watch-timer { color: var(--circle-text-color, var(--ink-2)); font-size: calc(0.82rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
 
 /* ---- Fade UI when idle (Settings > Fade UI when idle) ----
    Leaves the bar rows' color dot + name + dps number as the only fully
