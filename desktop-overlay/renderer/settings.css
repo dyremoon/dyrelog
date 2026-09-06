@@ -440,6 +440,18 @@ label.check input { accent-color: var(--accent); }
    color) — the OLD preview colored the name text with the bar color,
    which the real overlay has never done (name text defaults to neutral
    --ink unless you specifically set a name color under Text colors). */
+/* "Add a border around each different live preview panel, make them
+   orange" — one bordered card per named panel (Bars/Mini-bar/Circle),
+   label included, rather than just around the mockup box, so each of
+   the three reads as its own distinct panel at a glance. A fixed hex
+   (not tied to --accent/theme) on purpose, same reasoning as the
+   website/leaderboard gold-purple pairings elsewhere: this is Settings'
+   own UI chrome, not a reflection of the in-game theme being previewed. */
+.preview-group {
+  border: 1px solid #e08a3f;
+  border-radius: 10px;
+  padding: 10px 10px 12px;
+}
 .preview-group + .preview-group { margin-top: 12px; }
 .preview-group-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); margin: 0 0 6px; }
 
@@ -493,6 +505,13 @@ label.check input { accent-color: var(--accent); }
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
   margin-bottom: 2px;
 }
+/* "The live preview isn't 1:1 accurate" — index.html's real .header leads
+   with the bear-logo image before the status dot; this mockup had no logo
+   at all before, just the dot + wordmark. 14px keeps the same ~2.3:1
+   ratio to the 6px status dot that the real 16px logo has to its own 7px
+   dot, scaled down along with everything else in this fixed-px topbar
+   row (see .preview-icons' own comment for why fixed px, not em, here). */
+.preview-logo { flex: none; width: 14px; height: 14px; border-radius: 4px; }
 .preview-status-dot {
   flex: none; width: 6px; height: 6px; border-radius: 50%;
   background: #3ecf7d; box-shadow: 0 0 5px rgba(62, 207, 125, 0.6);
@@ -528,6 +547,13 @@ label.check input { accent-color: var(--accent); }
 }
 .preview-mobline-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .preview-mobline-diff { opacity: 0.75; }
+/* Real .mob-line always leads with the spin-icon and ends with "(live)"/
+   "(defeated)" (see index.html's #fight-icon/#mob-state) — this mockup
+   was missing both, showing only the mob name and difficulty tag. A
+   static "(live)" reads correctly here since the mockup's dps number is
+   always a non-zero in-progress value, never a finished fight's. */
+.preview-fight-icon { flex: none; }
+.preview-mobline-state { opacity: 0.75; }
 .preview-dpsside { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
 .preview-dpsnum {
   display: flex; align-items: baseline; gap: 3px;
@@ -552,7 +578,13 @@ label.check input { accent-color: var(--accent); }
   grid-template-columns: 11px auto 1fr auto;
   align-items: center;
   gap: 6px;
-  background: var(--preview-row-bg, rgba(255,255,255,0.06));
+  /* Real .bar-row has NO base background of its own — only .fill (its
+     proportional-width color wash) is ever visible, so a row fades to
+     fully transparent past the fill's edge and blends into the card
+     underneath. This rule used to paint a flat rgba(255,255,255,0.06)
+     across the WHOLE row regardless of fill width, which read as a
+     visible pill/box shape the real row never has — removed so only
+     .preview-fill shows, same as the real thing. */
   border: 1px solid var(--preview-border, rgba(255,255,255,0.12));
   border-radius: 6px;
   padding: calc(4px * var(--preview-barheight, 1)) 8px;
@@ -627,18 +659,27 @@ label.check input { accent-color: var(--accent); }
 #preview-mini-pet-dps { flex: none; color: var(--preview-secondary-color, #a89f8d); font-variant-numeric: tabular-nums; }
 
 /* Circle preview — style.css's .watch-badge, which didn't have any preview
-   at all before ("it doesn't show circle form"). Sized down and clamped
-   (rather than the real 132px * scale) so it never outgrows this narrow
-   sidebar column even at the top of the Circle size range. Only Circle
-   size affects it, same as the real badge — Bars/Mini-bar's own sizing
-   and color settings don't reach it, hence the separate hint under it. */
+   at all before ("it doesn't show circle form"). Used to be sized down and
+   clamped to a smaller 80px base (rather than the real 132px * scale) so
+   it never outgrew this narrow sidebar column — "the circle size isn't
+   accurately 1:1 ratio from the settings to the actual overlay piece."
+   Now uses the exact same 132px base and the exact same 0.6-1.8 slider
+   range as .watch-badge in style.css, so the diameter shown here is a
+   true 1:1 match at every point on the slider, not a scaled-down
+   approximation — 132px * the slider's own max (1.8) is 237.6px, still
+   comfortably inside the clamp's 260px ceiling (a safety bound only,
+   never actually reached within the slider's real range) and inside this
+   column's own width (.preview-frame's 320px max-width sets the floor
+   for how wide this sidebar gets). Only Circle size affects it, same as
+   the real badge — Bars/Mini-bar's own sizing and color settings don't
+   reach it, hence the separate hint under it. */
 .preview-circle-wrap { display: flex; justify-content: center; padding: 4px 0 2px; }
 .preview-circle {
   /* Same fixed-anchor fix as .preview-frame above — without this, "Extra
      Large" Settings text size blew this badge's dps number up well past
-     what a 96px-max circle has room for. */
+     what the circle has room for. */
   font-size: 13.5px;
-  --preview-circle-d: clamp(56px, calc(80px * var(--preview-circlescale, 1)), 160px);
+  --preview-circle-d: clamp(60px, calc(132px * var(--preview-circlescale, 1)), 260px);
   position: relative;
   width: var(--preview-circle-d); height: var(--preview-circle-d);
   border-radius: 50%;
