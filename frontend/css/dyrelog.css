@@ -517,10 +517,10 @@ table tbody tr:hover { background: var(--surface-2); }
 .download-steps li { color: var(--ink-2); line-height: 1.55; }
 .download-steps li::marker { color: var(--brass-2); font-weight: 700; }
 
-/* Analyze Log page — a drop zone plus a boss/kill picker and detail view,
-   all client-side (eqp-core.js, same engine the overlay and worker share).
+/* Analyze Log page — a drop zone plus an encounter list/detail view, all
+   client-side (eqp-core.js, same engine the overlay and worker share).
    "It should have the same functionality as the overlay or more" — v1
-   scope is the fight picker and per-combatant breakdown; the graph and
+   scope is the encounter list and per-combatant breakdown; the graph and
    Incoming tab are noted as a fast-follow rather than silently missing. */
 .dropzone {
   border: 2px dashed var(--hair-strong);
@@ -534,49 +534,56 @@ table tbody tr:hover { background: var(--surface-2); }
 .dropzone .dz-title { font-weight: 700; color: var(--ink); margin-bottom: 4px; }
 .dropzone .dz-sub { color: var(--muted); font-size: 0.9rem; }
 
+.encounter-row { cursor: pointer; }
+.encounter-row:hover { background: var(--surface-2); }
+.encounter-row.active { background: var(--surface-3); }
+.encounter-row.active td { color: var(--ink); }
+
 .analyze-detail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
 
-/* Analyze Log — boss dropdown -> inner kill dropdown, replacing what used
-   to be a single long scrollable/searchable fight table. "I want the boss
-   drop down to be at the top with a selection drop down within that, not
-   a long list of bosses." Fights are grouped by mob name (buildBossGroups()
-   in analyze.html), newest-fought boss first; picking a boss fills the
-   second dropdown with just that boss's individual kills by timestamp so
-   repeat kills of the same boss are still each reachable. The boss list
-   itself is paginated (#boss-select's page, see renderBossPagination())
-   rather than the old table's "show 50 more" — same dark-select styling
-   as .class-picker-slot select elsewhere on the site. */
-.boss-picker-row { display: flex; gap: 14px; flex-wrap: wrap; }
-.boss-picker-col { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 200px; }
-.boss-picker-label { font-size: 0.75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
-.boss-select {
+/* Analyze Log — search + capped/scrollable fight list. "It shows 650
+   fights, maybe we should just show the last 50, with an option to show
+   more... in a drop down window to select from instead of scrolling the
+   whole page." A literal <select> can't carry per-fight columns (result,
+   duration, top parser), so the compromise is a bounded, self-scrolling
+   panel: the list scrolls inside its own short box instead of stretching
+   the whole page down further with every fight. Newest-first by default
+   (see handleFile()/loadFromSubmission() reversing the parsed array), 50
+   rows at a time via #show-more-btn, filterable by mob name via
+   #fight-search. */
+.fight-search {
+  display: block;
+  width: 100%;
   background: var(--surface-2);
   color: var(--ink);
   border: 1px solid var(--hair-strong);
   border-radius: 6px;
   padding: 9px 12px;
   font-size: 0.95rem;
-  width: 100%;
+  margin-bottom: 12px;
 }
-.boss-pagination { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.page-btn {
-  min-width: 32px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--hair-strong);
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font-size: 0.85rem;
-  cursor: pointer;
+.fight-search::placeholder { color: var(--muted); }
+.encounter-list-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hair-strong) transparent;
 }
-.page-btn:hover { background: var(--surface-3); }
-.page-btn.active { background: var(--surface-3); color: var(--ink); border-color: var(--brass); }
+.encounter-list-wrap table { margin: 0; }
+.encounter-list-wrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.show-more-row:not([hidden]) { display: flex; justify-content: center; margin-top: 12px; }
 
-/* Analyze Log — fight detail breakdown, ported from the desktop overlay's
-   own Combat Analysis window (analysis.js/analysis.css) so the website
-   tool has the same dps chart, combatants, procs, ability breakdown,
-   healing, and Incoming tab, scoped to one encounter at a time (no
-   session-merging here — see
+/* Analyze Log — deep-dive breakdown, ported from the desktop overlay's own
+   Combat Analysis window (analysis.js/analysis.css) so the website tool
+   has the same dps chart, procs, ability breakdown, healing, and Incoming
+   tab, scoped to one encounter at a time (no session-merging here — see
    DYRELOG_GUIDE.md for why that's out of scope for the site). Token
    mapping from the overlay's analysis.css: --accent -> --brass, --accent-2
    -> --gold, --bg-card (hover fill) -> --surface-2, --ink-3 -> --muted,
@@ -630,7 +637,7 @@ table tbody tr:hover { background: var(--surface-2); }
 }
 .section-label-row { display: flex; align-items: baseline; justify-content: space-between; margin: 22px 0 10px; }
 .section-label-row .section-label { margin: 0; }
-.section-stat { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.section-stat { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 
 .rank-dot {
   display: inline-block;
@@ -660,7 +667,7 @@ table tbody tr:hover { background: var(--surface-2); }
 .dps-chart-wrap { margin: 2px 0 4px; }
 .dps-chart { display: block; width: 100%; height: 160px; }
 .dps-grid { stroke: var(--hair); stroke-width: 1; }
-.dps-axis-label { fill: var(--muted); font-size: 9.5px; font-variant-numeric: tabular-nums; }
+.dps-axis-label { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .dps-line-out {
   fill: none; stroke: var(--brass); stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round;
@@ -669,14 +676,24 @@ table tbody tr:hover { background: var(--surface-2); }
   fill: none; stroke: var(--oxblood-2); stroke-width: 1.5; opacity: 0.85;
   stroke-linecap: round; stroke-linejoin: round;
 }
+/* The Incoming tab's own chart (buildDpsChart(..., 'in')) draws just this
+   one line as the PRIMARY line, not a faint secondary next to a brass
+   outgoing one — full opacity and a hair thicker than .dps-line-in above
+   so it reads as "the" line here, the same way .dps-line-out does on
+   Outgoing. */
+.dps-line-in-solo {
+  fill: none; stroke: var(--oxblood-2); stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
 .dps-peak-dot { fill: var(--brass); stroke: var(--surface); stroke-width: 1.5; }
+.dps-peak-dot-in { fill: var(--oxblood-2); } /* Incoming tab's own chart — matches .dps-line-in-solo instead of the brass outgoing color */
 .dps-peak-label {
-  fill: var(--ink); font-size: 10.5px; font-weight: 700;
+  fill: var(--ink); font-size: 12px; font-weight: 700;
   font-variant-numeric: tabular-nums;
   paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round;
 }
 .dps-chart-legend { display: flex; gap: 14px; margin: 4px 0 0 2px; }
-.legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: var(--ink-2); }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.82rem; color: var(--ink-2); }
 .legend-swatch { width: 10px; height: 2px; border-radius: 999px; display: inline-block; }
 .legend-swatch.out { background: var(--brass); }
 .legend-swatch.in { background: var(--oxblood-2); }
@@ -695,19 +712,14 @@ table tbody tr:hover { background: var(--surface-2); }
 }
 .proc-row:hover { background: var(--surface-2); }
 .proc-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brass); flex: none; }
-.proc-name { font-size: 0.85rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.proc-ppm { font-size: 0.8rem; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
-.proc-count { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; min-width: 26px; }
+.proc-name { font-size: 0.92rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proc-ppm { font-size: 0.87rem; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+.proc-count { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; min-width: 26px; }
 
-/* Combatants section — an expandable card per combatant (you, your pet,
-   anyone else's pet), opening into its own per-ability breakdown, with
-   hits/crits folded into the card header. Used in place of a plain table
-   whenever the encounter has one confirmed target (byMob.length <= 1) —
-   see renderCombatantSection() in analyze.html for why a multi-target view
-   falls back to a table instead. Previously a separate "Deep dive" section
-   duplicating the same combatant list below an already-rendered summary
-   table; merged into one Combatants section since "the analysis IS the
-   deep dive." */
+/* Per-combatant deep dive — an expandable card per combatant (you, your
+   pet, anyone else's pet), opening into its own per-ability breakdown.
+   Only shown when the encounter has one confirmed target (byMob.length
+   <= 1) — see renderDetail() in analyze.html for why. */
 .combatants { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .combatant-card {
   border: 1px solid var(--hair);
@@ -723,16 +735,23 @@ table tbody tr:hover { background: var(--surface-2); }
 .combatant-head .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .combatant-head .disclosure { color: var(--muted); font-size: 10px; transition: transform 0.15s ease; flex: none; }
 .combatant-card.open .combatant-head .disclosure { transform: rotate(90deg); }
-.combatant-head .cname { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.combatant-head .stats { display: flex; gap: 12px; font-size: 0.78rem; color: var(--ink-2); font-variant-numeric: tabular-nums; flex: none; }
+/* Text sizes bumped slightly throughout this deep-dive area (Sept 6 —
+   "increase the text size slightly") — cname/stats/ability-table were the
+   smallest text on the whole page, easy to misread at a glance. */
+.combatant-head .cname { font-weight: 600; font-size: 0.97rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combatant-head .stats { display: flex; gap: 12px; font-size: 0.85rem; color: var(--ink-2); font-variant-numeric: tabular-nums; flex: none; }
 .combatant-head .stats b { color: var(--ink); font-weight: 600; }
 .combatant-body { padding: 10px 13px 13px; display: none; }
 .combatant-card.open .combatant-body { display: block; }
 
 .ability-table { width: 100%; border-collapse: collapse; }
-.ability-table th, .ability-table td { text-align: left; padding: 7px 9px; font-size: 0.78rem; border-bottom: 1px solid var(--hair); }
-.ability-table th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.03em; }
+.ability-table th, .ability-table td { text-align: left; padding: 7px 9px; font-size: 0.85rem; border-bottom: 1px solid var(--hair); }
+.ability-table th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.03em; }
 .ability-table th.num, .ability-table td.num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The team-wide breakdown's extra leading "Who" column (Sept 6 — separate
+   per-combatant lines instead of one merged-by-name-only table) — kept
+   narrow and non-wrapping so a long roster doesn't blow the table out. */
+.team-ability-table td:first-child { white-space: nowrap; font-weight: 600; }
 .ability-bar { position: relative; height: 4px; margin-top: 5px; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--hair); overflow: hidden; }
 .ability-bar .fill {
   position: absolute; inset: 0; width: var(--pct, 0%);
@@ -744,13 +763,58 @@ table tbody tr:hover { background: var(--surface-2); }
   margin-left: 5px;
   padding: 0 5px;
   border-radius: 999px;
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--gold-2);
   border: 1px solid var(--gold);
   background: rgba(217, 164, 65, 0.12);
   vertical-align: middle;
 }
+
+/* Sept 6 redesign — "the layout of the analysis screen is very colored
+   one-note... add borders around new sections, make it more presentable
+   and clean... I'm okay with you adding everquest color themes to new
+   sections." Each analysis section (DPS chart, mobs fought, combatants,
+   healing, procs, team breakdown, both Incoming sections) now sits in its
+   own bordered card with a themed accent border, reusing the site's
+   existing --c1..--c8/gold/arcane/ember palette rather than inventing new
+   colors — see wrapSection() in analyze.html for where these class names
+   get applied. */
+.analysis-section {
+  border: 1px solid var(--hair-strong);
+  border-radius: 10px;
+  padding: 2px 18px 18px;
+  margin: 0 0 18px;
+  background: var(--surface);
+}
+.analysis-section:last-child { margin-bottom: 0; }
+.analysis-section-dps { border-color: var(--brass); box-shadow: inset 0 0 0 1px rgba(63, 169, 220, 0.14); }
+.analysis-section-mobs { border-color: var(--hair-strong); }
+.analysis-section-combatants { border-color: var(--gold); box-shadow: inset 0 0 0 1px rgba(217, 164, 65, 0.14); }
+.analysis-section-healing { border-color: var(--good); box-shadow: inset 0 0 0 1px rgba(70, 201, 122, 0.14); }
+.analysis-section-procs { border-color: var(--arcane); box-shadow: inset 0 0 0 1px rgba(155, 127, 224, 0.14); }
+.analysis-section-team { border-color: var(--ember); box-shadow: inset 0 0 0 1px rgba(224, 138, 63, 0.14); }
+.analysis-section-incoming-dps, .analysis-section-incoming-breakdown {
+  border-color: var(--oxblood-2); box-shadow: inset 0 0 0 1px rgba(224, 121, 138, 0.14);
+}
+
+/* "Create a toggle button to combine pets+pet owners into one analysis" —
+   a small pill button sitting in the Combatants section's own header row
+   (reuses .section-label-row, already used by Procs), not a full-size .btn
+   — this lives inline next to a label, not as its own call-to-action. */
+.btn-toggle-sm {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  padding: 4px 11px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+  border: 1px solid var(--hair-strong); background: var(--surface-2); color: var(--ink-2);
+  cursor: pointer;
+}
+.btn-toggle-sm:hover { background: var(--surface-3); color: var(--ink); }
+.btn-toggle-sm.active { border-color: var(--gold); color: var(--gold-2); background: rgba(217, 164, 65, 0.12); }
+
+/* Scoped .stat-chip size bump (Sept 6, "increase the text size slightly")
+   — only inside the analysis panel, not the leaderboard/profile pages,
+   which never asked for this and share the plain .stat-chip rule above. */
+#detail-body .stat-chip { font-size: 0.78rem; }
 
 footer.site-footer {
   border-top: 1px solid var(--hair-strong);
