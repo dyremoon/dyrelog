@@ -8,7 +8,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const src = path.join(__dirname, "..", "..", "overlay", "eqp-core.js");
+const src = path.join(__dirname, "..", "..", "worker", "src", "eqp-core.js");
 const dest = path.join(__dirname, "..", "renderer", "eqp-core.js");
 
 fs.copyFileSync(src, dest);
