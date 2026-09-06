@@ -353,27 +353,45 @@
     // what enemy it is" confusion — so it's left out entirely rather than
     // show something that reads as clutter with no real answer to give.
     var activeByMob = activeStats.byMob || [];
-    var showDeepDive = activeByMob.length <= 1;
+    // "Remove the Deep Dive portion, and bake that into the analysis
+    // portion. It seemingly has a lot of double-up information and serves
+    // no purpose. the analysis IS the deep dive." — used to be a plain
+    // summary table here, then a SEPARATE "Deep dive" section below
+    // repeating the same name/damage/dps/% for each combatant just to add
+    // an expand arrow. Now there's one Combatants section: still a plain
+    // table on a multi-target view (per-ability breakdown isn't reliably
+    // attributable across more than one confirmed mob — that constraint is
+    // unchanged, see the big comment above), but a single-target view
+    // renders the exact same numbers as expandable cards instead of a
+    // table-plus-cards duplicate, with hits/crits folded into each card's
+    // own header so nothing that used to be in the table is lost.
+    var canExpand = activeByMob.length <= 1;
     var deepDiveMobName = activeByMob.length === 1 ?
       activeByMob[0].name + (activeByMob[0].generation > 1 ? " (" + activeByMob[0].generation + ")" : "") : null;
+    var combatantSectionHtml = canExpand
+      ? (
+          '<p class="section-label">Combatants' + (deepDiveMobName ? " against " + esc(deepDiveMobName) : "") + "</p>" +
+          '<p class="muted" style="font-size:0.8rem; margin:-6px 0 10px;">Click a combatant for its full spell/ability breakdown.</p>' +
+          '<div class="combatants" id="combatants">' + rows.map(function (r, i) { return renderCombatantCard(r, i, viewKey, showPct); }).join("") + "</div>"
+        )
+      : (
+          '<p class="section-label">Combatants</p>' +
+          "<table><thead><tr><th>Combatant</th><th class=\"num\">Damage</th><th class=\"num\">DPS</th>" +
+            (showPct ? '<th class="num" title="Share of this fight\'s total damage">% of total</th>' : "") +
+            '<th class="num">Hits</th><th class="num">Crits</th></tr></thead>' +
+          "<tbody>" + (rowsHtml || '<tr><td colspan="' + (showPct ? 6 : 5) + '" class="muted">No damage recorded.</td></tr>') + "</tbody></table>" +
+          '<p class="muted" style="font-size:0.8rem; margin-top:8px;">Per-ability breakdown isn\'t shown when more than one target was fought in this view — damage can\'t be reliably split by target at the ability level.</p>'
+        );
 
     var outgoingHtml =
       renderDpsChartSection(activeStats) +
       renderMobsFoughtSection(stats) +
       pillsHtml +
       (pillsHtml ? '<p class="section-label">' + esc(activeLabel) + "</p>" : "") +
-      "<table><thead><tr><th>Combatant</th><th class=\"num\">Damage</th><th class=\"num\">DPS</th>" +
-        (showPct ? '<th class="num" title="Share of this fight\'s total damage">% of total</th>' : "") +
-        '<th class="num">Hits</th><th class="num">Crits</th></tr></thead>' +
-      "<tbody>" + (rowsHtml || '<tr><td colspan="' + (showPct ? 6 : 5) + '" class="muted">No damage recorded.</td></tr>') + "</tbody></table>" +
+      combatantSectionHtml +
       renderHealingSection(activeStats.healing) +
       renderProcsSection(activeStats) +
-      renderAbilitiesTotalSection(activeStats.abilitiesTotal) +
-      (showDeepDive ?
-        '<p class="section-label">Deep dive — click a combatant for its spell/ability breakdown' +
-          (deepDiveMobName ? " against " + esc(deepDiveMobName) : "") + "</p>" +
-        '<div class="combatants" id="combatants">' + rows.map(function (r, i) { return renderCombatantCard(r, i, viewKey); }).join("") + "</div>"
-        : "");
+      renderAbilitiesTotalSection(activeStats.abilitiesTotal);
 
     els.detail.innerHTML =
       "<h2>" + esc(sessionLabel(session)) +
@@ -716,7 +734,7 @@
   // aggregate (hits/misses/crits/casts/damage per named spell, verb-split
   // melee, or DoT tick), since EQ's own log doesn't carry enough to
   // reconstruct a literal swing-by-swing list.
-  function renderCombatantCard(r, i, viewKey) {
+  function renderCombatantCard(r, i, viewKey, showPct) {
     var key = viewKey + "::" + r.name;
     var isOpen = expanded.has(key);
     var swatch = "var(" + RANK_SWATCHES[i % RANK_SWATCHES.length] + ")";
@@ -726,7 +744,8 @@
         '<div class="combatant-head" data-toggle="' + esc(key) + '">' +
           '<div class="who"><span class="disclosure">&#9656;</span><span class="cname">' + esc(r.name) + petTag + "</span></div>" +
           '<div class="stats"><span><b>' + fmtNum(r.damage) + "</b> dmg</span><span><b>" + r.dps.toFixed(1) + "</b> dps</span>" +
-            "<span><b>" + r.pct.toFixed(1) + "%</b></span></div>" +
+            (showPct ? "<span><b>" + r.pct.toFixed(1) + "%</b></span>" : "") +
+            "<span><b>" + r.hits + "</b> hits</span><span><b>" + r.crits + "</b> crits</span></div>" +
         "</div>" +
         '<div class="combatant-body">' +
           renderAbilityTable(r.abilities) +
