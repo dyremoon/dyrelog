@@ -8,12 +8,12 @@ by boss.
 
 ## About Dyrelog and the guy who made this
 
-I started Dyrelog because I didn't see DPS meters that I really liked, honestly. I tend to like a specific type of dps meter, so I thought I'd just make my own. As I found other options, I realized that they're
-fantastic and have a lot more features than what Dyrelog has, but I get overwhelmed when there's too much data and
-information at my disposal, so I wanted something that did just DPS and leaderboards, and did
+I started Dyrelog because I didn't see DPS meters that really clicked with me and my quirky sense of style. I tend to like a specific type of dps meter, so I thought I'd just make my own. There are some incredible options out there,
+but often times they have much more functionality than I need, and I get overwhelmed when there's too much data and
+information at my disposal. So I made something that just did DPS, Analytics, and Leaderboards, and did
 it really well. 
 
-I'm a software engineer and AAA Game Dev. I enjoy building projects, fixing problems, and helping others. I've been playing
+In real life I'm just a guy who used to work in the game industry, and now I'm a software engineer. I enjoy building projects, fixing problems, and helping others. I've been playing
 MMOs my whole life, just like most of us here, and I took inspiration from DPS meters from other games so
 that Dyrelog feels familiar and easy to pick up. I have never made a leaderboard system before, so added a fun leaderboard for us all to track
 our DPS on if we so choose as a personal project to see what I could do. Of course with the help of Claude Code to guide me through the sticky areas.
