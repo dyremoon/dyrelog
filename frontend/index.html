@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tells the Dark Reader browser extension to leave this page alone
+       entirely instead of repainting an already-dark site — Dark Reader
+       muddying the gold header text/logo (Sept 6) traced back to this. -->
+  <meta name="darkreader-lock" />
 
   <!--
     Title/description here are what actually shows up in a Google result
@@ -143,11 +147,12 @@
       </p>
 
       <!-- "The top ui shows the top 10 dps across all fights that are +4
-           only... this is like the highlights of the week." No actual
-           weekly time window yet (that'd need its own submitted_at range
-           filter, a separate feature) — this is every D4 fight on record,
-           top 10 by dps, one row per character per boss. See
-           GET /api/leaderboard/highlights in worker/src/leaderboard.js. -->
+           only... this is like the highlights of the week." Actually
+           windowed to the current week now (Sept 6) — the worker resets
+           this at the most recent Tuesday 00:00 UTC (mostRecentTuesdayUtcIso()
+           in worker/src/leaderboard.js), timed to line up with EQ Legends'
+           own Tuesday patch day. Top 10 by dps, one row per character per
+           boss, within that window. See GET /api/leaderboard/highlights. -->
       <div class="plate plate-highlight" style="margin-bottom:24px;">
         <h2>Top 10 of the week</h2>
         <p class="muted" style="margin-top:-6px;">The best D4 (Refined) parses on record for the week with one entry per character per boss.</p>
