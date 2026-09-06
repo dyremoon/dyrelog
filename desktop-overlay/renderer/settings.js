@@ -55,9 +55,10 @@
   // Mirrors each theme's own --accent in style.css — the real overlay's
   // dps-number/circle-badge color, which is NOT the same thing as this
   // Settings window's own chrome accent (--accent in settings.css, a fixed
-  // #6f9bff used for tab underlines/buttons regardless of overlay theme).
-  // The live preview's dps numbers and Circle border need the OVERLAY's
-  // accent to actually look like what each theme produces in-game.
+  // gold #f3d17e used for tab underlines/buttons regardless of overlay
+  // theme, matching the website's own dusk gold/purple pass). The live
+  // preview's dps numbers and Circle border need the OVERLAY's accent to
+  // actually look like what each theme produces in-game.
   var THEME_ACCENT = {
     blue: "#4c8bf5", brass: "#c9922e", druidic: "#7fb238", magical: "#9b6bf2",
     girly: "#f24ea0", hardcore: "#e31c1c", metal: "#7d92a8"
@@ -75,7 +76,10 @@
       bg: "#0e1015", bgCard: "#151922", bgElevated: "#1b202b",
       hair: "#262c39", hairStrong: "#333c4d",
       ink: "#f3f5f9", ink2: "#b3bcce", ink3: "#8992a6",
-      accent: "#6f9bff", accent2: "#35d1b8", accentInk: "#06101f"
+      // Gold/purple (gold-2/arcane-2), same tokens the website's dusk pass
+      // uses, in place of the old blue/teal — "apply similar color
+      // scheming to the overlay settings/leaderboards/options etc."
+      accent: "#f3d17e", accent2: "#c9b6f2", accentInk: "#241703"
     },
     brass: {
       bg: "#15100a", bgCard: "#1e160d", bgElevated: "#271d10",
@@ -576,5 +580,140 @@
     renderChangelog(version);
   });
 
+  // ---- What's New: real "check for updates" / "update now and relaunch" -
+  // Separate from onUpdateAvailable() above (the read-only "a new version
+  // exists" banner) — this drives the actual electron-updater download +
+  // relaunch flow. See "updater-status" in main.js for every state.
+  (function () {
+    var btnCheck = document.getElementById("btn-check-updates");
+    var statusEl = document.getElementById("update-status");
+    if (!btnCheck || !statusEl || !window.dyrelog.onUpdaterStatus) return;
+
+    function renderChecking() {
+      statusEl.innerHTML = '<span class="update-dot" style="background:var(--ink-3);"></span>Checking&hellip;';
+    }
+    function renderUpToDate() {
+      statusEl.innerHTML = '<span class="update-dot ok"></span>You&rsquo;re up to date';
+      btnCheck.disabled = false;
+    }
+    function renderAvailable(version) {
+      statusEl.innerHTML =
+        '<span>Update available' + (version ? " &mdash; v" + version : "") + "</span>" +
+        '<button class="btn-link" id="btn-update-now" type="button" style="padding:5px 12px; font-size:0.85rem;">Update now and relaunch</button>';
+      var btn = document.getElementById("btn-update-now");
+      if (btn) {
+        btn.addEventListener("click", function () {
+          btn.disabled = true;
+          btn.textContent = "Downloading…";
+          window.dyrelog.downloadAndInstallUpdate();
+        });
+      }
+    }
+    function renderDownloading(percent) {
+      var pct = Math.max(0, Math.min(100, percent || 0));
+      statusEl.innerHTML =
+        "<span>Downloading update&hellip; " + pct + "%</span>" +
+        '<span class="update-progress-track"><span class="update-progress-fill" style="width:' + pct + '%"></span></span>';
+    }
+    function renderReady() {
+      statusEl.innerHTML = '<span class="update-dot ok"></span>Update downloaded &mdash; relaunching&hellip;';
+    }
+    function renderError() {
+      statusEl.innerHTML = '<span class="update-dot err"></span>Couldn&rsquo;t check for updates &mdash; try again in a moment.';
+      btnCheck.disabled = false;
+    }
+    function renderDevMode() {
+      statusEl.innerHTML = '<span style="color:var(--ink-3);">Only checks in the installed app &mdash; not while running from source.</span>';
+      btnCheck.disabled = false;
+    }
+
+    btnCheck.addEventListener("click", function () {
+      btnCheck.disabled = true;
+      renderChecking();
+      window.dyrelog.checkForUpdatesNow();
+    });
+
+    window.dyrelog.onUpdaterStatus(function (payload) {
+      var state = payload && payload.state;
+      if (state === "checking") renderChecking();
+      else if (state === "up-to-date") renderUpToDate();
+      else if (state === "available") { renderAvailable(payload.version); btnCheck.disabled = true; }
+      else if (state === "downloading") renderDownloading(payload.percent);
+      else if (state === "ready") renderReady();
+      else if (state === "error") renderError();
+      else if (state === "dev-mode") renderDevMode();
+    });
+  })();
+
   window.dyrelog.getSettings().then(applyToUI);
+
+  // ---- Appearance split resize ------------------------------------------
+  // "I also would love if the user could resize these windows to their
+  // liking within the overlay" — a plain drag handle between the settings
+  // column and the live preview. Only .appearance-main's width is ever
+  // touched (max-width/flex-basis inline overrides its settings.css
+  // default); the preview column is flex:1 and just absorbs whatever's
+  // left, so there's nothing to fight over between this and a window
+  // resize. Persisted in localStorage — a real per-machine desktop window
+  // setting, not the in-chat preview sandbox this code never runs in, so
+  // localStorage is the right durable place for it (see settings.css's own
+  // comment on the same layout for why the columns' flex roles are what
+  // they are).
+  (function () {
+    var grid = document.querySelector(".tab-panel-appearance");
+    var main = document.querySelector(".appearance-main");
+    var handle = document.getElementById("appearance-split-handle");
+    if (!grid || !main || !handle) return;
+    var MIN_MAIN = 300;
+    var MAX_MAIN = 760;
+    var STORE_KEY = "dyrelog-settings-appearance-split-px";
+
+    // The split width lives on the GRID container's own first track (see
+    // settings.css) rather than on .appearance-main itself — sticky
+    // positioning on the preview column only actually works with grid's
+    // row-stretch behavior, not flexbox's (a real Chromium quirk hit while
+    // building this: the exact same layout as a flex row silently broke
+    // position:sticky the moment align-items:stretch gave the sticky item
+    // its height).
+    function applyWidth(px) {
+      var clamped = Math.max(MIN_MAIN, Math.min(MAX_MAIN, px));
+      grid.style.gridTemplateColumns = clamped + "px 11px minmax(190px, 1fr)";
+      return clamped;
+    }
+
+    try {
+      var saved = parseFloat(localStorage.getItem(STORE_KEY));
+      if (saved) applyWidth(saved);
+    } catch (err) {
+      // Private window / storage disabled — the layout just falls back to
+      // settings.css's own 460px default, never worth surfacing an error.
+    }
+
+    var dragging = false;
+    var startX = 0;
+    var startWidth = 0;
+    handle.addEventListener("mousedown", function (e) {
+      dragging = true;
+      handle.classList.add("dragging");
+      startX = e.clientX;
+      startWidth = main.getBoundingClientRect().width;
+      document.body.style.userSelect = "none";
+      e.preventDefault();
+    });
+    window.addEventListener("mousemove", function (e) {
+      if (!dragging) return;
+      applyWidth(startWidth + (e.clientX - startX));
+    });
+    window.addEventListener("mouseup", function () {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove("dragging");
+      document.body.style.userSelect = "";
+      try {
+        localStorage.setItem(STORE_KEY, String(Math.round(main.getBoundingClientRect().width)));
+      } catch (err) {
+        // Same private-window fallback as above — just don't persist it.
+      }
+    });
+  })();
 })();

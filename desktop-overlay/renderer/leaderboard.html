@@ -34,7 +34,7 @@
          only... this is like the highlights of the week." Same panel and
          same API (GET /api/leaderboard/highlights) as the website's
          index.html — see loadHighlights() in leaderboard.js. -->
-    <section class="lb-panel" id="highlights-panel">
+    <section class="lb-panel lb-panel-gold" id="highlights-panel">
       <h2>Top D4 parses</h2>
       <div id="highlights-list"><p class="muted">Loading&hellip;</p></div>
     </section>
@@ -42,7 +42,7 @@
     <!-- A top dropdown replaces the old left-side boss tab list — "A row
          across the top that allows us to dropdown menu select the boss we
          want, instead of a long list tab on the left." -->
-    <section class="lb-panel">
+    <section class="lb-panel lb-panel-highlight">
       <div class="lb-picker-row">
         <label for="boss-picker">Boss</label>
         <select id="boss-picker"><option value="">Loading&hellip;</option></select>
@@ -51,7 +51,7 @@
     </section>
   </div>
   <div id="personal-body" hidden>
-    <section class="lb-panel">
+    <section class="lb-panel lb-panel-gold">
       <h2>Your best per boss</h2>
       <p class="muted" style="margin-top:-6px;">Your single best DPS parse
         against each boss you've killed on this machine — private, never

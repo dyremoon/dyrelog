@@ -7,35 +7,32 @@
   "scripts": {
     "sync-eqp-core": "node scripts/sync-eqp-core.js",
     "start": "npm run sync-eqp-core && electron .",
-    "dist": "npm run sync-eqp-core && electron-builder",
-    "deploy": "wrangler deploy",
-    "preview": "wrangler dev"
+    "dist": "npm run sync-eqp-core && electron-builder"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "electron": "^32.0.0",
-    "electron-builder": "^25.0.0",
-    "wrangler": "^4.129.0"
+    "electron-builder": "^25.0.0"
   },
   "build": {
     "appId": "com.dyrelog.desktop",
     "productName": "Dyrelog",
-    "files": [
-      "main.js",
-      "preload.js",
-      "renderer/**/*"
-    ],
-    "win": {
-      "target": "nsis"
-    },
-    "mac": {
-      "target": "dmg"
-    },
-    "linux": {
-      "target": "AppImage"
-    },
+    "files": ["main.js", "preload.js", "renderer/**/*"],
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "dyremoon",
+        "repo": "dyrelog"
+      }
+    ]
   }
 }

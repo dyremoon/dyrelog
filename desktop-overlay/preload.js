@@ -31,6 +31,15 @@ contextBridge.exposeInMainWorld("dyrelog", {
   // a periodic check finds one. See checkForUpdates() in main.js.
   getUpdateInfo: () => ipcRenderer.invoke("get-update-info"),
   onUpdateAvailable: (cb) => ipcRenderer.on("update-available", (_evt, info) => cb(info)),
+  // Real check/download/relaunch flow for Settings > What's New's own
+  // "Check for updates" / "Update now and relaunch" buttons — a separate,
+  // heavier mechanism from the read-only banner above (electron-updater,
+  // not the GitHub API poll). See the "updater-status" events in main.js
+  // for every state this can report (checking/available/up-to-date/
+  // downloading/ready/error/dev-mode).
+  checkForUpdatesNow: () => ipcRenderer.invoke("check-for-updates-now"),
+  downloadAndInstallUpdate: () => ipcRenderer.invoke("download-and-install-update"),
+  onUpdaterStatus: (cb) => ipcRenderer.on("updater-status", (_evt, payload) => cb(payload)),
 
   // window bounds — mini-mode toggle and the manual corner/edge resize
   // handles both go through these two calls (see renderer/app.js). opts

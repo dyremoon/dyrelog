@@ -25,6 +25,23 @@
 }
 .lb-panel h2 { font-size: 15px; margin: 0 0 12px; }
 
+/* Same gold/purple alternation as the website's .plate-gold/.plate-highlight
+   (frontend/css/dyrelog.css) — "apply similar color scheming to the overlay
+   settings/leaderboards/options etc." Fixed dusk colors rather than
+   THEME_ACCENT/data-theme tokens on purpose: these two read as a matched
+   pair regardless of which in-game theme is picked, same as the site's
+   plates don't change with light/dark. */
+.lb-panel-gold { border-color: #d9a441; box-shadow: inset 0 0 0 1px rgba(217, 164, 65, 0.16); }
+.lb-panel-gold h2 { color: #f3d17e; }
+.lb-panel-highlight { border-color: #9b7fe0; box-shadow: inset 0 0 0 1px rgba(155, 127, 224, 0.18); }
+.lb-panel-highlight h2 { color: #c9b6f2; }
+
+/* Same reasoning as above, scoped to #lb-tabs specifically so it doesn't
+   also repaint the Combat Analysis window's Outgoing/Incoming tabs, which
+   share this same .detail-tab.active rule from analysis.css and weren't
+   part of this ask. */
+#lb-tabs .detail-tab.active { color: #f3d17e; border-bottom-color: #f3d17e; }
+
 .lb-picker-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .lb-picker-row label { font-weight: 600; color: var(--ink-2); font-size: 12.5px; }
 .lb-picker-row select {

@@ -2,12 +2,21 @@
    not an in-card panel. Self-contained (a separate HTML document can't
    share CSS with style.css/analysis.css) rather than a fragment of them.
 
-   Deliberately its OWN cool-graphite palette, distinct from the overlay's
-   own warm near-black default (style.css's --bg: #14120f et al, still
-   selectable in Appearance > Theme below) — "I like how his settings page
-   is very clean... change our color schemes too to not be that brown
-   color you're doing." The overlay's own theme system is untouched; this
-   is just the chrome OF the settings window itself.
+   Its own cool-graphite NEUTRALS (bg/card/elevated/hair below), distinct
+   from the overlay's own warm near-black default (style.css's
+   --bg: #14120f et al, still selectable in Appearance > Theme below) —
+   "I like how his settings page is very clean... change our color
+   schemes too to not be that brown color you're doing." The overlay's
+   own in-game theme system is untouched; this is just the chrome OF the
+   settings window itself.
+
+   The ACCENT colors, though, were later moved onto the website's "dusk"
+   gold/orange/purple pass — "apply similar color scheming to the overlay
+   settings/leaderboards/options etc" — so --accent/--accent-2 below are
+   the same --gold-2/--arcane-2 the site uses for on-dark-background text
+   and gold-bg+dark-text combos (frontend/css/dyrelog.css), not a generic
+   blue/teal anymore. The graphite neutrals stay: swapping those too would
+   put this right back on the "brown" look DJ moved away from above.
 
    --ink-2/--ink-3 were bumped lighter than the first pass (was #99a2b5 /
    #626b80) after "the text is hard to read with the current color
@@ -22,9 +31,9 @@
   --ink: #f3f5f9;
   --ink-2: #b3bcce;
   --ink-3: #8992a6;
-  --accent: #6f9bff;
-  --accent-2: #35d1b8; /* teal — tab underline, badges, the "live" note */
-  --accent-ink: #06101f;
+  --accent: #f3d17e; /* gold-2 from the site's dusk palette */
+  --accent-2: #c9b6f2; /* arcane-2 (purple) — tab underline, badges, the "live" note */
+  --accent-ink: #241703; /* dark ink for text sitting on a gold-filled control */
 }
 * { box-sizing: border-box; }
 html {
@@ -127,16 +136,84 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
    The live preview is now a sticky sidebar next to the settings controls
    instead of sitting inline above them, so it stays in view (position:
    sticky, relative to .panel above, the actual scroll container) no
-   matter how far down the left column you've scrolled. Collapses back to
-   the original single stacked column under 560px (main.js's Settings
-   window can still be resized down to its 480px minWidth) so nothing
-   overlaps at the smallest usable size. */
-.tab-panel-appearance { flex-direction: row; align-items: flex-start; gap: 16px; }
-.appearance-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
-.appearance-preview-col { flex: none; width: 224px; position: sticky; top: 0; }
+   matter how far down the left column you've scrolled.
+
+   The settings column is capped (not flex:1) and the preview column is
+   what grows — "if you compact the settings... this should be fixed" —
+   on a window DJ had manually stretched very wide, a flex:1 settings
+   column stretched every card to that same width (dead space next to
+   every label, a "Your class" dropdown and the Display style toggle both
+   ballooning into giant controls) while the preview stayed pinned at a
+   small fixed width. Flipping which side is allowed to grow means a wider
+   window makes the PREVIEW bigger (which is actually useful) instead of
+   the settings cards wider (which just wastes space), and the settings
+   column itself stays a sane, readable width no matter how the window is
+   resized.
+
+   DJ also asked to be able to resize these two columns himself — see
+   ".appearance-split-handle" and its drag-resize wiring in settings.js,
+   which overrides .appearance-main's max-width via inline style and
+   remembers the choice in localStorage (this is a real per-machine
+   desktop window, not the in-chat preview sandbox, so localStorage is the
+   right durable place for it). Collapses to the original single stacked
+   column (handle hidden) under 560px so nothing overlaps at the smallest
+   usable window size. */
+/* Grid, not flex, for this row — Blink has a long-standing quirk where
+   position:sticky on a flex item silently does nothing once that item is
+   height-stretched by align-items:stretch (confirmed while building this:
+   switching this same layout to flex made the preview column scroll away
+   like a normal block instead of sticking). Grid's own default row-stretch
+   behavior doesn't have that problem, so the exact same "make both columns
+   as tall as the taller one, then let the shorter one's content stick
+   inside that tall box" trick works here unmodified. */
+/* 460px is only the STARTING width of the first track — settings.js's drag
+   handler rewrites this element's own grid-template-columns (first number
+   only) as the handle moves, since that's the one place the split width
+   actually lives now; nothing below needs its own width/flex-basis. */
+.tab-panel-appearance { display: grid; grid-template-columns: 460px 11px minmax(190px, 1fr); gap: 0; }
+.appearance-main {
+  min-width: 0;
+  display: flex; flex-direction: column; gap: 14px;
+  padding-right: 14px;
+  overflow: hidden;
+}
+.appearance-split-handle {
+  align-self: stretch;
+  cursor: col-resize;
+  position: relative;
+}
+.appearance-split-handle::before {
+  content: "";
+  position: absolute; left: 50%; top: 6px; bottom: 6px;
+  width: 3px; margin-left: -1.5px;
+  border-radius: 999px;
+  background: var(--hair-strong);
+}
+.appearance-split-handle:hover::before,
+.appearance-split-handle.dragging::before { background: var(--accent); }
+.appearance-preview-col {
+  min-width: 0;
+  padding-left: 14px;
+}
+/* Sticky lives on the CARD, not on .appearance-preview-col itself — a real
+   Chromium quirk hit while building this: position:sticky silently does
+   nothing on a grid/flex item that is ALSO being height-stretched to match
+   its tall sibling (which is exactly what .appearance-preview-col needs,
+   so it has room to stay "stuck" while .appearance-main scrolls past it).
+   Moving sticky one level down, onto a plain non-stretched block that
+   just happens to sit inside that tall stretched box, sidesteps the bug
+   entirely and was confirmed working with a minimal repro before landing
+   here — do not move position:sticky back up onto .appearance-preview-col
+   itself even though it looks like the "obvious" place for it. */
+.preview-live {
+  position: sticky;
+  top: 0;
+}
 @media (max-width: 560px) {
-  .tab-panel-appearance { flex-direction: column; }
-  .appearance-preview-col { width: auto; position: static; }
+  .tab-panel-appearance { grid-template-columns: 1fr !important; }
+  .appearance-main { padding-right: 0; }
+  .appearance-split-handle { display: none; }
+  .appearance-preview-col { padding-left: 0; position: static; }
 }
 
 /* Bordered section cards — "we need more formatting/borders inside of the
@@ -224,10 +301,13 @@ input[type="range"]::-webkit-slider-thumb {
   padding: 6px 8px;
   font-size: 0.963rem;
 }
-/* A select inside a STACKED row (e.g. "Your class") should still fill the
-   row's own width rather than being capped to the plain-row width above —
-   .row-stack rows aren't cramped the way inline label+control rows are. */
-.row-stack select { max-width: 100%; }
+/* A select inside a STACKED row (e.g. "Your class") gets its own, more
+   generous cap rather than the plain-row width above — .row-stack rows
+   aren't as cramped as inline label+control rows — but still a real cap,
+   not 100% of the row: "the same issue with the classes section, its just
+   too wide" was this select stretching to match however wide the settings
+   column happened to be. */
+.row-stack select { max-width: 280px; }
 .row select:disabled { opacity: 0.6; }
 label.check { display: flex; align-items: center; gap: 6px; font-size: 0.963rem; color: var(--ink-2); }
 label.check input { accent-color: var(--accent); }
@@ -278,8 +358,9 @@ label.check input { accent-color: var(--accent); }
 
 .class-color-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px 12px;
+  grid-template-columns: repeat(2, minmax(0, 168px));
+  gap: 6px 16px;
+  max-width: 360px;
 }
 .class-color-row {
   display: flex;
@@ -325,6 +406,19 @@ label.check input { accent-color: var(--accent); }
 .segment:hover { color: var(--ink); }
 .segment.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
+/* Display style (Bars/Circle) is only ever two short words — "the layout
+   section... is also showing large button options for Display style bars
+   and circle, make them smaller" was this stretching to fill the entire
+   settings column width via the base .segment{flex:1} rule above, reading
+   like one giant button instead of a small toggle. */
+#settings-display-style {
+  max-width: 220px;
+}
+#settings-display-style .segment {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
 .segmented-vertical { flex-direction: column; max-width: 440px; }
 .segmented-vertical .segment {
   flex: none; text-align: left; padding: 10px 12px;
@@ -357,6 +451,24 @@ label.check input { accent-color: var(--accent); }
      --preview-bg-alpha, not the whole element's opacity). */
   background: color-mix(in srgb, var(--preview-bg-color, #14120f) calc(var(--preview-bg-alpha, 1) * 100%), transparent);
   border-radius: 8px; padding: 9px;
+  max-width: 320px;
+  margin: 0 auto;
+  /* THE actual "the appearance bar still looks goofy" bug at "Extra Large"
+     Settings text size: every rule below was sized in `rem`, which always
+     resolves against the DOCUMENT ROOT's font-size — the exact thing
+     "Settings text size" changes (see BASE_UI_FONT_PX in settings.js). So
+     picking "Extra Large" scaled the mockup's text right along with the
+     window's own chrome, even though this preview is supposed to hold
+     still and show a fixed-size example of the real overlay regardless of
+     that setting — icons and header text visibly collided into each
+     other once everything below grew past what the row had room for.
+     Anchoring a fixed font-size here and switching every size below from
+     rem to em means they compute off THIS number, not the document
+     root's, so the mockup stays the same size no matter what "Settings
+     text size" is set to. 13.5px matches settings.css's own root default
+     (BASE_UI_FONT_PX) at "Normal", so nothing about the preview's actual
+     look changes from before — it just stops moving. */
+  font-size: 13.5px;
 }
 /* "Fade UI when idle" — .preview-idle mirrors exactly what the real
    overlay hides once the mouse has been off it for fadeIdleSeconds: the
@@ -387,13 +499,22 @@ label.check input { accent-color: var(--accent); }
 }
 .preview-wordmark {
   flex: 1; min-width: 0; margin: 0 6px;
-  font-weight: 700; font-size: 0.72rem; letter-spacing: 0.03em;
+  font-weight: 700; font-size: 0.72em; letter-spacing: 0.03em;
   color: var(--preview-text, #f2ede1); font-family: var(--preview-font, inherit);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.preview-icons { display: flex; gap: 3px; flex: none; }
+/* Real glyphs (gear/chart/trophy/folder/minimize/close, matching
+   index.html's actual .icon-btn row) instead of blank decorative dots —
+   "the preview doesn't even look like that" was partly this: six buttons
+   in the real header, four empty squares here. Fixed px, not em, same
+   reasoning as the font-size anchor above — six tiny icon buttons need to
+   stay tiny and fit in a row regardless of Settings text size. */
+.preview-icons { display: flex; gap: 2px; flex: none; }
 .preview-icons i {
-  display: block; width: 11px; height: 11px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px; border-radius: 4px;
+  font-style: normal; font-size: 8px; line-height: 1;
+  color: var(--preview-secondary-color, #a89f8d);
   border: 1px solid var(--preview-border, rgba(255,255,255,0.14));
 }
 
@@ -402,7 +523,7 @@ label.check input { accent-color: var(--accent); }
 .preview-subhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
 .preview-mobline {
   display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden;
-  font-size: calc(0.7rem * var(--preview-secondaryscale, 1));
+  font-size: calc(0.7em * var(--preview-secondaryscale, 1));
   color: var(--preview-secondary-color, #a89f8d);
 }
 .preview-mobline-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -411,7 +532,7 @@ label.check input { accent-color: var(--accent); }
 .preview-dpsnum {
   display: flex; align-items: baseline; gap: 3px;
   color: var(--preview-accent, #6f9bff); font-weight: 700;
-  font-size: calc(1rem * var(--preview-secondaryscale, 1));
+  font-size: calc(1em * var(--preview-secondaryscale, 1));
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .preview-dpsunit, .preview-dps-abbrev {
@@ -419,7 +540,7 @@ label.check input { accent-color: var(--accent); }
 }
 .preview-timer {
   color: var(--preview-secondary-color, #a89f8d);
-  font-size: calc(0.66rem * var(--preview-secondaryscale, 1));
+  font-size: calc(0.66em * var(--preview-secondaryscale, 1));
   font-variant-numeric: tabular-nums;
 }
 
@@ -435,7 +556,7 @@ label.check input { accent-color: var(--accent); }
   border: 1px solid var(--preview-border, rgba(255,255,255,0.12));
   border-radius: 6px;
   padding: calc(4px * var(--preview-barheight, 1)) 8px;
-  font-size: calc(0.78rem * var(--preview-textscale, 1));
+  font-size: calc(0.78em * var(--preview-textscale, 1));
   color: var(--preview-text, #f2ede1);
   font-family: var(--preview-font, inherit);
   overflow: hidden;
@@ -469,7 +590,7 @@ label.check input { accent-color: var(--accent); }
 #preview-name-you, #preview-mini-name { color: var(--preview-my-name-color, var(--preview-text, #f2ede1)); }
 #preview-name-pet, #preview-mini-pet-name { color: var(--preview-pet-name-color, var(--preview-secondary-color, #a89f8d)); }
 .preview-pet-tag {
-  flex: none; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.04em;
+  flex: none; font-size: 0.58em; font-weight: 700; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--preview-secondary-color, #a89f8d);
   border: 1px solid var(--preview-border, rgba(255,255,255,0.14));
   border-radius: 4px; padding: 0 4px; line-height: 1.4;
@@ -488,19 +609,19 @@ label.check input { accent-color: var(--accent); }
 .preview-mini-main-row .preview-status-dot { align-self: center; }
 #preview-mini-name {
   flex: 1; min-width: 0; font-weight: 700;
-  font-size: calc(0.8rem * var(--preview-textscale, 1));
+  font-size: calc(0.8em * var(--preview-textscale, 1));
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .preview-mini-dps {
   flex: none; display: flex; align-items: baseline; gap: 2px;
   color: var(--preview-accent, #6f9bff); font-weight: 700;
-  font-size: calc(0.85rem * var(--preview-secondaryscale, 1));
+  font-size: calc(0.85em * var(--preview-secondaryscale, 1));
   font-variant-numeric: tabular-nums;
 }
 .preview-mini-dps .preview-dpsunit { color: var(--preview-secondary-color, #a89f8d); }
 .preview-mini-pet-row {
   display: flex; align-items: baseline; gap: 6px; min-width: 0;
-  font-size: calc(0.68rem * var(--preview-minipetscale, 1));
+  font-size: calc(0.68em * var(--preview-minipetscale, 1));
 }
 #preview-mini-pet-name { flex: 1; min-width: 0; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #preview-mini-pet-dps { flex: none; color: var(--preview-secondary-color, #a89f8d); font-variant-numeric: tabular-nums; }
@@ -513,6 +634,10 @@ label.check input { accent-color: var(--accent); }
    and color settings don't reach it, hence the separate hint under it. */
 .preview-circle-wrap { display: flex; justify-content: center; padding: 4px 0 2px; }
 .preview-circle {
+  /* Same fixed-anchor fix as .preview-frame above — without this, "Extra
+     Large" Settings text size blew this badge's dps number up well past
+     what a 96px-max circle has room for. */
+  font-size: 13.5px;
   --preview-circle-d: clamp(56px, calc(80px * var(--preview-circlescale, 1)), 160px);
   position: relative;
   width: var(--preview-circle-d); height: var(--preview-circle-d);
@@ -535,16 +660,16 @@ label.check input { accent-color: var(--accent); }
 .preview-circle-dps { display: flex; align-items: baseline; gap: 2px; }
 #preview-circle-dps-num {
   color: var(--preview-accent, #6f9bff); font-weight: 700;
-  font-size: calc(1.1rem * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
+  font-size: calc(1.1em * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
   font-variant-numeric: tabular-nums;
 }
 .preview-circle-unit {
   color: var(--preview-secondary-color, #a89f8d);
-  font-size: calc(0.6rem * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
+  font-size: calc(0.6em * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
 }
 .preview-circle-timer {
   color: var(--preview-secondary-color, #a89f8d);
-  font-size: calc(0.66rem * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
+  font-size: calc(0.66em * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
   font-variant-numeric: tabular-nums;
 }
 
@@ -564,6 +689,26 @@ label.check input { accent-color: var(--accent); }
   text-decoration: none; cursor: pointer;
 }
 .btn-link:hover { filter: brightness(1.08); }
+.btn-link:disabled { opacity: 0.6; cursor: default; filter: none; }
+
+/* ---- What's New: check-for-updates panel ------------------------------- */
+.update-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 14px 0;
+}
+.update-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.update-status { display: inline-flex; align-items: center; gap: 8px; font-size: 0.889rem; color: var(--ink-2); }
+.update-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.update-dot.ok { background: #3ecf7d; box-shadow: 0 0 5px rgba(62, 207, 125, 0.6); }
+.update-dot.err { background: #e6483f; box-shadow: 0 0 5px rgba(230, 72, 63, 0.5); }
+.update-progress-track {
+  width: 120px; height: 6px; border-radius: 999px;
+  background: var(--bg-elevated); overflow: hidden; flex: none;
+}
+.update-progress-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.2s ease; }
 .credits-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .credits-list li { font-size: 0.889rem; }
 .credits-list a { color: var(--accent-2); text-decoration: none; }

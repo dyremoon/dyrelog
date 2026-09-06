@@ -22,6 +22,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const { autoUpdater } = require("electron-updater");
 
 const CONFIG_PATH = path.join(app.getPath("userData"), "dyrelog-source.json");
 const SETTINGS_PATH = path.join(app.getPath("userData"), "dyrelog-settings.json");
@@ -180,6 +181,51 @@ async function checkForUpdates() {
     // Offline, DNS hiccup, whatever — never worth surfacing to the player.
   }
 }
+
+// ---- real in-app updater (Settings > What's New) ---------------------
+// Separate from checkForUpdates()/updateInfo above, which only ever powers
+// a small "a new version exists" banner that links out to the releases
+// page. This is the actual "check for updates" button + "update now and
+// relaunch" button DJ asked for — electron-updater against the same
+// public GitHub Releases page, but able to download the installer and
+// relaunch into it itself, no browser round-trip.
+//
+// Requires each GitHub release to also carry the latest.yml (and the
+// installer's .blockmap) that electron-builder generates alongside the
+// .exe once package.json's build.publish is set — see DYRELOG_GUIDE.md's
+// release checklist. Only does anything in a packaged, installed build:
+// electron-updater has no update feed to read from when running via
+// `npm start` from source (app.isPackaged is false), so both handlers
+// below short-circuit to a "dev-mode" status instead of throwing.
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
+
+function sendUpdaterStatus(payload) {
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send("updater-status", payload);
+}
+
+autoUpdater.on("checking-for-update", function () {
+  sendUpdaterStatus({ state: "checking" });
+});
+autoUpdater.on("update-available", function (info) {
+  sendUpdaterStatus({ state: "available", version: info && info.version });
+});
+autoUpdater.on("update-not-available", function () {
+  sendUpdaterStatus({ state: "up-to-date" });
+});
+autoUpdater.on("error", function (err) {
+  sendUpdaterStatus({ state: "error", message: (err && err.message) || String(err) });
+});
+autoUpdater.on("download-progress", function (progress) {
+  sendUpdaterStatus({ state: "downloading", percent: Math.round((progress && progress.percent) || 0) });
+});
+autoUpdater.on("update-downloaded", function () {
+  sendUpdaterStatus({ state: "ready" });
+  // "automatically pull the update and relaunch" — no second click once
+  // the download finishes. The short delay just lets the "Relaunching…"
+  // status actually render before the app quits.
+  setTimeout(function () { autoUpdater.quitAndInstall(); }, 900);
+});
 
 function loadJson(filePath, fallback) {
   try {
@@ -630,6 +676,32 @@ ipcMain.handle("get-app-version", function () {
 // "update-available" send that happens the moment a check actually finds one.
 ipcMain.handle("get-update-info", function () {
   return updateInfo;
+});
+
+// Real check/download/relaunch pair for the What's New tab's own buttons
+// (see autoUpdater wiring above). Both short-circuit to "dev-mode" outside
+// a packaged build — nothing to check against when running from source.
+ipcMain.handle("check-for-updates-now", async function () {
+  if (!app.isPackaged) {
+    sendUpdaterStatus({ state: "dev-mode" });
+    return;
+  }
+  try {
+    await autoUpdater.checkForUpdates();
+  } catch (err) {
+    sendUpdaterStatus({ state: "error", message: (err && err.message) || String(err) });
+  }
+});
+ipcMain.handle("download-and-install-update", async function () {
+  if (!app.isPackaged) {
+    sendUpdaterStatus({ state: "dev-mode" });
+    return;
+  }
+  try {
+    await autoUpdater.downloadUpdate();
+  } catch (err) {
+    sendUpdaterStatus({ state: "error", message: (err && err.message) || String(err) });
+  }
 });
 
 ipcMain.handle("pick-file", async function () {

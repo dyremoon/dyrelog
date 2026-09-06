@@ -204,6 +204,7 @@
          the top of one long stack — "as you go down to test [sliders], you
          have to scroll up to see the test bar." Collapses back to a
          stacked single column below settings.css's own width breakpoint. -->
+    <div class="appearance-split-handle" id="appearance-split-handle" title="Drag to resize"></div>
     <aside class="appearance-preview-col">
       <div class="settings-section preview-live" data-searchable="preview live example test visuals bars mini-bar circle meter idle fade">
         <p class="section-label">Live preview</p>
@@ -222,7 +223,7 @@
             <div class="preview-topbar">
               <span class="preview-status-dot"></span>
               <span class="preview-wordmark">DYRELOG</span>
-              <span class="preview-icons"><i></i><i></i><i></i><i></i></span>
+              <span class="preview-icons"><i>&#9881;</i><i>&#128202;</i><i>&#127942;</i><i>&#128193;</i><i>&#8212;</i><i>&times;</i></span>
             </div>
             <div class="preview-subhead">
               <div class="preview-mobline"><span class="preview-mobline-name">Master Yael</span><span class="preview-mobline-diff">D2</span></div>
@@ -367,6 +368,24 @@
           <div class="version-badge" id="whatsnew-version">Dyrelog</div>
           <a class="github-link" id="whatsnew-github" href="#">View on GitHub &#8599;</a>
         </div>
+
+        <!-- "a 'check if an update is available' button... If they're up to
+             date, we have a green light that shows that. If they're not,
+             then we provide a 'update now and relaunch' button that will
+             automatically pull the update and relaunch." Real download +
+             install via electron-updater, not just the link-out-to-GitHub
+             banner the main mini-mode window already had (see main.js's
+             checkForUpdates()/updateInfo, untouched) — this is a separate,
+             heavier flow that only does anything in a packaged, installed
+             build (see the "dev-mode" status text below for why running via
+             `npm start` won't actually find/apply anything here). -->
+        <div class="update-panel" id="update-panel">
+          <div class="update-row">
+            <button class="btn-link" id="btn-check-updates" type="button">Check for updates</button>
+            <span class="update-status" id="update-status"></span>
+          </div>
+        </div>
+
         <div id="changelog"></div>
       </div>
     </section>
