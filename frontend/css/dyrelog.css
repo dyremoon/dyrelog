@@ -91,7 +91,15 @@ a { color: var(--brass-2); }
 a:hover { color: var(--brass); }
 
 .container {
-  max-width: 960px;
+  /* Was 960px — "do you see how much wider [the reference site] is? Can
+     we make ours wider? I feel like we have so much empty space in ours
+     comparatively?" Every child layout here (tables, the auto-fit card
+     grids, the plates) already flexes to 100% of this, so widening it is
+     a one-line change, not a redesign — verified nothing was hardcoded
+     to the old 960px column. Bumped the side-banner offsets/breakpoint
+     below by the same amount so the decorative rails still clear the
+     wider column instead of overlapping it. */
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
   position: relative;
@@ -100,7 +108,7 @@ a:hover { color: var(--brass); }
 
 /* Side banners (index.html only) — decorative art in the empty gutters on
    a wide viewport. Fixed, non-interactive, and hidden once the viewport
-   isn't wide enough to show them without crowding the real (960px)
+   isn't wide enough to show them without crowding the real (1200px)
    content column — see the comment on the markup itself for what they
    are and aren't. */
 .side-banner {
@@ -120,9 +128,12 @@ a:hover { color: var(--brass); }
   z-index: 0;
 }
 .side-banner svg { width: 100%; height: 100%; }
-.side-banner-left { left: max(0px, calc(50% - 640px)); }
-.side-banner-right { right: max(0px, calc(50% - 640px)); }
-@media (max-width: 1360px) {
+/* 780 = new 600px container half-width + 140px banner width + a 40px
+   gap, same gap the old 640px offset left against the old 480px
+   half-width column. */
+.side-banner-left { left: max(0px, calc(50% - 780px)); }
+.side-banner-right { right: max(0px, calc(50% - 780px)); }
+@media (max-width: 1600px) {
   .side-banner { display: none; }
 }
 
@@ -391,6 +402,34 @@ table tbody tr:hover { background: var(--surface-2); }
   padding: 48px 20px;
   color: var(--muted);
 }
+
+/* Profile bio (profile.html) — "a short section to add a small bio for
+   people who make accounts to fill in." Reuses the same dark input
+   language as the class-picker selects above (surface-2 fill, hairline
+   border) rather than the browser-default white textarea. */
+.bio-textarea {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--hair-strong);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+.bio-textarea:focus { outline: none; border-color: var(--gold); }
+.bio-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 480px;
+  margin-top: 6px;
+}
+.bio-count { font-size: 0.78rem; }
 
 /* About page — same copy/structure as the desktop overlay's own About &
    Feedback tab, so the story reads the same wherever someone finds it. */

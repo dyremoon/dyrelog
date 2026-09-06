@@ -32,6 +32,18 @@
           <button class="btn" id="logout-btn" type="button" hidden>Log out</button>
         </div>
         <p class="muted" id="profile-username" style="margin-top:6px; margin-bottom:0;"></p>
+
+        <!-- "Under my profile, add a short section to add a small bio for
+             people who make accounts to fill in." Hidden until we know
+             the user is logged in (loadProfile() below un-hides it). -->
+        <div id="bio-section" hidden style="margin-top:16px;">
+          <label for="bio-input" class="muted" style="display:block; margin-bottom:6px;">Bio</label>
+          <textarea id="bio-input" class="bio-textarea" rows="3" maxlength="200" placeholder="Say a little about yourself…"></textarea>
+          <div class="bio-row">
+            <span class="muted bio-count" id="bio-count">0/200</span>
+            <button class="btn" id="bio-save-btn" type="button">Save bio</button>
+          </div>
+        </div>
       </div>
 
       <div class="plate plate-highlight">
@@ -103,6 +115,42 @@
         </label>`;
     }
 
+    // Self-declared, like the class combo — a plain textarea saved to
+    // /api/me/bio (see updateUserBio in the worker's db.js). Wired once
+    // per page load; loadProfile() calls this only once it knows the
+    // caller is actually logged in.
+    function initBio(bio) {
+      const section = document.getElementById('bio-section');
+      const input = document.getElementById('bio-input');
+      const count = document.getElementById('bio-count');
+      const saveBtn = document.getElementById('bio-save-btn');
+      section.hidden = false;
+      input.value = bio || '';
+      count.textContent = `${input.value.length}/200`;
+      input.addEventListener('input', () => {
+        count.textContent = `${input.value.length}/200`;
+      });
+      saveBtn.addEventListener('click', async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+        try {
+          await api('/api/me/bio', {
+            method: 'PATCH',
+            body: JSON.stringify({ bio: input.value }),
+          });
+          saveBtn.textContent = 'Saved';
+          setTimeout(() => {
+            saveBtn.textContent = 'Save bio';
+          }, 1500);
+        } catch (err) {
+          alert("Couldn't save that — try again.");
+          saveBtn.textContent = 'Save bio';
+        } finally {
+          saveBtn.disabled = false;
+        }
+      });
+    }
+
     async function loadProfile() {
       const listEl = document.getElementById('char-list');
       try {
@@ -111,6 +159,7 @@
         if (user) {
           document.getElementById('profile-username').textContent = user.username;
           document.getElementById('logout-btn').hidden = false;
+          initBio(user.bio);
         } else {
           document.getElementById('profile-username').textContent = 'Not logged in.';
         }
