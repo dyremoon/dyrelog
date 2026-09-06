@@ -26,16 +26,22 @@
     <main>
       <div class="plate plate-gold" style="margin-bottom:24px;">
         <h2>Analyze a log</h2>
+        <p class="muted">
+          <strong>Where's my log?</strong>
+          In EverQuest Legends, type <code>/log on</code>, then look in wherever you downloaded your game to find the game's
+          <code>Logs</code> folder. It should be named something like:
+          <code>eqlog_YourName_pq.proj.txt</code>.
+        </p>
+
         <p class="muted" style="margin-top:-6px;">
-          Drop a raw EverQuest Legends log file below and Dyrelog breaks
-          every fight in it down by combatant &mdash; damage, dps, hits,
-          crits, procs, even a dps-over-time graph. It runs entirely in
-          your browser: the file is never uploaded anywhere, the same way
-          the desktop overlay never sends your log anywhere either.
+          Drop your EverQuest Legends log file below and Dyrelog breaks down
+          every fight by combatant, damage, dps, hits,
+          crits, procs, and even has a dps-over-time graph. The file is never uploaded anywhere, the same way
+          the desktop overlay never sends your log anywhere either. This only touches the log file.
         </p>
         <div class="dropzone" id="dropzone">
           <div class="dz-title" id="dz-title">Drop your log file here, or click to choose one</div>
-          <div class="dz-sub">eqlog_YourName_pq.proj.txt &mdash; usually in your EverQuest Legends install folder</div>
+          <div class="dz-sub"> <Code>eqlog_YourName_pq.proj.txt</Code> -> usually in your EverQuest Legends install folder</div>
         </div>
         <input type="file" id="file-input" accept=".txt,.log" hidden>
         <p class="muted" id="dz-error" style="margin-bottom:0; display:none;"></p>
@@ -85,8 +91,8 @@
     </main>
 
     <footer class="site-footer">
-      Dyrelog is an unofficial fan project. Not affiliated with Daybreak
-      Game Company or EverQuest Legends.
+      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by 
+      Daybreak Game Company or EverQuest Legends.
     </footer>
   </div>
 
