@@ -1195,11 +1195,15 @@
   // "I'd like it to auto install if possible" — this banner used to just
   // openExternal() the releases page, leaving the actual download/install
   // to the player's browser. It now drives the SAME real electron-updater
-  // flow as Settings > What's New's "Check for updates"/"Update now and
-  // relaunch" buttons (see main.js's check-for-updates-now/
-  // download-and-install-update handlers) — one click here checks, and the
-  // instant a newer version is confirmed it starts the download itself, no
-  // second click, matching "automatically pull the update and relaunch."
+  // flow as Settings > What's New's "Check for updates" button (see
+  // main.js's check-for-updates-now/download-and-install-update handlers)
+  // — one click here checks, and the instant a newer version is confirmed
+  // it starts the download itself, no second click, matching "automatically
+  // pull the update and relaunch." Settings' own button was a genuine
+  // two-click flow until Sept 6 (check, then a separate "Update now and
+  // relaunch" button) — collapsed to match this banner's one click after
+  // DJ found the two-step version confusing ("the button isn't immediately
+  // installing... its a failure point").
   var updateDismissed = false;
   var updaterBusy = false; // this window's own click started a real update — see the updaterStatus guard below
   function showUpdateBanner(info) {

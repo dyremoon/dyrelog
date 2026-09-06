@@ -632,18 +632,16 @@
       statusEl.innerHTML = '<span class="update-dot ok"></span>You&rsquo;re up to date';
       btnCheck.disabled = false;
     }
+    // "I want both of these to just start the update to the latest version
+    // and reboot the application" (Sept 6) — used to stop here and wait for
+    // a separate "Update now and relaunch" click, the same two-step shape
+    // Settings has always had. Now a found update starts downloading
+    // immediately, no second click, matching the mini-mode banner's own
+    // one-click flow in app.js.
     function renderAvailable(version) {
       statusEl.innerHTML =
-        '<span>Update available' + (version ? " &mdash; v" + version : "") + "</span>" +
-        '<button class="btn-link" id="btn-update-now" type="button" style="padding:5px 12px; font-size:0.85rem;">Update now and relaunch</button>';
-      var btn = document.getElementById("btn-update-now");
-      if (btn) {
-        btn.addEventListener("click", function () {
-          btn.disabled = true;
-          btn.textContent = "Downloading…";
-          window.dyrelog.downloadAndInstallUpdate();
-        });
-      }
+        '<span>Update available' + (version ? " &mdash; v" + version : "") + " &mdash; downloading&hellip;</span>";
+      window.dyrelog.downloadAndInstallUpdate();
     }
     function renderDownloading(percent) {
       var pct = Math.max(0, Math.min(100, percent || 0));
@@ -669,15 +667,11 @@
       // innerHTML so an odd error string can't be mis-rendered as markup.
       statusEl.innerHTML = '<span class="update-dot err"></span>Update failed &mdash; <span id="update-error-detail"></span>';
       document.getElementById("update-error-detail").textContent = message || "try again in a moment";
+      // The whole flow (check, then immediately download+install — see
+      // renderAvailable() above) runs off this one button now, so a retry
+      // after any failure just means re-enabling it, not resetting a
+      // separate "Update now" button that no longer exists.
       btnCheck.disabled = false;
-      // If this error happened mid-download, the "Update now" button is
-      // still sitting there disabled/"Downloading…" — reset it so a retry
-      // is actually possible without reopening Settings.
-      var btn = document.getElementById("btn-update-now");
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "Update now and relaunch";
-      }
     }
     function renderDevMode() {
       statusEl.innerHTML = '<span style="color:var(--ink-3);">Only checks in the installed app &mdash; not while running from source.</span>';
