@@ -589,6 +589,42 @@
     var statusEl = document.getElementById("update-status");
     if (!btnCheck || !statusEl || !window.dyrelog.onUpdaterStatus) return;
 
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    // "Can the What's New tab show vX.X.X's patch notes before it's been
+    // downloaded?" — yes: electron-updater's GitHub provider already reads
+    // the release's own description straight off GitHub (see main.js's
+    // "update-available" handler, which passes it through as
+    // payload.releaseNotes) — no extra fetch needed here. This inserts it
+    // as its own entry at the top of the same changelog list the
+    // hardcoded CHANGELOG above renders, tagged "Available now" instead of
+    // "Current" so it reads as a preview, not as already-installed.
+    var previewedVersion = null;
+    function renderAvailablePreview(version, releaseNotes) {
+      if (!version || !releaseNotes || previewedVersion === version) return;
+      previewedVersion = version;
+      var existing = document.getElementById("changelog-preview-entry");
+      if (existing) existing.remove();
+      var items = String(releaseNotes)
+        .split("\n")
+        .map(function (line) { return line.replace(/^[\s*\-•]+/, "").trim(); })
+        .filter(Boolean);
+      if (!items.length) return;
+      var html =
+        '<div class="changelog-entry" id="changelog-preview-entry">' +
+          '<div class="changelog-head">' +
+            '<span class="changelog-title">v' + esc(version) + "</span>" +
+            '<span class="changelog-tag">Available now</span>' +
+          "</div>" +
+          '<ul class="changelog-list">' + items.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" +
+        "</div>";
+      els.changelog.insertAdjacentHTML("afterbegin", html);
+    }
+
     function renderChecking() {
       statusEl.innerHTML = '<span class="update-dot" style="background:var(--ink-3);"></span>Checking&hellip;';
     }
@@ -618,9 +654,30 @@
     function renderReady() {
       statusEl.innerHTML = '<span class="update-dot ok"></span>Update downloaded &mdash; relaunching&hellip;';
     }
-    function renderError() {
-      statusEl.innerHTML = '<span class="update-dot err"></span>Couldn&rsquo;t check for updates &mdash; try again in a moment.';
+    function renderError(message) {
+      // Used to always show the same generic "couldn't check for updates"
+      // text no matter what actually failed — including a failure during
+      // the DOWNLOAD/install step, which is a different, more actionable
+      // problem than the initial check failing. Now shows electron-updater's
+      // real error message (see main.js's autoUpdater.on("error", ...) and
+      // the two ipcMain.handle() catch blocks, both of which already send
+      // payload.message — this just stopped throwing it away) so DJ (or a
+      // future session) can actually tell what went wrong instead of
+      // guessing blind.
+      // No HTML-escaping helper lives in this file (settings.js has never
+      // needed one) — build the message as a text node instead of via
+      // innerHTML so an odd error string can't be mis-rendered as markup.
+      statusEl.innerHTML = '<span class="update-dot err"></span>Update failed &mdash; <span id="update-error-detail"></span>';
+      document.getElementById("update-error-detail").textContent = message || "try again in a moment";
       btnCheck.disabled = false;
+      // If this error happened mid-download, the "Update now" button is
+      // still sitting there disabled/"Downloading…" — reset it so a retry
+      // is actually possible without reopening Settings.
+      var btn = document.getElementById("btn-update-now");
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Update now and relaunch";
+      }
     }
     function renderDevMode() {
       statusEl.innerHTML = '<span style="color:var(--ink-3);">Only checks in the installed app &mdash; not while running from source.</span>';
@@ -637,10 +694,14 @@
       var state = payload && payload.state;
       if (state === "checking") renderChecking();
       else if (state === "up-to-date") renderUpToDate();
-      else if (state === "available") { renderAvailable(payload.version); btnCheck.disabled = true; }
+      else if (state === "available") {
+        renderAvailable(payload.version);
+        renderAvailablePreview(payload.version, payload.releaseNotes);
+        btnCheck.disabled = true;
+      }
       else if (state === "downloading") renderDownloading(payload.percent);
       else if (state === "ready") renderReady();
-      else if (state === "error") renderError();
+      else if (state === "error") renderError(payload && payload.message);
       else if (state === "dev-mode") renderDevMode();
     });
   })();

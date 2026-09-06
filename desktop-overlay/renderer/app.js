@@ -1191,20 +1191,72 @@
   // dismissing just hides the banner for the rest of this run (nothing is
   // persisted), so a player who ignores it still sees it again next launch
   // until they actually update. See checkForUpdates() in main.js.
+  //
+  // "I'd like it to auto install if possible" — this banner used to just
+  // openExternal() the releases page, leaving the actual download/install
+  // to the player's browser. It now drives the SAME real electron-updater
+  // flow as Settings > What's New's "Check for updates"/"Update now and
+  // relaunch" buttons (see main.js's check-for-updates-now/
+  // download-and-install-update handlers) — one click here checks, and the
+  // instant a newer version is confirmed it starts the download itself, no
+  // second click, matching "automatically pull the update and relaunch."
   var updateDismissed = false;
+  var updaterBusy = false; // this window's own click started a real update — see the updaterStatus guard below
   function showUpdateBanner(info) {
-    if (!info || updateDismissed) return;
+    if (!info || updateDismissed || updaterBusy) return;
     els.updateBannerText.textContent = "Update available — v" + info.version;
     els.updateBanner.hidden = false;
-    els.updateBanner.onclick = function () { window.dyrelog.openExternal(info.url); };
   }
+  els.updateBanner.addEventListener("click", function () {
+    if (updaterBusy) return;
+    updaterBusy = true;
+    els.updateBannerDismiss.hidden = true; // don't let it get dismissed mid-download
+    els.updateBannerText.textContent = "Checking for update…";
+    window.dyrelog.checkForUpdatesNow();
+  });
   els.updateBannerDismiss.addEventListener("click", function (evt) {
-    evt.stopPropagation(); // don't also trigger the banner's own open-releases-page click
+    evt.stopPropagation(); // don't also trigger the banner's own click-to-update
     updateDismissed = true;
     els.updateBanner.hidden = true;
   });
   window.dyrelog.onUpdateAvailable(showUpdateBanner);
   window.dyrelog.getUpdateInfo().then(showUpdateBanner);
+
+  // sendUpdaterStatus() in main.js now broadcasts to this window too (it
+  // used to only reach Settings), since this banner needs the same
+  // checking/available/downloading/ready/error states Settings shows. The
+  // updaterBusy guard means this window only reacts when ITS OWN click
+  // started the flow — not, say, a check the player ran from an open
+  // Settings window at the same time, which would otherwise make the
+  // banner jump around for no reason the player did in this window.
+  window.dyrelog.onUpdaterStatus(function (payload) {
+    if (!updaterBusy) return;
+    var state = payload && payload.state;
+    if (state === "checking") {
+      els.updateBannerText.textContent = "Checking for update…";
+    } else if (state === "available") {
+      els.updateBannerText.textContent = "Downloading v" + (payload.version || "") + "…";
+      window.dyrelog.downloadAndInstallUpdate();
+    } else if (state === "downloading") {
+      els.updateBannerText.textContent = "Downloading update… " + Math.round(payload.percent || 0) + "%";
+    } else if (state === "ready") {
+      els.updateBannerText.textContent = "Update downloaded — relaunching…";
+      // main.js calls autoUpdater.quitAndInstall() itself shortly after
+      // this — nothing else to do here.
+    } else if (state === "up-to-date") {
+      // Shouldn't normally happen (the banner only shows once the lighter
+      // GitHub-poll check already found something newer), but handle it
+      // gracefully rather than leaving the banner stuck on "Checking…"
+      // forever if the two checks ever disagree.
+      updaterBusy = false;
+      els.updateBannerDismiss.hidden = false;
+      els.updateBannerText.textContent = "Already up to date";
+    } else if (state === "error") {
+      updaterBusy = false;
+      els.updateBannerDismiss.hidden = false;
+      els.updateBannerText.textContent = "Update failed — click to retry (" + (payload.message || "unknown error") + ")";
+    }
+  });
 
   // ---- boot ---------------------------------------------------------------
   (async function boot() {

@@ -24,6 +24,19 @@ const path = require("path");
 const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
 
+// Pin the app name explicitly, BEFORE any app.getPath("userData") call
+// below. Without this, Electron derives the name from package.json: when
+// run unpackaged ("npm start"), it falls back to the top-level "name"
+// field ("dyrelog-desktop"), but the packaged/installed build picks up
+// "productName" ("Dyrelog") from the generated package.json inside the
+// asar instead. Those two names produce two DIFFERENT userData folders
+// (%APPDATA%\dyrelog-desktop\ vs %APPDATA%\Dyrelog\), so anyone who tests
+// via "npm start" and then also runs the installed .exe sees two separate,
+// non-overlapping histories/settings/window-position files — this is
+// exactly why kills tracked one way didn't show up in "My Kills" the other
+// way. Pinning the name here makes both always use %APPDATA%\Dyrelog\.
+app.setName("Dyrelog");
+
 const CONFIG_PATH = path.join(app.getPath("userData"), "dyrelog-source.json");
 const SETTINGS_PATH = path.join(app.getPath("userData"), "dyrelog-settings.json");
 const WINDOW_PATH = path.join(app.getPath("userData"), "dyrelog-window.json");
@@ -201,14 +214,36 @@ autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
 
 function sendUpdaterStatus(payload) {
-  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send("updater-status", payload);
+  // Used to only ever reach settingsWin — fine while the real updater was
+  // only driven from Settings > What's New. Now that the mini-mode
+  // window's own "Update available" banner also drives this same
+  // electron-updater flow (see app.js), it needs these events too, or its
+  // banner text would just freeze on "Downloading..." forever with no way
+  // to know progress/completion/failure. Same broadcast-to-every-window
+  // pattern as the settings-update broadcast bug fixed earlier — see that
+  // note in the CSS theming section above.
+  [win, settingsWin].forEach(function (w) {
+    if (w && !w.isDestroyed()) w.webContents.send("updater-status", payload);
+  });
 }
 
 autoUpdater.on("checking-for-update", function () {
   sendUpdaterStatus({ state: "checking" });
 });
 autoUpdater.on("update-available", function (info) {
-  sendUpdaterStatus({ state: "available", version: info && info.version });
+  // "Can the What's New tab show the patch notes before it's downloaded?"
+  // — electron-updater's GitHub provider already reads them straight off
+  // the release's own description on GitHub and puts them on info as
+  // releaseNotes, no extra API call needed. It's usually a plain string,
+  // but some electron-updater versions can hand back an array of
+  // {version, note} objects when Squirrel-style multi-version feeds are in
+  // play — normalize both shapes to one string so settings.js only ever
+  // has to handle one.
+  var notes = info && info.releaseNotes;
+  if (Array.isArray(notes)) {
+    notes = notes.map(function (n) { return n && n.note; }).filter(Boolean).join("\n\n");
+  }
+  sendUpdaterStatus({ state: "available", version: info && info.version, releaseNotes: notes || null });
 });
 autoUpdater.on("update-not-available", function () {
   sendUpdaterStatus({ state: "up-to-date" });
