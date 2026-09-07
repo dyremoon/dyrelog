@@ -60,7 +60,7 @@
       }
       try {
         const { boss, parses } = await api(`/api/bosses/${bossId}/leaderboard`);
-        document.getElementById('boss-name').textContent = boss.name;
+        document.getElementById('boss-name').textContent = boss.name + (boss.difficulty ? ' ' + boss.difficulty : '');
         document.getElementById('boss-zone').textContent =
           (boss.zone || '') + (boss.zone ? ' · ' : '') + fmtDifficulty(boss.difficulty) +
           (boss.category ? ' · ' + boss.category : '');

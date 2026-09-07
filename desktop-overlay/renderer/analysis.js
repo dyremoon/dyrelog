@@ -276,6 +276,14 @@
     return { merged: merged, stats: EQP.computeStats(merged) };
   }
 
+  // Wraps a section's inner HTML in the bordered .analysis-section card
+  // (see analysis.css) — "" stays "" so a section with nothing to show
+  // (no healing, single mob, etc.) never renders an empty bordered box.
+  function wrapSection(html, extraClass) {
+    if (!html) return "";
+    return '<div class="analysis-section' + (extraClass ? " " + extraClass : "") + '">' + html + "</div>";
+  }
+
   function render() {
     var sessions = buildSessions();
 

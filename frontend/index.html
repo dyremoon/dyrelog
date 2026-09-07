@@ -254,7 +254,7 @@
         const countLabel = hasCount ? `(${fmtNumber(entrantCount)} ${entrantCount === 1 ? 'entry' : 'entries'})` : '';
         const heading = `
           <h3 class="boss-picker-heading">
-            <a href="./boss.html?id=${boss.id}">${boss.name}</a>
+            <a href="./boss.html?id=${boss.id}">${boss.name}${boss.difficulty ? ' ' + boss.difficulty : ''}</a>
             <span class="muted">${countLabel}</span>
           </h3>`;
         if (parses.length === 0) {

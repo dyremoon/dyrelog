@@ -156,7 +156,8 @@
     // (which is capped server-side), same as the website's own heading.
     var entryWord = entrantCount === 1 ? "entry" : "entries";
     detailEl.innerHTML =
-      '<h3 class="boss-detail-heading">' + esc(boss.name) + ' <span class="muted">(' + fmtNum(entrantCount) + " " + entryWord + ")</span></h3>" +
+      '<h3 class="boss-detail-heading">' + esc(boss.name) + (boss.difficulty ? " " + esc(boss.difficulty) : "") +
+        ' <span class="muted">(' + fmtNum(entrantCount) + " " + entryWord + ")</span></h3>" +
       '<div class="boss-detail-meta">' + esc(fmtDifficulty(boss.difficulty)) + (boss.zone ? " &middot; " + esc(boss.zone) : "") + "</div>" +
       rowsHtml;
   }
@@ -234,7 +235,10 @@
       if (!youRow) return;
       var existing = bestByBoss[name];
       if (!existing || youRow.dps > existing.dps) {
-        bestByBoss[name] = { name: name, dps: youRow.dps, damage: youRow.damage, startTime: enc.startTime };
+        bestByBoss[name] = {
+          name: name, dps: youRow.dps, damage: youRow.damage, startTime: enc.startTime,
+          difficulty: enc.difficultyKnown ? enc.difficulty : null
+        };
       }
     });
     return Object.keys(bestByBoss)
@@ -254,7 +258,7 @@
       bests.map(function (b) {
         return (
           "<tr>" +
-            "<td>" + esc(b.name) + "</td>" +
+            "<td>" + esc(b.name) + (b.difficulty ? " " + esc(b.difficulty) : "") + "</td>" +
             '<td class="num">' + fmtNum(b.dps) + "</td>" +
             '<td class="num">' + fmtNum(b.damage) + "</td>" +
             '<td class="muted">' + fmtDateOnly(b.startTime) + "</td>" +
