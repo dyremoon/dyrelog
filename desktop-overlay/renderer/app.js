@@ -253,6 +253,8 @@
     miniPetDps: document.getElementById("mini-pet-dps"),
     watchBadge: document.getElementById("watch-badge"),
     watchMenuBtn: document.getElementById("watch-menu-btn"),
+    watchMiniBtn: document.getElementById("watch-mini-btn"),
+    watchBarsBtn: document.getElementById("watch-bars-btn"),
     watchDpsNum: document.getElementById("watch-dps-num"),
     watchTimer: document.getElementById("watch-timer"),
     updateBanner: document.getElementById("update-banner"),
@@ -1122,6 +1124,10 @@
   }
   document.getElementById("btn-mini").addEventListener("click", toggleMini);
   document.getElementById("btn-restore").addEventListener("click", toggleMini);
+  document.getElementById("btn-mini-circle").addEventListener("click", function (evt) {
+    evt.stopPropagation();
+    switchMode("circle");
+  });
   // Mini mode had no way back to Settings at all before (item 6 of the
   // newest list) — every other display mode already has a gear somewhere.
   document.getElementById("btn-mini-settings").addEventListener("click", function (evt) {
@@ -1195,6 +1201,30 @@
       }, { persist: false });
     });
   }
+  // Direct mode-switch shortcuts (Sept 7 — "a button in the bars setting to
+  // swap to circle mode... in mini mode... swap to circle or main... in
+  // circle you can have a swap to mini or standard"). Safe to add now that
+  // showWatchMenu()'s Settings/Analysis/Leaderboards/Switch-to-Bars menu
+  // already gives Circle a reliable way back out — the original reason it
+  // had no direct toggle (see applyDisplayStyle()'s comment above) no
+  // longer applies. Always fully exits whichever of mini/circle is active
+  // FIRST, before entering the other, so their separate preMiniBounds/
+  // preWatchBounds captures never run against each other's bounds instead
+  // of Bars' — see toggleMini()/applyDisplayStyle() above for why each
+  // needs to start from a real Bars-sized window. Mini has no persisted
+  // display style of its own (it's a Bars-based mode), so the only
+  // Settings > Display style value this ever changes is Bars vs Circle.
+  function switchMode(target) {
+    var goingMini = target === "mini";
+    var goingCircle = target === "circle";
+    if (miniMode && !goingMini) toggleMini();
+    if (currentDisplayStyle === "circle" && !goingCircle) applyDisplayStyle("bars");
+    if (goingCircle) applyDisplayStyle("circle");
+    else if (goingMini && !miniMode) toggleMini();
+    window.dyrelog.saveSettings({ displayStyle: goingCircle ? "circle" : "bars" });
+  }
+  document.getElementById("btn-circle").addEventListener("click", function () { switchMode("circle"); });
+
   // Three independent ways back out to a menu with Settings / Combat
   // Analysis / Leaderboards / Switch to Bars — see the comment on
   // .watch-badge in style.css for why a single plain click isn't trusted
@@ -1220,6 +1250,14 @@
   els.watchMenuBtn.addEventListener("click", function (evt) {
     evt.stopPropagation(); // don't also fire the badge's own click-to-Settings handler above
     window.dyrelog.showWatchMenu(fightMenuSessions());
+  });
+  els.watchMiniBtn.addEventListener("click", function (evt) {
+    evt.stopPropagation();
+    switchMode("mini");
+  });
+  els.watchBarsBtn.addEventListener("click", function (evt) {
+    evt.stopPropagation();
+    switchMode("bars");
   });
   window.dyrelog.onFightPicked(function (key) {
     selectedSessionKey = key || null;

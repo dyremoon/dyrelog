@@ -605,7 +605,7 @@ body.mini .card { padding: 8px 9px; }
 /* Settings gear added to mini mode (item 6) alongside the existing expand
    button, both no-drag, stacked in their own small column. */
 .mini-actions { display: flex; flex-direction: column; gap: 4px; flex: none; align-self: flex-start; }
-.mini-settings, .mini-restore { -webkit-app-region: no-drag; flex: none; }
+.mini-settings, .mini-circle, .mini-restore { -webkit-app-region: no-drag; flex: none; }
 
 /* ---- Circle display style (Settings > Display style) ----
    Item 8 — "a theme that is a circle and it just has a dps number in it...
@@ -647,7 +647,12 @@ body.watch .watch-badge { display: flex; }
      -border-color are set (or unset) in app.js's applySettings(), falling
      back to the theme's own --bg-card/--accent exactly like before these
      existed. */
-  background: var(--circle-bg-color, var(--bg-card));
+  /* color-mix with transparent, driven by --panel-alpha, mirrors .card::before's
+     "opacity: var(--panel-alpha)" for the rectangular panel — Settings >
+     Background opacity used to do nothing here at all (Sept 7 bug report:
+     "Background opacity doesn't affect circle background"), since a plain
+     background color has no opacity of its own to multiply. */
+  background: color-mix(in srgb, var(--circle-bg-color, var(--bg-card)) calc(100% * var(--panel-alpha)), transparent);
   border: 3px solid var(--circle-border-color, var(--accent));
   box-shadow: 0 8px 24px rgba(0,0,0,0.55);
   /* display is NOT set here — the plain ".watch-badge { display: none; }"
@@ -693,6 +698,30 @@ body.watch .watch-badge { display: flex; }
   -webkit-app-region: no-drag;
 }
 .watch-menu-btn:hover { color: var(--ink); border-color: var(--accent); }
+/* Direct mode-switch shortcuts on the badge itself (Sept 7 — "in circle you
+   can have a swap to mini or standard"), same tiny no-drag pattern as
+   .watch-menu-btn, just tucked into the other two corners so all three
+   buttons stay independently clickable at once even at a small Circle
+   size. See switchMode() in app.js. */
+.watch-mini-btn, .watch-bars-btn {
+  position: absolute;
+  width: calc(20px * var(--icon-scale, 1)); height: calc(20px * var(--icon-scale, 1));
+  border-radius: 50%;
+  border: 1px solid var(--hair);
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+  color: var(--ink-3);
+  font-size: calc(11px * var(--icon-scale, 1));
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  -webkit-app-region: no-drag;
+}
+.watch-mini-btn:hover, .watch-bars-btn:hover { color: var(--ink); border-color: var(--accent); }
+.watch-mini-btn { top: 6px; left: 6px; }
+.watch-bars-btn { bottom: 6px; right: 6px; }
 .watch-dps { display: flex; align-items: baseline; gap: 3px; }
 /* --circle-text-color, when set, overrides all three of dps-num/unit/timer
    to the SAME one color (mirrors how the main overlay's own "Text" picker
