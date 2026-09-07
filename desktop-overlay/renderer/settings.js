@@ -176,6 +176,7 @@
     petNameTextColor: document.getElementById("set-petnametextcolor"),
     dpsTextColor: document.getElementById("set-dpstextcolor"),
     totalDpsColor: document.getElementById("set-totaldpscolor"),
+    iconColor: document.getElementById("set-iconcolor"),
     resetTextColors: document.getElementById("btn-reset-textcolors"),
     // "Add color options to edit the circle colors: border, background,
     // text colors" (Sept 6) — Circle display style never had any color
@@ -461,6 +462,7 @@
     els.petNameTextColor.value = s.petNameTextColor || THEME_INK[s.theme || "blue"];
     els.dpsTextColor.value = s.dpsTextColor || THEME_INK[s.theme || "blue"];
     els.totalDpsColor.value = s.totalDpsColor || THEME_ACCENT[s.theme || "blue"];
+    els.iconColor.value = s.iconColor || THEME_INK2[s.theme || "blue"];
     els.circleBgColor.value = s.circleBgColor || THEME_BG[s.theme || "blue"];
     els.circleBorderColor.value = s.circleBorderColor || THEME_ACCENT[s.theme || "blue"];
     els.circleTextColor.value = s.circleTextColor || THEME_ACCENT[s.theme || "blue"];
@@ -533,8 +535,9 @@
   els.petNameTextColor.addEventListener("input", function () { save({ petNameTextColor: els.petNameTextColor.value }); });
   els.dpsTextColor.addEventListener("input", function () { save({ dpsTextColor: els.dpsTextColor.value }); });
   els.totalDpsColor.addEventListener("input", function () { save({ totalDpsColor: els.totalDpsColor.value }); });
+  els.iconColor.addEventListener("input", function () { save({ iconColor: els.iconColor.value }); });
   els.resetTextColors.addEventListener("click", function () {
-    save({ secondaryTextColor: null, myNameTextColor: null, petNameTextColor: null, dpsTextColor: null, totalDpsColor: null });
+    save({ secondaryTextColor: null, myNameTextColor: null, petNameTextColor: null, dpsTextColor: null, totalDpsColor: null, iconColor: null });
   });
   els.circleBgColor.addEventListener("input", function () { save({ circleBgColor: els.circleBgColor.value }); });
   els.circleBorderColor.addEventListener("input", function () { save({ circleBorderColor: els.circleBorderColor.value }); });

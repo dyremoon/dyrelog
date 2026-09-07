@@ -286,7 +286,7 @@ body {
   width: calc(20px * var(--icon-scale, 1)); height: calc(20px * var(--icon-scale, 1));
   border: 1px solid var(--hair);
   background: transparent;
-  color: var(--ink-2);
+  color: var(--icon-color, var(--ink-2));
   border-radius: 6px;
   font-size: calc(0.72rem * var(--icon-scale, 1));
   line-height: 1;
@@ -294,7 +294,15 @@ body {
   display: flex; align-items: center; justify-content: center;
   padding: 0;
 }
-.icon-btn:hover { border-color: var(--accent); color: var(--ink); }
+.icon-btn:hover { border-color: var(--accent); color: var(--icon-color, var(--ink)); }
+/* Settings/Bars-mode icons are real inline SVG now, not font glyphs (Sept 7
+   — the Unicode gear "doesn't really look like a cog and its small") — a
+   hand-drawn cog and a stacked-bars icon render crisp and recognizable at
+   any size/font, and inherit color via currentColor so --icon-color (and
+   hover) just work with no extra wiring. Real color-emoji buttons (Analysis
+   📊, Leaderboards 🏆) keep their own glyphs — untouched, and immune to
+   --icon-color anyway since CSS color never affects emoji presentation. */
+.btn-svg { width: calc(13px * var(--icon-scale, 1)); height: calc(13px * var(--icon-scale, 1)); display: block; }
 
 .empty-copy { color: var(--ink-2); font-size: calc(0.92rem * var(--text-scale, 1)); line-height: 1.4; margin-bottom: 10px; }
 .empty-actions { display: flex; flex-direction: column; gap: 6px; }
@@ -551,7 +559,7 @@ body {
    you left the window at (and the resize handles) both carry over
    unchanged; a short card is simply mostly empty space below this strip,
    same as before bars were ever added here. */
-.mini-bar { display: none; align-items: center; gap: 6px; -webkit-app-region: drag; flex: none; margin-bottom: 6px; }
+.mini-bar { display: none; align-items: center; gap: 6px; -webkit-app-region: drag; flex: none; margin-bottom: 6px; position: relative; }
 body.mini .header,
 body.mini .update-banner,
 body.mini .empty-state,
@@ -572,13 +580,20 @@ body.mini .card { padding: 8px 9px; }
    then your pet's) is its own bordered strip so they read as two
    distinct rows at a glance instead of a name row not aligning with the
    number row under it. */
-.mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+/* Reworked again Sept 7 (DJ's mock-up): the icon column no longer sits in
+   this flex row at all (see .mini-actions below), so .mini-info now owns
+   the full card width — padding-right just clears the floating icon
+   column so the total-damage line's right edge never runs under it. */
+.mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding-right: calc(24px * var(--icon-scale, 1) + 4px); }
 /* Right-aligned (item 8 of the newest list — "total damage should be top
    right not top left") and bumped up a size from before (item 7 — "too
    small to see"), flat-formatted (fmtNum(), see updateMiniBar() in
-   app.js) instead of abbreviated. Own color picker, same --total-dps-color
-   the mob-line's #fight-total uses. */
-.mini-total { color: var(--total-dps-color, var(--ink-2)); font-size: calc(0.78rem * var(--text-scale, 1)); font-variant-numeric: tabular-nums; padding: 0 2px; text-align: right; }
+   app.js) instead of abbreviated. Sits above the bordered name/dps row
+   with no border/background of its own — "above/outside the hud" per
+   DJ's mock-up, small and muted rather than boxed in like the row below.
+   Own color picker, same --total-dps-color the mob-line's #fight-total
+   uses. */
+.mini-total { color: var(--total-dps-color, var(--ink-2)); font-size: calc(0.72rem * var(--text-scale, 1)); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; text-transform: uppercase; padding: 0 2px; text-align: right; }
 .mini-main, .mini-pet-row {
   display: flex;
   align-items: baseline;
@@ -603,8 +618,14 @@ body.mini .card { padding: 8px 9px; }
 .mini-pet-name { color: var(--ink-3); font-size: calc(0.66rem * var(--mini-pet-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .mini-pet-dps { color: var(--ink-2); font-size: calc(0.68rem * var(--mini-pet-scale, 1)); font-variant-numeric: tabular-nums; flex: none; text-align: right; min-width: 3.6em; }
 /* Settings gear added to mini mode (item 6) alongside the existing expand
-   button, both no-drag, stacked in their own small column. */
-.mini-actions { display: flex; flex-direction: column; gap: 4px; flex: none; align-self: flex-start; }
+   button, both no-drag, stacked in their own small column. Reworked Sept 7
+   ("position the icons over top of the mini bar like how the circle is, so
+   that they don't affect the size... since they're inside the bar") —
+   this is no longer a flex sibling of .mini-info at all; it's an absolute
+   overlay pinned to the card's own top-right corner, same idea as the
+   Circle badge's own corner buttons below, so nothing about the icon
+   column's width/height ever pushes the name/dps row around. */
+.mini-actions { position: absolute; top: 0; right: 0; display: flex; flex-direction: column; gap: 4px; z-index: 2; }
 .mini-settings, .mini-circle, .mini-restore { -webkit-app-region: no-drag; flex: none; }
 
 /* ---- Circle display style (Settings > Display style) ----
@@ -675,53 +696,46 @@ body.watch .watch-badge { display: flex; }
      app.js, both explicitly no-drag so they're never at the mercy of this. */
   -webkit-app-region: drag;
 }
-.watch-menu-btn {
+/* Positioned around the badge's own rim via --btn-angle (degrees, clockwise
+   from straight up), not a fixed corner — Sept 7, "give the player the
+   option to click and drag the icons around the circle mode... like an
+   icon in World of Warcraft's mini map." wireBadgeIcon() in app.js sets
+   --btn-angle per button (from Settings > iconAngles, or a built-in
+   default matching the old fixed-corner look) and updates it live while
+   dragging. The trig here just walks the badge's own radius. */
+.watch-menu-btn, .watch-mini-btn, .watch-bars-btn {
   position: absolute;
-  top: 6px; right: 6px;
+  --btn-angle: 45deg;
+  left: calc(50% + (132px * var(--circle-scale, 1) / 2) * sin(var(--btn-angle)));
+  top: calc(50% - (132px * var(--circle-scale, 1) / 2) * cos(var(--btn-angle)));
+  transform: translate(-50%, -50%);
   width: calc(20px * var(--icon-scale, 1)); height: calc(20px * var(--icon-scale, 1));
   border-radius: 50%;
   border: 1px solid var(--hair);
   background: color-mix(in srgb, var(--bg-card) 80%, transparent);
-  color: var(--ink-3);
+  color: var(--icon-color, var(--ink-3));
   font-size: calc(11px * var(--icon-scale, 1));
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: grab;
   padding: 0;
   /* The reliable escape hatch — a real button, deliberately NOT part of
      the badge's drag region, so it always receives its click regardless
      of the surrounding badge's drag-swallowing quirk (see .watch-badge's
-     comment above). Fixed size on purpose — it stays easy to hit even
-     when Circle size is dialed down small. */
+     comment above). */
   -webkit-app-region: no-drag;
 }
-.watch-menu-btn:hover { color: var(--ink); border-color: var(--accent); }
-/* Direct mode-switch shortcuts on the badge itself (Sept 7 — "in circle you
-   can have a swap to mini or standard"), same tiny no-drag pattern as
-   .watch-menu-btn, just tucked into the other two corners so all three
-   buttons stay independently clickable at once even at a small Circle
-   size. See switchMode() in app.js. */
-.watch-mini-btn, .watch-bars-btn {
-  position: absolute;
-  width: calc(20px * var(--icon-scale, 1)); height: calc(20px * var(--icon-scale, 1));
-  border-radius: 50%;
-  border: 1px solid var(--hair);
-  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
-  color: var(--ink-3);
-  font-size: calc(11px * var(--icon-scale, 1));
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  -webkit-app-region: no-drag;
-}
-.watch-mini-btn:hover, .watch-bars-btn:hover { color: var(--ink); border-color: var(--accent); }
-.watch-mini-btn { top: 6px; left: 6px; }
-.watch-bars-btn { bottom: 6px; right: 6px; }
+.watch-menu-btn:hover, .watch-mini-btn:hover, .watch-bars-btn:hover { color: var(--icon-color, var(--ink)); border-color: var(--accent); }
+.watch-menu-btn:active, .watch-mini-btn:active, .watch-bars-btn:active { cursor: grabbing; }
+/* Built-in default angles — only used until DJ actually drags an icon
+   (wireBadgeIcon() then sets --btn-angle inline per button, which wins
+   over these); chosen to land right where the old fixed top-right/
+   top-left/bottom-right corners used to sit. */
+.watch-menu-btn { --btn-angle: 45deg; }
+.watch-mini-btn { --btn-angle: 315deg; }
+.watch-bars-btn { --btn-angle: 135deg; }
 .watch-dps { display: flex; align-items: baseline; gap: 3px; }
 /* --circle-text-color, when set, overrides all three of dps-num/unit/timer
    to the SAME one color (mirrors how the main overlay's own "Text" picker

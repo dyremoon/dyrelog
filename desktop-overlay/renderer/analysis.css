@@ -277,12 +277,24 @@ table tbody tr:hover { background: var(--bg-card); }
    numbers. viewBox + preserveAspectRatio="none" is what lets .dps-chart's
    own width:100%/height:150px stretch the drawing to fit without any JS
    resize-observer wiring. */
-.dps-chart-wrap { margin: 2px 0 4px; }
+.dps-chart-wrap { margin: 2px 0 4px; position: relative; }
 .dps-chart { display: block; width: 100%; height: 150px; }
 .dps-grid { stroke: var(--hair); stroke-width: 1; }
+/* Axis numbers and the Peak label are plain HTML, positioned in % so they
+   still track the SVG's own coordinate space underneath them (see the big
+   comment in buildDpsChart() on why this moved off SVG <text> — the short
+   version: this chart's viewBox stretches non-uniformly to fill its real
+   on-screen width, which stretched glyph shapes right along with it and
+   is exactly what read as a "strange font" on the Peak label). HTML text
+   always renders at true screen pixels regardless of that stretch. */
 .dps-axis-label {
-  fill: var(--ink-3); font-size: 9px; font-variant-numeric: tabular-nums;
+  position: absolute;
+  color: var(--ink-3); font-size: 9px; font-variant-numeric: tabular-nums;
+  pointer-events: none; white-space: nowrap; transform: translateY(-50%);
 }
+.dps-axis-label-y { text-align: right; }
+.dps-axis-label-x { transform: translateY(-100%); }
+.dps-axis-label-x-end { transform: translate(-100%, -100%); }
 .dps-line-out {
   fill: none; stroke: var(--accent); stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round;
@@ -303,12 +315,44 @@ table tbody tr:hover { background: var(--bg-card); }
 }
 .dps-peak-dot-in { fill: var(--line-in); stroke: var(--bg-card); stroke-width: 1.5; }
 .dps-peak-label {
-  fill: var(--ink); font-size: 10px; font-weight: 700;
+  position: absolute;
+  color: var(--ink); font-size: 10px; font-weight: 700;
   font-variant-numeric: tabular-nums;
-  /* A soft halo (paint the stroke behind the fill) so the label stays
-     legible over the grid lines/curve instead of needing its own <rect>. */
-  paint-order: stroke; stroke: var(--bg-card); stroke-width: 3px; stroke-linejoin: round;
+  transform: translate(-50%, -50%);
+  white-space: nowrap; pointer-events: none;
+  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  padding: 1px 6px;
 }
+/* Hover readout (item 6 — "while hovering over the graph of our dps, we
+   should be able to see current stats") — a vertical guide line down to
+   the exact hovered point, plus a small bordered box with the timestamp
+   and dps at that point. Both start hidden ([hidden] wins via the
+   stylesheet's own top-of-file rule) and are shown/positioned by
+   wireDpsChartHover's mousemove listener in analysis.js. */
+.dps-hover-line { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; }
+.dps-hover-tip {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}
+.dps-hover-tip .tip-time { color: var(--ink-3); font-size: 10px; margin-bottom: 2px; }
+.dps-hover-tip .tip-row { display: flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.dps-hover-tip .tip-row b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.dps-hover-tip .tip-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.dps-hover-tip .tip-dot-out { background: var(--accent); }
+.dps-hover-tip .tip-dot-in { background: var(--line-in); }
 .dps-chart-legend { display: flex; gap: 14px; margin: 2px 0 0 2px; }
 .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-2); }
 .legend-swatch { width: 10px; height: 2px; border-radius: 999px; display: inline-block; }
@@ -347,7 +391,7 @@ table tbody tr:hover { background: var(--bg-card); }
 .procs-list { display: flex; flex-direction: column; gap: 2px; }
 .proc-row {
   display: grid;
-  grid-template-columns: 8px 1fr auto auto;
+  grid-template-columns: 8px 1fr auto auto auto auto auto;
   align-items: center;
   gap: 8px;
   padding: 4px 2px;
@@ -356,6 +400,7 @@ table tbody tr:hover { background: var(--bg-card); }
 .proc-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .proc-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
 .proc-name { font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proc-stat { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; min-width: 44px; }
 .proc-ppm { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
 .proc-count { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; min-width: 26px; }
 /* Left accent stripe per card, colored by the same rank swatch as the main

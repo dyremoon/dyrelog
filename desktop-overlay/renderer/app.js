@@ -422,6 +422,15 @@
     else document.documentElement.style.removeProperty("--dps-text-color");
     if (s.totalDpsColor) document.documentElement.style.setProperty("--total-dps-color", s.totalDpsColor);
     else document.documentElement.style.removeProperty("--total-dps-color");
+    // Icon color (Sept 7) — recolors the gear/circle/mini/bars mode-switch
+    // buttons everywhere via one shared token; real emoji icons (Analysis/
+    // Leaderboards) ignore this entirely, CSS color has no effect on them.
+    if (s.iconColor) document.documentElement.style.setProperty("--icon-color", s.iconColor);
+    else document.documentElement.style.removeProperty("--icon-color");
+    // Circle badge icons' drag-to-reposition angles (Sept 7) — applied here
+    // too, not just after a fresh drag, so a saved position sticks across
+    // window reopens/relaunches. See wireBadgeIcon() below.
+    applyIconAngles(s.iconAngles || {});
     // Mini mode's pet sub-line gets its own size control (item 5) instead of
     // riding the main textScale, which the pet line was too small under.
     document.documentElement.style.setProperty("--mini-pet-scale", String(s.miniPetTextScale || 1));
@@ -859,7 +868,8 @@
     var merged = EQP.mergeEncounters(members);
     var stats = EQP.computeStats(merged);
     var self = selfSummary(stats);
-    els.mobDiff.textContent = merged.difficultyKnown ? "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base") : "";
+    // No zone-in line seen yet is assumed Base rather than shown blank/unknown.
+    els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base");
     els.fightTotal.textContent = fmtNum(self.damage);
     els.fightTimer.textContent = fmtDur((merged.endTime - merged.startTime) / 1000);
     lastRenderedRows = stats.rows;
@@ -916,7 +926,8 @@
       var merged = EQP.mergeEncounters(extended);
       var stats = EQP.computeStats(merged);
       var self = selfSummary(stats);
-      els.mobDiff.textContent = merged.difficultyKnown ? "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base") : "";
+      // No zone-in line seen yet is assumed Base rather than shown blank/unknown.
+    els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base");
       els.fightTotal.textContent = fmtNum(self.damage);
       els.fightTimer.textContent = fmtDur((merged.endTime - merged.startTime) / 1000);
       lastRenderedRows = stats.rows;
@@ -942,7 +953,7 @@
       var lastMerged = EQP.mergeEncounters(lastMembers);
       var lastStats = EQP.computeStats(lastMerged);
       var lastSelf = selfSummary(lastStats);
-      els.mobDiff.textContent = lastMerged.difficultyKnown ? "· " + (DIFFICULTY_LABELS[lastMerged.difficulty] || "Base") : "";
+      els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[lastMerged.difficulty] || "Base");
       els.fightTotal.textContent = fmtNum(lastSelf.damage);
       els.fightTimer.textContent = fmtDur(lastStats.duration);
       lastRenderedRows = lastStats.rows;
@@ -1247,18 +1258,62 @@
     evt.preventDefault();
     window.dyrelog.showWatchMenu(fightMenuSessions());
   });
-  els.watchMenuBtn.addEventListener("click", function (evt) {
-    evt.stopPropagation(); // don't also fire the badge's own click-to-Settings handler above
-    window.dyrelog.showWatchMenu(fightMenuSessions());
-  });
-  els.watchMiniBtn.addEventListener("click", function (evt) {
-    evt.stopPropagation();
-    switchMode("mini");
-  });
-  els.watchBarsBtn.addEventListener("click", function (evt) {
-    evt.stopPropagation();
-    switchMode("bars");
-  });
+  // Drag-to-reposition (Sept 7 — "like an icon in World of Warcraft's mini
+  // map"): mousedown starts tracking; if the cursor actually moves past a
+  // small threshold before mouseup, that's a drag — update --btn-angle live
+  // and persist the final angle, without firing the button's normal action.
+  // A mousedown/mouseup with no real movement in between is a plain click,
+  // same as before. angleKey indexes into settings.iconAngles; onActivate
+  // is whatever the button used to do unconditionally.
+  function applyIconAngles(angles) {
+    [["menu", els.watchMenuBtn], ["mini", els.watchMiniBtn], ["bars", els.watchBarsBtn]].forEach(function (pair) {
+      var deg = angles[pair[0]];
+      if (deg != null) pair[1].style.setProperty("--btn-angle", deg + "deg");
+      else pair[1].style.removeProperty("--btn-angle"); // falls back to the CSS default for that button
+    });
+  }
+  function wireBadgeIcon(btn, angleKey, onActivate) {
+    var dragging = false, moved = false, startX = 0, startY = 0, angle = 0;
+    // Both stops matter: mousedown's stopPropagation keeps the badge's own
+    // drag region from swallowing the interaction; the click listener's
+    // stopPropagation is what actually matters for a real click, since the
+    // browser still fires a real "click" on mouseup regardless of what
+    // mousedown did, which would otherwise bubble up to the badge's own
+    // click-to-Settings handler right after onActivate() already ran below.
+    btn.addEventListener("mousedown", function (evt) {
+      evt.stopPropagation();
+      evt.preventDefault(); // no native drag-ghost/text-selection while sliding this around
+      dragging = true;
+      moved = false;
+      startX = evt.clientX;
+      startY = evt.clientY;
+    });
+    btn.addEventListener("click", function (evt) { evt.stopPropagation(); });
+    document.addEventListener("mousemove", function (evt) {
+      if (!dragging) return;
+      if (!moved && (Math.abs(evt.clientX - startX) > 4 || Math.abs(evt.clientY - startY) > 4)) moved = true;
+      if (!moved) return;
+      var rect = els.watchBadge.getBoundingClientRect();
+      var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+      angle = Math.atan2(evt.clientX - cx, -(evt.clientY - cy)) * 180 / Math.PI;
+      if (angle < 0) angle += 360;
+      btn.style.setProperty("--btn-angle", angle + "deg");
+    });
+    document.addEventListener("mouseup", function () {
+      if (!dragging) return;
+      dragging = false;
+      if (moved) {
+        var next = Object.assign({}, settings.iconAngles || {});
+        next[angleKey] = Math.round(angle);
+        window.dyrelog.saveSettings({ iconAngles: next }).then(applySettings);
+      } else {
+        onActivate();
+      }
+    });
+  }
+  wireBadgeIcon(els.watchMenuBtn, "menu", function () { window.dyrelog.showWatchMenu(fightMenuSessions()); });
+  wireBadgeIcon(els.watchMiniBtn, "mini", function () { switchMode("mini"); });
+  wireBadgeIcon(els.watchBarsBtn, "bars", function () { switchMode("bars"); });
   window.dyrelog.onFightPicked(function (key) {
     selectedSessionKey = key || null;
     render();

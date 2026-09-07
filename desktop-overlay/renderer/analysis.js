@@ -329,13 +329,21 @@
       var k = sessionKey(session);
       var data = sessionData(session, now);
       var lastMember = session.members[session.members.length - 1];
-      var diff = lastMember.difficultyKnown ? (DIFFICULTY_LABELS[lastMember.difficulty] || "Base") : "Unknown tier";
+      // No zone-in line seen for this fight (started mid-zone, or before
+      // the app was tailing) — assumed Base rather than shown as
+      // "unknown," same fallback an explicitly-detected base zone gets.
+      var diff = DIFFICULTY_LABELS[lastMember.difficulty] || "Base";
       return (
         '<div class="enc-row' + (k === selectedKey ? " active" : "") + '" data-key="' + esc(k) + '">' +
-          '<div class="mob">' + esc(sessionLabel(session)) + "</div>" +
+          // The "(N)" suffix (when present) is which spawn of this exact
+          // mob NAME this is, log-wide — not a bug, see considerMobIdentity()
+          // in eqp-core.js. Spelled out here since DJ found it confusing
+          // at a glance ("what is the (6)... likely doesn't need to be there").
+          '<div class="mob" title="The number in parentheses is which spawn of this mob name this is in your whole loaded log — not a kill count.">' + esc(sessionLabel(session)) + "</div>" +
           '<div class="meta">' + (session.isLive ? '<span class="live-tag">● live</span> &middot; ' : "") +
             fmtClock(session.members[0].startTime) + " &middot; " + fmtDur(data.stats.duration) + " &middot; " + diff +
             (data.merged.mobKillCount > 1 ? " &middot; " + data.merged.mobKillCount + " kills" : "") +
+            " &middot; " + (data.stats.raidDps || 0).toFixed(1) + " dps" +
           "</div>" +
         "</div>"
       );
@@ -358,7 +366,8 @@
     if (!session) { els.detail.innerHTML = '<p class="muted">Select a fight on the left to see its full breakdown.</p>'; return; }
     var data = sessionData(session, now);
     var merged = data.merged, stats = data.stats;
-    var diff = merged.difficultyKnown ? (DIFFICULTY_LABELS[merged.difficulty] || "Base") : "Unknown tier (no zone-in line seen)";
+    // Same "assume Base when no zone-in line was seen" fallback as the list above.
+    var diff = DIFFICULTY_LABELS[merged.difficulty] || "Base";
 
     // "Combined" (every target in this session added together) is the
     // default; picking one target pill below narrows to just that member's
@@ -475,14 +484,22 @@
           '<p class="muted" style="font-size:0.8rem; margin-top:8px;">Per-ability breakdown isn\'t shown when more than one target was fought in this view — damage can\'t be reliably split by target at the ability level.</p>'
         );
 
+    var dpsChartSection = renderDpsChartSection(activeStats);
+    // The active target pill already shows which mob is selected (its own
+    // ".active" highlight) — repeating that same name again right below in
+    // a plain label was pure duplication with no new information ("we
+    // don't need it to repeat the name of the mob selected"). Dropped;
+    // the pills themselves ARE the clickable name.
     var outgoingHtml =
-      wrapSection(renderDpsChartSection(activeStats), "analysis-section-dps") +
+      wrapSection(dpsChartSection.html, "analysis-section-dps") +
       wrapSection(renderMobsFoughtSection(stats), "analysis-section-mobs") +
-      (pillsHtml ? wrapSection(pillsHtml + '<p class="section-label">' + esc(activeLabel) + "</p>", "analysis-section-mobs") : "") +
+      (pillsHtml ? wrapSection(pillsHtml, "analysis-section-mobs") : "") +
       wrapSection(combatantSectionHtml, "analysis-section-combatants") +
       wrapSection(renderHealingSection(activeStats.healing), "analysis-section-healing") +
       wrapSection(renderProcsSection(activeStats), "analysis-section-procs") +
       wrapSection(renderTeamAbilitySection(activeStats, combinePets), "analysis-section-team");
+
+    var incomingTab = activeDetailTab === "incoming" ? renderIncomingTab(activeEnc, activeStats) : null;
 
     els.detail.innerHTML =
       "<h2>" + esc(sessionLabel(session)) +
@@ -500,7 +517,7 @@
         '<button class="detail-tab' + (activeDetailTab === "outgoing" ? " active" : "") + '" data-tab="outgoing">Outgoing</button>' +
         '<button class="detail-tab' + (activeDetailTab === "incoming" ? " active" : "") + '" data-tab="incoming">Incoming</button>' +
       "</div>" +
-      (activeDetailTab === "incoming" ? renderIncomingTab(activeEnc, activeStats) : outgoingHtml);
+      (incomingTab ? incomingTab.html : outgoingHtml);
 
     document.querySelectorAll(".detail-tab").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -516,6 +533,11 @@
       });
     });
     wireCombatantCards();
+    // Wire up whichever DPS chart is actually on screen right now (only
+    // one tab's html is ever inserted at a time) — see buildDpsChart()'s
+    // own comment for what this attaches.
+    var activeChartWire = incomingTab ? incomingTab.wire : dpsChartSection.wire;
+    if (activeChartWire) activeChartWire(els.detail);
   }
 
   // "Then there should be sections around what mobs were fought in that
@@ -557,7 +579,14 @@
     return (
       '<p class="section-label">Mobs fought this session</p>' +
       '<table><thead><tr><th>Mob</th><th class="num">Duration</th><th class="num">DPS</th><th class="num">Kills</th><th class="num">Damage dealt</th></tr></thead>' +
-      "<tbody>" + rowsHtml + "</tbody></table>"
+      "<tbody>" + rowsHtml + "</tbody></table>" +
+      // Item 2.3 — the EQ log only ever names a hit's target by NAME, with
+      // no per-instance id, so two mobs sharing the exact identical name
+      // fought at the same time can't be told apart and land in one
+      // combined row here rather than two. Different-named mobs fought
+      // together (the common case — an add alongside a boss) still split
+      // perfectly fine; this caveat is only about true name collisions.
+      '<p class="muted" style="font-size:0.8rem; margin-top:8px;">If two mobs share the exact same name and are fought at the same time, the log has no way to tell them apart, so their damage is combined into one row above.</p>'
     );
   }
 
@@ -589,15 +618,22 @@
   // Incoming tab's own chart (Sept 6 parity pass — "the incoming section
   // is very lackluster compared to outgoing, add the same tools"): just
   // the incoming line, peak-labeled the same way.
+  // Returns { html, wire(container) } instead of a plain string — see the
+  // big comment below on why the chart's TEXT moved out of the SVG onto
+  // HTML overlay elements, which needs a live DOM node to attach hover
+  // listeners to (wire() is called once the html has actually been
+  // inserted — see its call sites in renderDetail()/renderIncomingTab()).
+  // Returns null (not "") when there's nothing to draw — callers already
+  // treat a falsy chart as "no section" the same way the old "" did.
   function buildDpsChart(timeline, duration, mode) {
     mode = mode === "in" ? "in" : "both";
-    if (!timeline || timeline.length < 2) return "";
+    if (!timeline || timeline.length < 2) return null;
     var outVals = timeline.map(function (p) { return p.out; });
     var inVals = timeline.map(function (p) { return p.in; });
     var smoothOut = smoothSeries(outVals, 5);
     var smoothIn = smoothSeries(inVals, 5);
     var hasIn = inVals.some(function (v) { return v > 0; });
-    if (mode === "in" && !hasIn) return "";
+    if (mode === "in" && !hasIn) return null;
     var showIn = mode === "in" ? true : hasIn;
     var showOut = mode !== "in";
     var primary = mode === "in" ? smoothIn : smoothOut;
@@ -609,6 +645,8 @@
     var n = timeline.length;
     function xAt(i) { return padL + (n <= 1 ? 0 : (i / (n - 1)) * plotW); }
     function yAt(v) { return padT + plotH - (v / maxVal) * plotH; }
+    function pctX(x) { return (x / W * 100).toFixed(2) + "%"; }
+    function pctY(y) { return (y / H * 100).toFixed(2) + "%"; }
     function pathFor(vals) {
       return vals.map(function (v, i) { return (i === 0 ? "M" : "L") + xAt(i).toFixed(1) + "," + yAt(v).toFixed(1); }).join(" ");
     }
@@ -618,43 +656,103 @@
     var peakIdx = 0, peakVal = -1;
     primary.forEach(function (v, i) { if (v > peakVal) { peakVal = v; peakIdx = i; } });
     var peakX = xAt(peakIdx), peakY = yAt(peakVal);
-    var peakLabelX = Math.min(Math.max(peakX, padL + 30), W - padR - 30);
     var peakAbove = peakY > padT + 18;
     var peakSuffix = mode === "in" ? " dps taken" : " dps";
+    // Clamped in the SAME svg-unit space the dot lives in, then converted
+    // to a % just like every other overlay label below, so it never runs
+    // off either edge of the chart regardless of how wide it renders.
+    var peakLabelX = Math.min(Math.max(peakX, padL + 30), W - padR - 30);
 
     var gridHtml = [0.5, 1].map(function (frac) {
       var y = padT + plotH * (1 - frac);
-      return (
-        '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '" class="dps-grid" />' +
-        '<text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" class="dps-axis-label" text-anchor="end">' + fmtAbbrev(maxVal * frac) + "</text>"
-      );
+      return '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '" class="dps-grid" />';
     }).join("");
 
-    return (
+    // Every piece of chart TEXT (axis numbers, the Peak label) used to be
+    // an SVG <text> element — but this chart's viewBox stretches NON-
+    // uniformly to fill its container's actual pixel width
+    // (preserveAspectRatio="none", right above in pathFor's comment) —
+    // harmless for the lines/grid (a straight line stretched sideways is
+    // still straight), but it stretches glyph shapes right along with it,
+    // which is exactly the squashed/stretched "strange font" look on the
+    // Peak label. Fixed by moving all of it onto plain HTML elements,
+    // positioned in % so they still track the SVG's own coordinate space
+    // — HTML text always renders at true screen pixels no matter how the
+    // SVG underneath it is being stretched.
+    var overlayHtml =
+      [0.5, 1].map(function (frac) {
+        return '<div class="dps-axis-label dps-axis-label-y" style="top:' + pctY(padT + plotH * (1 - frac)) + '; right:' + (100 - parseFloat(pctX(padL - 6))).toFixed(2) + '%;">' + fmtAbbrev(maxVal * frac) + "</div>";
+      }).join("") +
+      '<div class="dps-axis-label dps-axis-label-x" style="left:' + pctX(padL) + '; top:' + pctY(H - 4) + ';">0:00</div>' +
+      '<div class="dps-axis-label dps-axis-label-x dps-axis-label-x-end" style="left:' + pctX(W - padR) + '; top:' + pctY(H - 4) + ';">' + fmtDur(duration) + "</div>" +
+      '<div class="dps-peak-label" style="left:' + pctX(peakLabelX) + '; top:' + pctY(peakAbove ? peakY - 8 : peakY + 16) + ';">Peak ' + fmtAbbrev(peakVal) + peakSuffix + "</div>";
+
+    var html =
       '<div class="dps-chart-wrap">' +
         '<svg class="dps-chart" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">' +
           gridHtml +
           (showIn && mode === "both" ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in" fill="none" />' : "") +
           (mode === "in" ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in-solo" fill="none" />' : '<path d="' + pathFor(smoothOut) + '" class="dps-line-out" fill="none" />') +
+          '<line class="dps-hover-line" x1="0" y1="' + padT + '" x2="0" y2="' + (H - padB) + '" hidden />' +
           '<circle cx="' + peakX.toFixed(1) + '" cy="' + peakY.toFixed(1) + '" r="3.5" class="dps-peak-dot' + (mode === "in" ? " dps-peak-dot-in" : "") + '" />' +
-          '<text x="' + peakLabelX.toFixed(1) + '" y="' + (peakAbove ? peakY - 8 : peakY + 16).toFixed(1) + '" class="dps-peak-label" text-anchor="middle">Peak ' + fmtAbbrev(peakVal) + peakSuffix + "</text>" +
-          '<text x="' + padL + '" y="' + (H - 4) + '" class="dps-axis-label">0:00</text>' +
-          '<text x="' + (W - padR) + '" y="' + (H - 4) + '" class="dps-axis-label" text-anchor="end">' + fmtDur(duration) + "</text>" +
         "</svg>" +
+        overlayHtml +
+        '<div class="dps-hover-tip" hidden></div>' +
         '<div class="dps-chart-legend">' +
           (mode === "in"
             ? '<span class="legend-item"><span class="legend-swatch in"></span>Incoming</span>'
             : '<span class="legend-item"><span class="legend-swatch out"></span>Your DPS</span>' +
               (showIn ? '<span class="legend-item"><span class="legend-swatch in"></span>Incoming</span>' : "")) +
         "</div>" +
-      "</div>"
-    );
+      "</div>";
+
+    // Mouse-hover readout (item 6 — "while hovering over the graph of our
+    // dps, we should be able to see current stats"): a small bordered
+    // tooltip that follows the cursor along the SAME smoothed line that's
+    // drawn, plus a vertical guide line down to the exact point, so the
+    // number shown always matches what's actually on screen at that x.
+    // Re-measures the svg's real on-screen box on every move rather than
+    // once up front, so it stays correct with no resize-observer wiring —
+    // same trade buildDpsChart's own non-JS layout already makes.
+    function wire(root) {
+      var wrap = root.querySelector(".dps-chart-wrap");
+      if (!wrap) return;
+      var svg = wrap.querySelector(".dps-chart");
+      var hoverLine = wrap.querySelector(".dps-hover-line");
+      var tip = wrap.querySelector(".dps-hover-tip");
+      function showAt(clientX) {
+        var rect = svg.getBoundingClientRect();
+        if (!rect.width) return;
+        var rel = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        var idx = Math.round(rel * (n - 1));
+        var x = xAt(idx);
+        hoverLine.setAttribute("x1", x.toFixed(1));
+        hoverLine.setAttribute("x2", x.toFixed(1));
+        hoverLine.hidden = false;
+        var outV = Math.round(smoothOut[idx]), inV = Math.round(smoothIn[idx]);
+        var rows = mode === "in"
+          ? '<div class="tip-row"><span class="tip-dot tip-dot-in"></span>Incoming <b>' + inV + " dps</b></div>"
+          : '<div class="tip-row"><span class="tip-dot tip-dot-out"></span>Your DPS <b>' + outV + " dps</b></div>" +
+            (hasIn ? '<div class="tip-row"><span class="tip-dot tip-dot-in"></span>Incoming <b>' + inV + " dps</b></div>" : "");
+        tip.innerHTML = '<div class="tip-time">' + fmtDur(timeline[idx].t) + " &middot; 5s rolling</div>" + rows;
+        tip.hidden = false;
+        // Keep the tooltip box itself away from the very edges so it
+        // never gets clipped by the chart's own bounds.
+        tip.style.left = Math.min(Math.max(x / W * 100, 14), 86).toFixed(2) + "%";
+      }
+      wrap.addEventListener("mousemove", function (evt) { showAt(evt.clientX); });
+      wrap.addEventListener("mouseleave", function () { hoverLine.hidden = true; tip.hidden = true; });
+    }
+
+    return { html: html, wire: wire };
   }
 
+  // Returns { html, wire } like buildDpsChart() itself — "" (no wire) when
+  // there's nothing to draw, same as every other section builder here.
   function renderDpsChartSection(activeStats) {
     var chart = buildDpsChart(activeStats.timeline, activeStats.duration);
-    if (!chart) return "";
-    return '<p class="section-label">DPS over time</p>' + chart;
+    if (!chart) return { html: "", wire: null };
+    return { html: '<p class="section-label">DPS over time</p>' + chart.html, wire: chart.wire };
   }
 
   // Healing done during this view (combined session or one target) — see
@@ -721,8 +819,8 @@
   // which spell/swing type.
   function renderIncomingChartSection(activeStats) {
     var chart = buildDpsChart(activeStats.timeline, activeStats.duration, "in");
-    if (!chart) return "";
-    return '<p class="section-label">Incoming damage over time</p>' + chart;
+    if (!chart) return { html: "", wire: null };
+    return { html: '<p class="section-label">Incoming damage over time</p>' + chart.html, wire: chart.wire };
   }
 
   function renderIncomingBreakdownSection(activeEnc, activeStats) {
@@ -767,20 +865,22 @@
     );
   }
 
+  // Returns { html, wire } — see buildDpsChart()'s own comment for why.
   function renderIncomingTab(activeEnc, activeStats) {
     var taken = EQP.computeTakenStats(activeEnc);
     var dur = Math.max(activeStats.duration || 0, 1);
     var healTotal = (activeStats.healing || []).reduce(function (sum, h) { return sum + h.amount; }, 0);
-    return (
+    var chartSection = renderIncomingChartSection(activeStats);
+    var html =
       '<div class="stat-chips">' +
         '<span class="stat-chip accent">' + fmtNum(taken.totalTaken) + " dmg taken</span>" +
         '<span class="stat-chip accent">' + (taken.totalTaken / dur).toFixed(1) + " dps taken</span>" +
         (healTotal > 0 ? '<span class="stat-chip">' + fmtNum(healTotal) + " healing received</span>" : "") +
       "</div>" +
-      wrapSection(renderIncomingChartSection(activeStats), "analysis-section-incoming-dps") +
+      wrapSection(chartSection.html, "analysis-section-incoming-dps") +
       wrapSection(renderIncomingBreakdownSection(activeEnc, activeStats), "analysis-section-incoming-breakdown") +
-      wrapSection(renderHealingSection(activeStats.healing), "analysis-section-healing")
-    );
+      wrapSection(renderHealingSection(activeStats.healing), "analysis-section-healing");
+    return { html: html, wire: chartSection.wire };
   }
 
   // "I want a procs window like this" — a Companion-inspired panel of
@@ -819,6 +919,11 @@
     Shoot: true, Burn: true, Gouge: true, Cleave: true, Backstab: true,
     Strike: true
   };
+  // Item 7 — "we need more details of our procs like damage done/dps/%
+  // etc just like the rest, not just ppm." The data was already there
+  // (each ability entry already carries damage/hits, same as every other
+  // ability breakdown in this file) — ppm was just the only thing this
+  // one section chose to show.
   function renderProcsSection(stats) {
     var youRow = (stats.rows || []).find(function (r) { return r.name === "You"; });
     if (!youRow) return "";
@@ -826,14 +931,23 @@
       return a.hits > 0 && a.casts === 0 && !MELEE_BUCKET_NAMES[a.name];
     });
     if (!procs.length) return "";
-    procs.sort(function (a, b) { return b.hits - a.hits; });
-    var durMin = Math.max(stats.duration, 1) / 60;
+    procs.sort(function (a, b) { return b.damage - a.damage; });
+    var dur = Math.max(stats.duration, 1);
+    var durMin = dur / 60;
     var totalHits = procs.reduce(function (sum, a) { return sum + a.hits; }, 0);
+    var totalDamage = procs.reduce(function (sum, a) { return sum + a.damage; }, 0);
     var rowsHtml = procs.map(function (a) {
+      // a.pct already comes computed against your own (non-pet) damage —
+      // the exact same denominator every other per-ability % in this file
+      // uses (see abilitiesArray() in eqp-core.js), so this reads
+      // consistently with the Combatants section right above it.
       return (
         '<div class="proc-row">' +
           '<span class="proc-dot"></span>' +
           '<span class="proc-name">' + esc(a.name) + "</span>" +
+          '<span class="proc-stat">' + fmtNum(a.damage) + "</span>" +
+          '<span class="proc-stat">' + (a.damage / dur).toFixed(1) + " dps</span>" +
+          '<span class="proc-stat">' + a.pct.toFixed(1) + "%</span>" +
           '<span class="proc-ppm">' + (a.hits / durMin).toFixed(2) + " ppm</span>" +
           '<span class="proc-count">×' + a.hits + "</span>" +
         "</div>"
@@ -842,7 +956,7 @@
     return (
       '<div class="section-label-row">' +
         '<p class="section-label">Procs</p>' +
-        '<span class="section-stat">' + totalHits + " procs · " + (totalHits / durMin).toFixed(1) + " ppm</span>" +
+        '<span class="section-stat">' + fmtNum(totalDamage) + " dmg · " + totalHits + " procs · " + (totalHits / durMin).toFixed(1) + " ppm</span>" +
       "</div>" +
       '<div class="procs-list">' + rowsHtml + "</div>"
     );

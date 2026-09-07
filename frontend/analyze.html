@@ -147,8 +147,9 @@
       var m = Math.floor(sec / 60), s = sec % 60;
       return m + ':' + (s < 10 ? '0' : '') + s;
     }
+    // No zone-in line seen is assumed Base rather than shown as unknown —
+    // matches the desktop overlay's own analysis.js.
     function fmtDifficultyLabel(enc) {
-      if (!enc.difficultyKnown) return '—';
       return enc.difficulty ? EQP_DIFFICULTY_LABELS[enc.difficulty] || enc.difficulty : 'Base';
     }
     var EQP_DIFFICULTY_LABELS = { D1: 'D1 · Awakened', D2: 'D2 · Adaptive', D3: 'D3 · Fused', D4: 'D4 · Refined' };
@@ -390,15 +391,25 @@
     // the incoming line, peak-labeled the same way, so a fight taken hard
     // for a few seconds shows up here the same way a burst window does on
     // Outgoing.
+    // Returns { html, wire(container) } — matches the desktop overlay's
+    // own analysis.js. See its buildDpsChart() for the full reasoning:
+    // chart TEXT (axis numbers, the Peak label) moved off SVG <text> onto
+    // plain HTML overlay elements (position:absolute, in %) because this
+    // chart's viewBox stretches non-uniformly to fill its real on-screen
+    // width, which stretched glyph shapes right along with it — the
+    // "strange font" look on the Peak label. wire() attaches the mouse-
+    // hover readout (item 6 — a small bordered tooltip + guide line
+    // showing your dps/incoming at the hovered point) once the html has
+    // actually been inserted into the page.
     function buildDpsChart(timeline, duration, mode) {
       mode = mode === 'in' ? 'in' : 'both';
-      if (!timeline || timeline.length < 2) return '';
+      if (!timeline || timeline.length < 2) return null;
       var outVals = timeline.map(function (p) { return p.out; });
       var inVals = timeline.map(function (p) { return p.in; });
       var smoothOut = smoothSeries(outVals, 5);
       var smoothIn = smoothSeries(inVals, 5);
       var hasIn = inVals.some(function (v) { return v > 0; });
-      if (mode === 'in' && !hasIn) return '';
+      if (mode === 'in' && !hasIn) return null;
       var showIn = mode === 'in' ? true : hasIn;
       var showOut = mode !== 'in';
       var primary = mode === 'in' ? smoothIn : smoothOut;
@@ -410,6 +421,8 @@
       var n = timeline.length;
       function xAt(i) { return padL + (n <= 1 ? 0 : (i / (n - 1)) * plotW); }
       function yAt(v) { return padT + plotH - (v / maxVal) * plotH; }
+      function pctX(x) { return (x / W * 100).toFixed(2) + '%'; }
+      function pctY(y) { return (y / H * 100).toFixed(2) + '%'; }
       function pathFor(vals) {
         return vals.map(function (v, i) { return (i === 0 ? 'M' : 'L') + xAt(i).toFixed(1) + ',' + yAt(v).toFixed(1); }).join(' ');
       }
@@ -424,37 +437,71 @@
 
       var gridHtml = [0.5, 1].map(function (frac) {
         var y = padT + plotH * (1 - frac);
-        return (
-          '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '" class="dps-grid" />' +
-          '<text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" class="dps-axis-label" text-anchor="end">' + fmtAbbrevNum(maxVal * frac) + '</text>'
-        );
+        return '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '" class="dps-grid" />';
       }).join('');
 
-      return (
+      var overlayHtml =
+        [0.5, 1].map(function (frac) {
+          return '<div class="dps-axis-label dps-axis-label-y" style="top:' + pctY(padT + plotH * (1 - frac)) + '; right:' + (100 - parseFloat(pctX(padL - 6))).toFixed(2) + '%;">' + fmtAbbrevNum(maxVal * frac) + '</div>';
+        }).join('') +
+        '<div class="dps-axis-label dps-axis-label-x" style="left:' + pctX(padL) + '; top:' + pctY(H - 4) + ';">0:00</div>' +
+        '<div class="dps-axis-label dps-axis-label-x dps-axis-label-x-end" style="left:' + pctX(W - padR) + '; top:' + pctY(H - 4) + ';">' + fmtDur(duration) + '</div>' +
+        '<div class="dps-peak-label" style="left:' + pctX(peakLabelX) + '; top:' + pctY(peakAbove ? peakY - 8 : peakY + 16) + ';">Peak ' + fmtAbbrevNum(peakVal) + peakSuffix + '</div>';
+
+      var html =
         '<div class="dps-chart-wrap">' +
           '<svg class="dps-chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
             gridHtml +
             (showIn && mode === 'both' ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in" fill="none" />' : '') +
             (mode === 'in' ? '<path d="' + pathFor(smoothIn) + '" class="' + peakLineClass + '" fill="none" />' : '<path d="' + pathFor(smoothOut) + '" class="dps-line-out" fill="none" />') +
+            '<line class="dps-hover-line" x1="0" y1="' + padT + '" x2="0" y2="' + (H - padB) + '" hidden />' +
             '<circle cx="' + peakX.toFixed(1) + '" cy="' + peakY.toFixed(1) + '" r="3.5" class="dps-peak-dot' + (mode === 'in' ? ' dps-peak-dot-in' : '') + '" />' +
-            '<text x="' + peakLabelX.toFixed(1) + '" y="' + (peakAbove ? peakY - 8 : peakY + 16).toFixed(1) + '" class="dps-peak-label" text-anchor="middle">Peak ' + fmtAbbrevNum(peakVal) + peakSuffix + '</text>' +
-            '<text x="' + padL + '" y="' + (H - 4) + '" class="dps-axis-label">0:00</text>' +
-            '<text x="' + (W - padR) + '" y="' + (H - 4) + '" class="dps-axis-label" text-anchor="end">' + fmtDur(duration) + '</text>' +
           '</svg>' +
+          overlayHtml +
+          '<div class="dps-hover-tip" hidden></div>' +
           '<div class="dps-chart-legend">' +
             (mode === 'in'
               ? '<span class="legend-item"><span class="legend-swatch in"></span>Incoming</span>'
               : '<span class="legend-item"><span class="legend-swatch out"></span>Your DPS</span>' +
                 (showIn ? '<span class="legend-item"><span class="legend-swatch in"></span>Incoming</span>' : '')) +
           '</div>' +
-        '</div>'
-      );
+        '</div>';
+
+      function wire(root) {
+        var wrap = root.querySelector('.dps-chart-wrap');
+        if (!wrap) return;
+        var svg = wrap.querySelector('.dps-chart');
+        var hoverLine = wrap.querySelector('.dps-hover-line');
+        var tip = wrap.querySelector('.dps-hover-tip');
+        function showAt(clientX) {
+          var rect = svg.getBoundingClientRect();
+          if (!rect.width) return;
+          var rel = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+          var idx = Math.round(rel * (n - 1));
+          var x = xAt(idx);
+          hoverLine.setAttribute('x1', x.toFixed(1));
+          hoverLine.setAttribute('x2', x.toFixed(1));
+          hoverLine.hidden = false;
+          var outV = Math.round(smoothOut[idx]), inV = Math.round(smoothIn[idx]);
+          var rows = mode === 'in'
+            ? '<div class="tip-row"><span class="tip-dot tip-dot-in"></span>Incoming <b>' + inV + ' dps</b></div>'
+            : '<div class="tip-row"><span class="tip-dot tip-dot-out"></span>Your DPS <b>' + outV + ' dps</b></div>' +
+              (hasIn ? '<div class="tip-row"><span class="tip-dot tip-dot-in"></span>Incoming <b>' + inV + ' dps</b></div>' : '');
+          tip.innerHTML = '<div class="tip-time">' + fmtDur(timeline[idx].t) + ' &middot; 5s rolling</div>' + rows;
+          tip.hidden = false;
+          tip.style.left = Math.min(Math.max(x / W * 100, 14), 86).toFixed(2) + '%';
+        }
+        wrap.addEventListener('mousemove', function (evt) { showAt(evt.clientX); });
+        wrap.addEventListener('mouseleave', function () { hoverLine.hidden = true; tip.hidden = true; });
+      }
+
+      return { html: html, wire: wire };
     }
 
     function renderDpsChartSection(stats) {
       var chart = buildDpsChart(stats.timeline, stats.duration);
-      if (!chart) return '';
-      return '<p class="section-label">DPS over time</p>' + chart;
+      if (!chart) return { html: '', wire: null };
+      return { html: '<p class="section-label">DPS over time</p>' + chart.html, wire: chart.wire };
     }
 
     // A compact at-a-glance list of every distinct target this encounter
@@ -480,7 +527,8 @@
       return (
         '<p class="section-label">Mobs fought this encounter</p>' +
         '<table><thead><tr><th>Mob</th><th class="num">Duration</th><th class="num">DPS</th><th class="num">Kills</th><th class="num">Damage dealt</th></tr></thead>' +
-        '<tbody>' + rowsHtml + '</tbody></table>'
+        '<tbody>' + rowsHtml + '</tbody></table>' +
+        '<p class="muted" style="font-size:0.8rem; margin-top:8px;">If two mobs share the exact same name and are fought at the same time, the log has no way to tell them apart, so their damage is combined into one row above.</p>'
       );
     }
 
@@ -582,8 +630,8 @@
     // spell/swing type, so there's nothing to break a table down BY.
     function renderIncomingChartSection(stats) {
       var chart = buildDpsChart(stats.timeline, stats.duration, 'in');
-      if (!chart) return '';
-      return '<p class="section-label">Incoming damage over time</p>' + chart;
+      if (!chart) return { html: '', wire: null };
+      return { html: '<p class="section-label">Incoming damage over time</p>' + chart.html, wire: chart.wire };
     }
 
     function renderIncomingBreakdownSection(enc, stats) {
@@ -636,16 +684,17 @@
       var taken = EQP.computeTakenStats(enc);
       var dur = Math.max(stats.duration || 0, 1);
       var healTotal = (stats.healing || []).reduce(function (sum, h) { return sum + h.amount; }, 0);
-      return (
+      var chartSection = renderIncomingChartSection(stats);
+      var html =
         '<div class="stat-chips">' +
           '<span class="stat-chip accent">' + fmtNum(taken.totalTaken) + ' dmg taken</span>' +
           '<span class="stat-chip accent">' + (taken.totalTaken / dur).toFixed(1) + ' dps taken</span>' +
           (healTotal > 0 ? '<span class="stat-chip">' + fmtNum(healTotal) + ' healing received</span>' : '') +
         '</div>' +
-        wrapSection(renderIncomingChartSection(stats), 'analysis-section-incoming-dps') +
+        wrapSection(chartSection.html, 'analysis-section-incoming-dps') +
         wrapSection(renderIncomingBreakdownSection(enc, stats), 'analysis-section-incoming-breakdown') +
-        wrapSection(renderHealingSection(stats.healing), 'analysis-section-healing')
-      );
+        wrapSection(renderHealingSection(stats.healing), 'analysis-section-healing');
+      return { html: html, wire: chartSection.wire };
     }
 
     // "I want a procs window like this" — your own passive/triggered
@@ -663,6 +712,8 @@
       Shoot: true, Burn: true, Gouge: true, Cleave: true, Backstab: true,
       Strike: true
     };
+    // Richer proc details (damage/dps/%), not just ppm — matches the
+    // desktop overlay's own analysis.js.
     function renderProcsSection(stats) {
       var youRow = (stats.rows || []).find(function (r) { return r.name === 'You'; });
       if (!youRow) return '';
@@ -670,14 +721,21 @@
         return a.hits > 0 && a.casts === 0 && !MELEE_BUCKET_NAMES[a.name];
       });
       if (!procs.length) return '';
-      procs.sort(function (a, b) { return b.hits - a.hits; });
-      var durMin = Math.max(stats.duration, 1) / 60;
+      procs.sort(function (a, b) { return b.damage - a.damage; });
+      var dur = Math.max(stats.duration, 1);
+      var durMin = dur / 60;
       var totalHits = procs.reduce(function (sum, a) { return sum + a.hits; }, 0);
+      var totalDamage = procs.reduce(function (sum, a) { return sum + a.damage; }, 0);
+      // a.pct is already computed against your own (non-pet) damage — see
+      // abilitiesArray() in eqp-core.js — matching the desktop overlay.
       var rowsHtml = procs.map(function (a) {
         return (
           '<div class="proc-row">' +
             '<span class="proc-dot"></span>' +
             '<span class="proc-name">' + esc(a.name) + '</span>' +
+            '<span class="proc-stat">' + fmtNum(a.damage) + '</span>' +
+            '<span class="proc-stat">' + (a.damage / dur).toFixed(1) + ' dps</span>' +
+            '<span class="proc-stat">' + a.pct.toFixed(1) + '%</span>' +
             '<span class="proc-ppm">' + (a.hits / durMin).toFixed(2) + ' ppm</span>' +
             '<span class="proc-count">×' + a.hits + '</span>' +
           '</div>'
@@ -686,7 +744,7 @@
       return (
         '<div class="section-label-row">' +
           '<p class="section-label">Procs</p>' +
-          '<span class="section-stat">' + totalHits + ' procs · ' + (totalHits / durMin).toFixed(1) + ' ppm</span>' +
+          '<span class="section-stat">' + fmtNum(totalDamage) + ' dmg · ' + totalHits + ' procs · ' + (totalHits / durMin).toFixed(1) + ' ppm</span>' +
         '</div>' +
         '<div class="procs-list">' + rowsHtml + '</div>'
       );
@@ -884,19 +942,24 @@
         });
       });
 
+      var detailBody = document.getElementById('detail-body');
       if (activeDetailTab === 'incoming') {
-        document.getElementById('detail-body').innerHTML = renderIncomingTab(enc, stats);
+        var incomingTab = renderIncomingTab(enc, stats);
+        detailBody.innerHTML = incomingTab.html;
+        if (incomingTab.wire) incomingTab.wire(detailBody);
         return;
       }
 
-      document.getElementById('detail-body').innerHTML =
-        wrapSection(renderDpsChartSection(stats), 'analysis-section-dps') +
+      var dpsChartSection = renderDpsChartSection(stats);
+      detailBody.innerHTML =
+        wrapSection(dpsChartSection.html, 'analysis-section-dps') +
         wrapSection(renderMobsFoughtSection(stats), 'analysis-section-mobs') +
         wrapSection(renderCombatantSection(stats), 'analysis-section-combatants') +
         wrapSection(renderHealingSection(stats.healing), 'analysis-section-healing') +
         wrapSection(renderProcsSection(stats), 'analysis-section-procs') +
         wrapSection(renderTeamAbilitySection(stats, combinePets), 'analysis-section-team');
       wireCombatantCards();
+      if (dpsChartSection.wire) dpsChartSection.wire(detailBody);
     }
 
     // Shared finish-up for both a dropped file and a loaded submission —

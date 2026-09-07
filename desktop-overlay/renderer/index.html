@@ -23,7 +23,7 @@
     <div class="header" id="drag-region">
       <div class="brand"><img class="brand-logo" src="logo.png" alt=""><span class="status-dot" id="status-dot"></span><span class="wordmark" id="wordmark">DYRELOG</span></div>
       <div class="icons">
-        <button class="icon-btn" id="btn-settings" title="Settings">&#9881;</button>
+        <button class="icon-btn" id="btn-settings" title="Settings"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.02 5.98l-2.12 2.12M8.1 15.9l-2.12 2.12M18.02 18.02l-2.12-2.12M8.1 8.1L5.98 5.98"/></svg></button>
         <button class="icon-btn" id="btn-analysis" title="Advanced combat analysis">&#128202;</button>
         <button class="icon-btn" id="btn-leaderboard" title="Leaderboards">&#127942;</button>
         <button class="icon-btn" id="btn-circle" title="Circle mode">&#9711;</button>
@@ -101,10 +101,14 @@
           <span class="mini-pet-dps" id="mini-pet-dps"></span>
         </div>
       </div>
+      <!-- Overlaid on TOP of the mini-bar's own corner (position:absolute in
+           style.css), same as the Circle badge's own icons below, instead of
+           sitting inline in the flex row — Sept 7, "position the icons over
+           top of the mini bar... so they don't affect the size." -->
       <div class="mini-actions">
-        <button class="icon-btn mini-settings" id="btn-mini-settings" title="Settings">&#9881;</button>
+        <button class="icon-btn mini-settings" id="btn-mini-settings" title="Settings"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.02 5.98l-2.12 2.12M8.1 15.9l-2.12 2.12M18.02 18.02l-2.12-2.12M8.1 8.1L5.98 5.98"/></svg></button>
         <button class="icon-btn mini-circle" id="btn-mini-circle" title="Circle mode">&#9711;</button>
-        <button class="icon-btn mini-restore" id="btn-restore" title="Expand">&#9633;</button>
+        <button class="icon-btn mini-restore" id="btn-restore" title="Expand"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="15" y2="12"/><line x1="4" y1="17" x2="18" y2="17"/></svg></button>
       </div>
     </div>
 
@@ -122,10 +126,15 @@
          its wiring in app.js. Circle's on-screen SIZE is a separate
          Settings > Circle size slider — see --circle-scale in style.css
          and applyCircleScale() in app.js. -->
+    <!-- The three buttons below are drag-to-reposition (Sept 7 — "like an
+         icon in World of Warcraft's mini map"): drag one and it slides
+         around the badge's rim; a plain click (no real movement) still
+         does its normal action. See wireBadgeIcon() in app.js and
+         --btn-angle in style.css for the actual positioning math. -->
     <div class="watch-badge" id="watch-badge" title="Click, right-click, or use the gear for Settings / Analysis / back to Bars">
-      <button class="watch-menu-btn" id="watch-menu-btn" title="Menu">&#9881;</button>
-      <button class="watch-mini-btn" id="watch-mini-btn" title="Mini mode">&#8212;</button>
-      <button class="watch-bars-btn" id="watch-bars-btn" title="Standard mode">&#9633;</button>
+      <button class="watch-menu-btn" id="watch-menu-btn" title="Menu (drag to move)"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.02 5.98l-2.12 2.12M8.1 15.9l-2.12 2.12M18.02 18.02l-2.12-2.12M8.1 8.1L5.98 5.98"/></svg></button>
+      <button class="watch-mini-btn" id="watch-mini-btn" title="Mini mode (drag to move)">&#8212;</button>
+      <button class="watch-bars-btn" id="watch-bars-btn" title="Standard mode (drag to move)"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="15" y2="12"/><line x1="4" y1="17" x2="18" y2="17"/></svg></button>
       <div class="watch-dps"><span id="watch-dps-num">0</span><span class="watch-unit">dps</span></div>
       <div class="watch-timer" id="watch-timer">0:00</div>
     </div>

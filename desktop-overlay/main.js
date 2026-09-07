@@ -136,6 +136,17 @@ const DEFAULT_SETTINGS = {
   circleBgColor: null,
   circleBorderColor: null,
   circleTextColor: null,
+  // Icon color (Sept 7 — "add a color selector to the icons") — recolors the
+  // gear/circle/mini/bars mode-switch buttons everywhere they appear; never
+  // touches the Analysis/Leaderboard header icons, which are real color
+  // emoji and ignore CSS `color` anyway. null = the theme's own --ink-2/-3.
+  iconColor: null,
+  // Per-icon angle (degrees, clockwise from top) around the Circle badge's
+  // rim — Sept 7, "give the player the option to click and drag the icons
+  // around the circle mode." Keyed "menu"/"mini"/"bars" for the gear/mini/
+  // bars buttons; an icon with no entry here uses its own built-in default
+  // position — see applySettings()/wireBadgeIcon() in app.js.
+  iconAngles: {},
   autoSubmitMode: "ask", // "off" | "ask" | "auto"
   autoSubmitChosen: false, // first-run toggle row (see the fight-view) only ever shows until this flips true
   // A local cache of the curated leaderboard boss list (see
