@@ -423,8 +423,11 @@
     // analysis" — sits in the section header regardless of which layout
     // (cards vs. plain table) renders below, since either one already
     // reads combinePets via buildAnalysisRows() above.
+    // Only merges pets EQ names after their owner ("Owner`s warder") — a
+    // custom-named pet (a necro's skeleton, say) can't be linked to its
+    // owner from the log text and stays a separate row.
     var combineToggleHtml =
-      '<button class="btn-toggle-sm' + (combinePets ? " active" : "") + '" id="btn-combine-pets" type="button">' +
+      '<button class="btn-toggle-sm' + (combinePets ? " active" : "") + '" id="btn-combine-pets" type="button" title="Only merges pets EQ names after their owner (like &quot;Owner`s warder&quot;) — a custom-named pet (e.g. a necro\'s skeleton) can\'t be identified as a pet and stays separate.">' +
         (combinePets ? "&#10003; Pets combined with owners" : "Combine pets with owners") +
       "</button>";
     var combatantSectionHtml = canExpand

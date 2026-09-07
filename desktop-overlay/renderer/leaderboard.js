@@ -169,7 +169,9 @@
       var data = await res.json();
       bosses = data.bosses || [];
       bossesById = {};
-      bosses.forEach(function (b) { bossesById[String(b.id)] = b; });
+      bossNames = new Set();
+      bosses.forEach(function (b) { bossesById[String(b.id)] = b; if (b.name) bossNames.add(b.name); });
+      renderPersonalList(); // in case "My Kills" was already open when this resolved
       renderBossPicker();
       picker.addEventListener("change", function () {
         if (picker.value) selectBoss(picker.value);
@@ -207,14 +209,29 @@
   // you've killed, exactly like a personal leaderboard, entirely offline.
   var latestState = { encounters: [], characterName: null };
 
+  // Only real bosses (the curated list `load()` fetches below) belong on
+  // "My Kills" — every regular trash mob you've killed was showing up here
+  // too before, since this used to key off ANY tracked encounter. Exact-
+  // match on mobName, same convention as app.js's own isKnownBoss() gating
+  // the Submit prompt. Left null until the boss list actually loads so a
+  // slow/failed fetch briefly shows everything rather than wrongly hiding
+  // real bosses — this list is read-only and re-renders once bosses arrive,
+  // so a brief over-show here is just a flicker, not a wrong Submit.
+  var bossNames = null;
+  function isKnownBoss(mobName) {
+    if (!bossNames) return true; // bosses haven't loaded (or failed) — don't hide everything yet
+    return bossNames.has(mobName);
+  }
+
   function buildPersonalBests(encounters) {
     var bestByBoss = {};
     (encounters || []).forEach(function (enc) {
       if (!enc.mobKilled) return; // only kills count, same as the public boards
+      var name = enc.mobName || "Unknown";
+      if (!isKnownBoss(name)) return; // trash mob — not on the curated boss list
       var stats = EQP.computeStats(enc);
       var youRow = (stats.rows || []).find(function (r) { return r.name === "You"; });
       if (!youRow) return;
-      var name = enc.mobName || "Unknown";
       var existing = bestByBoss[name];
       if (!existing || youRow.dps > existing.dps) {
         bestByBoss[name] = { name: name, dps: youRow.dps, damage: youRow.damage, startTime: enc.startTime };

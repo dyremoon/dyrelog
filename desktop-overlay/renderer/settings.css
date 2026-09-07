@@ -136,6 +136,18 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
    This wins on specificity (two classes/attrs beats one) so hidden panels
    actually disappear now. */
 .tab-panel[hidden] { display: none; }
+/* Same [hidden]-vs-plain-display bug as above — .row{display:flex} was
+   winning over [hidden] for the folder-disambiguation row (Sept 6), so it
+   showed even with nothing picked yet. */
+#settings-folder-pick[hidden] { display: none; }
+
+/* Log source status — a red/green dot plus matching text color, same idea
+   as the mini-mode card's own .status-dot, so it's obvious at a glance
+   whether a source is actively being read or still needs picking. */
+.source-hint { display: flex; align-items: center; gap: 7px; }
+.source-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #d9695f; box-shadow: 0 0 6px rgba(217,105,95,0.5); }
+.source-hint.ok .source-dot { background: #4caf6e; box-shadow: 0 0 6px rgba(76,175,110,0.5); }
+.source-hint.ok { color: #4caf6e; }
 
 /* Two-column Appearance layout — "the sizing bars are so far down that as
    you go down to test them, you have to scroll up to see the test bar."
@@ -572,7 +584,7 @@ label.check input { accent-color: var(--accent); }
 }
 .preview-timer {
   color: var(--preview-secondary-color, #a89f8d);
-  font-size: calc(0.66em * var(--preview-secondaryscale, 1));
+  font-size: calc(0.66em * var(--preview-timerscale, 1));
   font-variant-numeric: tabular-nums;
 }
 
@@ -723,7 +735,7 @@ label.check input { accent-color: var(--accent); }
 }
 .preview-circle-timer {
   color: var(--preview-circle-text, var(--preview-secondary-color, #a89f8d));
-  font-size: calc(0.66em * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
+  font-size: calc(0.66em * var(--preview-timerscale, 1) * var(--preview-circlescale, 1));
   font-variant-numeric: tabular-nums;
 }
 

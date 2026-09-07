@@ -6,13 +6,15 @@
 // Settings UI itself lives in its own popup window (renderer/settings.js) —
 // this window only reads settings, live, over IPC — see applySettings().
 //
-// NOT wired up yet, on purpose: Discord login and the Submit pill's actual
-// POST to the worker API. The Submit button renders per the auto-submit
-// preference but stays disabled — see the TODO near btn-submit. Local
-// tracking (mob identity, pet folding, difficulty auto-detect, the
-// last-spell-caster heuristic for DoT ticks, the self/pet damage split)
-// is already fully live here, same as the browser overlay, because it all
-// comes from eqp-core.js unchanged.
+// Discord login and leaderboard submission (wired up Sept 7 — see
+// requestSubmitFor()/updateSubmitUI() below and the auth/submit sections of
+// main.js) go through a small always-on-top submit-popup window rather than
+// anything in this window itself, so the same prompt works in every display
+// mode (bars/mini/circle) — see submit-popup.html/js. Local tracking (mob
+// identity, pet folding, difficulty auto-detect, the last-spell-caster
+// heuristic for DoT ticks, the self/pet damage split) is already fully live
+// here, same as the browser overlay, because it all comes from eqp-core.js
+// unchanged.
 
 (function () {
   "use strict";
@@ -157,6 +159,11 @@
   var lineBuffer = "";
   var settings = null; // loaded on boot — see applySettings()
   var miniMode = false;
+  // Mini mode's own remembered window size, independent of the standard
+  // Bars size (item 3 — "I want them to keep their own independent
+  // sizes") — same preWatchBounds pattern applyDisplayStyle() below uses
+  // for Circle, see toggleMini() further down.
+  var preMiniBounds = null;
   // Display style (Bars vs. Circle — item 8), driven entirely by Settings >
   // Display style now — see applyDisplayStyle() further down. Circle forces
   // a fixed small square window while active (a round badge only reads as
@@ -178,6 +185,15 @@
     return Math.max(170, Math.round(WATCH_BADGE_BASE * (scale || 1)) + WATCH_MARGIN);
   }
   var characterName = null;
+  var realm = null; // captured alongside characterName in applySourceStatus() — needed for the /api/streams start call, see requestSubmitFor()
+  // Raw log lines for the current run, kept only so a submission can hand
+  // the server the exact original text for one finished encounter (see
+  // requestSubmitFor() below) — eqp-core.js itself never retains raw text,
+  // only the parsed stats. Trimmed periodically so a long session doesn't
+  // grow this forever; see feedLines().
+  var rawLineBuffer = [];
+  var RAW_BUFFER_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — generous; a real fight is minutes, not hours
+  var lastSubmitPromptedStartTime = null; // dedupes updateSubmitUI() firing every render tick for the same already-handled kill
   // Combat-session continuity for the live fight timer — see item 3 of
   // the newest feature list ("it resets the duration of the fight every
   // time I select a different target"). eqp-core.js still locks one mob
@@ -209,18 +225,6 @@
   // anyway (the default). See buildSessions()/renderFightSelect()/
   // renderPickedSession() further down.
   var selectedSessionKey = null;
-  // A short rolling-window "current" dps, separate from the header's own
-  // cumulative running average (self.dps below) — that number trends
-  // toward the fight's overall average and rarely spikes, so it can't
-  // answer "what was my best burst" the way a peak callout can. This is a
-  // small ring buffer of {time, total damage} samples fed once a second
-  // from render() (which already ticks that often); the peak is the
-  // highest (damage delta / time delta) seen over any ROLLING_WINDOW_MS
-  // stretch this combat session — see trackPeakDps()/resetDpsTracking().
-  // "id also like to see Peak DPS like this graph does."
-  var dpsSamples = [];
-  var ROLLING_WINDOW_MS = 5000;
-  var peakRollingDps = 0;
 
   var els = {
     statusDot: document.getElementById("status-dot"),
@@ -242,6 +246,7 @@
     autoSubmitToggles: document.getElementById("auto-submit-toggles"),
     miniBar: document.getElementById("mini-bar"),
     miniDot: document.getElementById("mini-dot"),
+    miniTotal: document.getElementById("mini-total"),
     miniName: document.getElementById("mini-name"),
     miniDps: document.getElementById("mini-dps"),
     miniPetRow: document.getElementById("mini-pet-row"),
@@ -251,7 +256,6 @@
     watchMenuBtn: document.getElementById("watch-menu-btn"),
     watchDpsNum: document.getElementById("watch-dps-num"),
     watchTimer: document.getElementById("watch-timer"),
-    peakDps: document.getElementById("peak-dps"),
     updateBanner: document.getElementById("update-banner"),
     updateBannerText: document.getElementById("update-banner-text"),
     updateBannerDismiss: document.getElementById("update-banner-dismiss")
@@ -300,11 +304,30 @@
     var chunk = lineBuffer + text;
     var lines = chunk.split("\n");
     lineBuffer = lines.pop();
+    var lastKnownTime = rawLineBuffer.length ? rawLineBuffer[rawLineBuffer.length - 1].time : Date.now();
     lines.forEach(function (line) {
       if (!line) return;
       var ev = EQP.parseLine(line);
-      if (ev) EQP.ingest(state, ev);
+      if (ev) { EQP.ingest(state, ev); lastKnownTime = ev.time; }
+      // Kept even when parseLine can't read it (a line eqp-core doesn't
+      // recognize is still real log text the server should see) — tagged
+      // with the last real timestamp seen so far so it still lands in the
+      // right encounter's slice below.
+      rawLineBuffer.push({ time: lastKnownTime, line: line });
     });
+    var cutoff = Date.now() - RAW_BUFFER_MAX_AGE_MS;
+    while (rawLineBuffer.length && rawLineBuffer[0].time < cutoff) rawLineBuffer.shift();
+  }
+
+  // The exact original log text for one finished encounter, reconstructed
+  // from rawLineBuffer above — a couple seconds of padding on each side
+  // catches a line landing right on the boundary between two timestamps.
+  function rawTextForEncounter(enc) {
+    var padMs = 2000;
+    return rawLineBuffer
+      .filter(function (r) { return r.time >= enc.startTime - padMs && r.time <= enc.endTime + padMs; })
+      .map(function (r) { return r.line; })
+      .join("\n");
   }
 
   function setActiveView(view) {
@@ -343,13 +366,15 @@
   function applySettings(s) {
     settings = s;
     document.documentElement.setAttribute("data-theme", THEME_NAMES.indexOf(s.theme) !== -1 ? s.theme : "blue");
-    // Rounded to a whole pixel — a fractional root size (e.g. 13.125px)
-    // is what was making every font, decorative ones especially, read as
-    // faintly blurry: subpixel positioning forces the renderer to
-    // antialias glyph edges that would otherwise land clean. See also the
-    // -webkit-font-smoothing rule on body in style.css, the other half of
-    // this fix.
-    document.documentElement.style.fontSize = Math.round(12.5 * s.textScale) + "px";
+    // Text/icon/timer size are three fully independent scale variables now
+    // (Sept 7 — "adjusting the bar text size seemingly is just zooming in
+    // on the overlay") — <html>'s own font-size in style.css is a fixed
+    // 12.5px that's never touched here any more; only the specific text/
+    // icon selectors that opt into each variable (via calc()) actually
+    // move, so the window itself never zooms.
+    document.documentElement.style.setProperty("--text-scale", String(s.textScale || 1));
+    document.documentElement.style.setProperty("--icon-scale", String(s.iconScale || 1));
+    document.documentElement.style.setProperty("--timer-text-scale", String(s.timerTextScale || 1));
     // Background-only opacity — see the long comment on --panel-alpha in
     // style.css. Unitless so it plugs into the bar-row fill's calc().
     document.documentElement.style.setProperty("--panel-alpha", String(s.opacity));
@@ -636,66 +661,55 @@
     return { dps: row.dps, damage: row.damage, pet: pet };
   }
 
-  // See dpsSamples/peakRollingDps' declaration near the top of this file.
-  // Called once a second from render(), only while a fight is actually
-  // live — damage isn't progressing once a fight's over, so there's
-  // nothing new to sample, and the already-tracked peak just stays
-  // displayed (same "keep showing the last real number" convention the
-  // header dps/timer already follow between fights).
-  function trackPeakDps(now, damage) {
-    dpsSamples.push({ t: now, damage: damage });
-    var cutoff = now - ROLLING_WINDOW_MS - 1000;
-    while (dpsSamples.length > 1 && dpsSamples[0].t < cutoff) dpsSamples.shift();
-    var oldest = dpsSamples[0];
-    for (var i = 0; i < dpsSamples.length; i++) {
-      if (now - dpsSamples[i].t <= ROLLING_WINDOW_MS) { oldest = dpsSamples[i]; break; }
-    }
-    var elapsed = (now - oldest.t) / 1000;
-    var rollingDps = elapsed > 0.5 ? (damage - oldest.damage) / elapsed : 0;
-    if (rollingDps > peakRollingDps) peakRollingDps = rollingDps;
-    return peakRollingDps;
-  }
-  // Called wherever combatSessionStart gets reset to a genuinely fresh
-  // pull (or cleared entirely) — a new fight's burst has nothing to do
-  // with the last one's, so the rolling sample buffer and its peak start
-  // clean rather than comparing across a gap.
-  function resetDpsTracking() {
-    dpsSamples = [];
-    peakRollingDps = 0;
-  }
-  function updatePeakDisplay() {
-    if (peakRollingDps > 1) {
-      els.peakDps.hidden = false;
-      els.peakDps.textContent = "peak " + fmtNum(peakRollingDps);
-    } else {
-      els.peakDps.hidden = true;
-    }
-  }
-
   // finishedEnc is the just-ended encounter object (or null while a fight
   // is live / nothing has happened yet). Per item 4.3, this whole row of
   // UI should only ever appear after a REAL leaderboard-eligible boss kill
   // — not after every trash mob you happen to stop fighting.
   function updateSubmitUI(finishedEnc) {
     var eligible = !!(finishedEnc && finishedEnc.mobKilled && isKnownBoss(finishedEnc.mobName));
+    // The in-window submit-row/auto-submit-line are gone (Sept 7) — the
+    // small submit-popup window (see requestSubmitFor() below) is now the
+    // ONE place a submit prompt appears, in every display mode (bars/mini/
+    // circle) alike, instead of three separate in-window prompts that only
+    // ever worked in Bars mode. submit-row.hidden stays permanently true;
+    // the elements are left in the DOM/CSS rather than removed outright.
+    els.submitRow.hidden = true;
+    els.autoSubmitLine.hidden = true;
     if (!eligible) {
-      els.submitRow.hidden = true;
-      els.autoSubmitLine.hidden = true;
       els.autoSubmitToggles.hidden = true;
       return;
     }
-    // Auto mode: nothing to click, no button at all — see item 4. Off/ask:
-    // still a manual Submit button (disabled until login exists — see the
-    // TODO near btn-submit below).
-    els.submitRow.hidden = settings.autoSubmitMode === "auto";
-    els.autoSubmitLine.hidden = false;
-    els.autoSubmitLine.textContent =
-      settings.autoSubmitMode === "auto" ? "Auto-submitting… (login not set up yet)" :
-      settings.autoSubmitMode === "ask" ? "Submit " + esc(finishedEnc.mobName) + " to the leaderboard?" :
-      "Leaderboard submission is off";
     // The first-run toggle row only ever shows until you've picked once —
     // see item 2. After that, Settings > Auto-submit is the only control.
     els.autoSubmitToggles.hidden = !!settings.autoSubmitChosen;
+    if (settings.autoSubmitMode === "off") return;
+    // updateSubmitUI() fires on every render tick while this stays the most
+    // recently finished encounter — only actually ask/auto-submit once per
+    // kill, keyed on its unique startTime.
+    if (lastSubmitPromptedStartTime === finishedEnc.startTime) return;
+    lastSubmitPromptedStartTime = finishedEnc.startTime;
+    requestSubmitFor(finishedEnc, settings.autoSubmitMode);
+  }
+
+  // Hands one finished, eligible encounter off to main.js — see
+  // request-submit in main.js and the submit-popup window it drives. mode
+  // is "ask" (small popup with Submit/Discard) or "auto" (submits right
+  // away, popup just shows the result).
+  function requestSubmitFor(finishedEnc, mode) {
+    if (!characterName || !realm) return; // no log source identified yet — nothing to attribute this to
+    var stats = EQP.computeStats(finishedEnc);
+    var youRow = (stats.rows || []).find(function (r) { return r.name === "You"; });
+    window.dyrelog.requestSubmit({
+      mode: mode,
+      characterName: characterName,
+      realm: realm,
+      soloMode: false,
+      mobName: finishedEnc.mobName,
+      dps: youRow ? youRow.dps : 0,
+      damage: youRow ? youRow.damage : 0,
+      difficulty: finishedEnc.difficultyKnown ? finishedEnc.difficulty : null,
+      rawText: rawTextForEncounter(finishedEnc)
+    });
   }
 
   // Every finished encounter that belongs to the SAME continuous combat
@@ -801,14 +815,12 @@
     var merged = EQP.mergeEncounters(members);
     var stats = EQP.computeStats(merged);
     var self = selfSummary(stats);
-    if (session.isLive) trackPeakDps(now, self.damage);
     els.fightIcon.classList.toggle("pulse", session.isLive);
     els.mobDiff.textContent = merged.difficultyKnown ? "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base") : "";
     var lastMember = session.members[session.members.length - 1];
     els.mobState.textContent = session.isLive ? "(live)" : (lastMember.mobKilled ? "(defeated)" : "(ended)");
     els.dpsNumber.textContent = fmtNum(self.dps) + " dps · " + fmtAbbrev(self.damage);
     els.fightTimer.textContent = fmtDur((merged.endTime - merged.startTime) / 1000);
-    updatePeakDisplay();
     lastRenderedRows = stats.rows;
     renderBarList(stats.rows);
     // No submit prompt while explicitly browsing history — that's not "the
@@ -853,7 +865,6 @@
       // lands well inside that gap and keeps the clock running.
       if (combatSessionStart === null || (now - lastCombatActivityAt) > state.gapMs) {
         combatSessionStart = enc.startTime;
-        resetDpsTracking(); // a genuinely fresh pull — see its own comment above
       }
       lastCombatActivityAt = now;
       var members = currentSessionMembers();
@@ -864,13 +875,11 @@
       var merged = EQP.mergeEncounters(extended);
       var stats = EQP.computeStats(merged);
       var self = selfSummary(stats);
-      trackPeakDps(now, self.damage);
       els.fightIcon.classList.add("pulse"); // only actually spins while a fight is truly live — see item 4
       els.mobDiff.textContent = merged.difficultyKnown ? "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base") : "";
       els.mobState.textContent = "(live)";
       els.dpsNumber.textContent = fmtNum(self.dps) + " dps · " + fmtAbbrev(self.damage);
       els.fightTimer.textContent = fmtDur((merged.endTime - merged.startTime) / 1000);
-      updatePeakDisplay();
       lastRenderedRows = stats.rows;
       renderBarList(stats.rows);
       updateSubmitUI(null);
@@ -899,7 +908,6 @@
       els.mobState.textContent = last.mobKilled ? "(defeated)" : "(ended)";
       els.dpsNumber.textContent = fmtNum(lastSelf.dps) + " dps · " + fmtAbbrev(lastSelf.damage);
       els.fightTimer.textContent = fmtDur(lastStats.duration);
-      updatePeakDisplay(); // no new samples once the fight's over — just keeps showing whatever peak was already tracked
       lastRenderedRows = lastStats.rows;
       renderBarList(lastStats.rows);
       // Submission is still gated on the specific individual kill (a
@@ -910,13 +918,11 @@
       updateWatchBadge(lastSelf.dps, els.fightTimer.textContent);
     } else {
       combatSessionStart = null;
-      resetDpsTracking();
       els.fightIcon.classList.remove("pulse");
       els.mobDiff.textContent = "";
       els.mobState.textContent = "";
       els.dpsNumber.textContent = "0 dps";
       els.fightTimer.textContent = "";
-      updatePeakDisplay();
       lastRenderedRows = [];
       renderBarList([]);
       updateSubmitUI(null);
@@ -933,10 +939,16 @@
   // it undercut that at a glance.
   // pet is { name, dps } or null — see selfSummary(). Only shown when your
   // pet has actually dealt damage this fight, per item 3.9 of the newest
-  // feature list.
+  // feature list. Reworked Sept 7 (items 1/2 of the mini-bar rework) — the
+  // combined total damage moved to its own line above both rows instead of
+  // trailing the player's own dps number, so the player's and pet's dps
+  // numbers are now the SAME kind of value ("NNN dps", nothing else) and
+  // actually line up as a column — see .mini-dps/.mini-pet-dps's shared
+  // min-width in style.css.
   function updateMiniBar(dps, damage, pet) {
-    els.miniDps.textContent = fmtNum(dps) + " dps · " + fmtAbbrev(damage);
+    els.miniTotal.textContent = fmtAbbrev(damage) + " total dmg";
     els.miniName.textContent = characterName || "Dyrelog";
+    els.miniDps.textContent = fmtNum(dps) + " dps";
     if (pet && pet.dps > 0) {
       els.miniPetRow.hidden = false;
       els.miniPetName.textContent = pet.name;
@@ -977,12 +989,13 @@
     if (!status || !status.ok) return;
     var identity = parseCharacterFromFilename(status.fileName);
     characterName = identity ? identity.characterName : null;
+    realm = identity ? identity.realm : null;
     els.wordmark.textContent = characterName || "DYRELOG";
     state = makeState(characterName);
     lineBuffer = "";
+    rawLineBuffer = [];
     selectedRowKey = null;
     selectedSessionKey = null;
-    resetDpsTracking();
     combatSessionStart = null;
     showFightView();
     render();
@@ -1041,33 +1054,38 @@
   document.getElementById("btn-settings").addEventListener("click", function () { window.dyrelog.openSettings(); });
   document.getElementById("btn-analysis").addEventListener("click", function () { window.dyrelog.openAnalysis(); });
   document.getElementById("btn-leaderboard").addEventListener("click", function () { window.dyrelog.openLeaderboard(); });
-  document.getElementById("btn-change-source").addEventListener("click", async function () {
-    if (!confirm("Forget the current log source and pick a different one?")) return;
-    await window.dyrelog.clearSource();
-    characterName = null;
-    els.wordmark.textContent = "DYRELOG";
-    state = makeState(null);
-    lineBuffer = "";
-    selectedRowKey = null;
-    selectedSessionKey = null;
-    resetDpsTracking();
-    combatSessionStart = null;
-    showEmptyState();
-  });
   document.getElementById("btn-close").addEventListener("click", function () { window.dyrelog.close(); });
 
   // ---- mini mode --------------------------------------------------------
-  // Mini mode no longer shrinks the window to a fixed tiny footprint — it
-  // now just hides the header icon row, the mob-name/timer subhead, and
+  // Mini mode hides the header icon row, the mob-name/timer subhead, and
   // the submit UI, while keeping the SAME ranked bar list standard mode
   // shows (see body.mini rules in style.css) — "can we keep the dps bars
-  // of standard mode?" The window stays whatever size you left it at, and
-  // resizing while mini persists normally like any other resize, so
-  // there's nothing left to save/restore around the toggle itself.
+  // of standard mode?" Reworked Sept 7 (item 3 — "I want them to keep
+  // their own independent sizes") to remember its OWN window size
+  // separately from standard Bars mode, the same preWatchBounds pattern
+  // applyDisplayStyle() below already uses for Circle: whatever size you
+  // leave mini mode at is what get-mini-size hands back next time you
+  // click into it, and leaving mini restores exactly the Bars size you
+  // had before, instead of the two modes fighting over one shared size.
   function toggleMini() {
     miniMode = !miniMode;
     document.body.classList.toggle("mini", miniMode);
     scheduleIdleFade(); // re-evaluate now that miniMode changed
+    if (miniMode) {
+      window.dyrelog.getBounds().then(function (b) {
+        preMiniBounds = b;
+        window.dyrelog.setMiniMode(true);
+        window.dyrelog.getMiniSize().then(function (size) {
+          window.dyrelog.setBounds({ x: b.x, y: b.y, width: size.width, height: size.height }, { persist: false });
+        });
+      });
+    } else {
+      window.dyrelog.setMiniMode(false);
+      if (preMiniBounds) {
+        window.dyrelog.setBounds(preMiniBounds, { persist: false });
+        preMiniBounds = null;
+      }
+    }
   }
   document.getElementById("btn-mini").addEventListener("click", toggleMini);
   document.getElementById("btn-restore").addEventListener("click", toggleMini);
@@ -1182,12 +1200,12 @@
   wireResizeHandle(document.getElementById("rh-bottom"), false, true);
   wireResizeHandle(document.getElementById("rh-corner"), true, true);
 
-  // TODO(next milestone): wire this to the same worker endpoints the
-  // browser overlay uses (POST /api/streams, .../finalize) once Discord
-  // login exists in the desktop shell. Disabled rather than removed so the
-  // mini-mode layout is already final — only the plumbing behind it isn't.
+  // The in-window Submit button itself is unused now (Sept 7) — see
+  // updateSubmitUI() above, submission prompts all go through the
+  // submit-popup window instead so the same flow works in every display
+  // mode, not just Bars. Left disabled/hidden rather than removed from the
+  // DOM so index.html/style.css don't need a layout change alongside this.
   els.btnSubmit.disabled = true;
-  els.btnSubmit.title = "Login isn't wired up in the desktop app yet — coming next.";
 
   // Live updates from the Settings window (see main.js's "settings-update"
   // broadcast, sent after every save-settings call regardless of which

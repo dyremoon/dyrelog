@@ -26,7 +26,6 @@
         <button class="icon-btn" id="btn-settings" title="Settings">&#9881;</button>
         <button class="icon-btn" id="btn-analysis" title="Advanced combat analysis">&#128202;</button>
         <button class="icon-btn" id="btn-leaderboard" title="Leaderboards">&#127942;</button>
-        <button class="icon-btn" id="btn-change-source" title="Change log source">&#128193;</button>
         <button class="icon-btn" id="btn-mini" title="Mini mode">&#8212;</button>
         <button class="icon-btn" id="btn-close" title="Close">&times;</button>
       </div>
@@ -55,7 +54,6 @@
         <span class="dps-side">
           <span class="dps-number" id="dps-number">0 dps</span>
           <span class="fight-timer" id="fight-timer"></span>
-          <span class="peak-dps" id="peak-dps" hidden></span>
         </span>
       </div>
       <div class="barlist" id="barlist"></div>
@@ -77,6 +75,9 @@
     <div class="mini-bar" id="mini-bar">
       <span class="status-dot" id="mini-dot"></span>
       <div class="mini-info">
+        <!-- Total damage done, above both dps rows — item 2 of the mini-bar
+             rework ("move the total damage done above both DPS"). -->
+        <div class="mini-total" id="mini-total"></div>
         <div class="mini-main">
           <span class="mini-name" id="mini-name">Dyrelog</span>
           <span class="mini-dps" id="mini-dps">0 dps</span>

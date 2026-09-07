@@ -4,14 +4,17 @@
    overlay's warm/gold theme; this is its own thing on purpose (though the
    "EQ Brass" theme below deliberately echoes it — see Settings > Theme).
 
-   Text sizing: every font-size below is in rem, relative to <html>'s own
-   font-size — app.js sets that directly from the Settings > "Text size"
-   slider (document.documentElement.style.fontSize = ...). rem (not em)
-   is deliberate: it stays relative to the ROOT regardless of how deeply
-   an element is nested, so nothing compounds unexpectedly. Everything
-   else (padding, gaps, the resize handles) stays in fixed px — that's
-   what Settings > "Size" and the corner/edge drag handles control
-   instead, so the two sliders do genuinely different things. */
+   Text sizing (reworked Sept 7 — see "Adjusting the bar text size
+   seemingly is just zooming in on the overlay"): <html>'s own font-size
+   is a FIXED 12.5px, never touched by JS. Settings > "Bar Text Size"
+   instead sets --text-scale below, and only the genuine name/dps TEXT
+   selectors multiply their rem value by it via calc() — padding, gaps,
+   icon boxes and the resize handles are all plain px and never move,
+   which is what actually stops the old "everything zooms together"
+   effect. Icons get their own --icon-scale (Settings > "Icon Size") and
+   the fight/circle timer its own --timer-text-scale (Settings > "Timer
+   Text Size"), both fully independent of --text-scale and of each other
+   — see applySettings() in app.js. */
 
 :root {
   --bg-card: #14120f;
@@ -45,6 +48,11 @@
   /* Settings > Bar height — multiplies each .bar-row's vertical padding.
      Set from app.js's applySettings(); 1 = the original fixed 4px. */
   --bar-height-mult: 1;
+  /* The three independent scale sliders (Settings > Sizing) — see the
+     comment at the top of this file. Set from app.js's applySettings(). */
+  --text-scale: 1;
+  --icon-scale: 1;
+  --timer-text-scale: 1;
   /* Settings > Font — set from app.js's applySettings(); falls back to
      the original stack below if JS hasn't run yet (first paint). */
   --font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
@@ -150,7 +158,7 @@
    render permanently on top of the fight view. This one rule is the fix,
    for every current and future hidden-toggled element in this file. */
 [hidden] { display: none !important; }
-html { font-size: 12.5px; } /* app.js multiplies this by the Text size setting */
+html { font-size: 12.5px; } /* fixed — never scaled by JS any more, see the file-top comment */
 /* overflow:hidden here — this is a small frameless window, not a scrolling
    page; only .fight-view scrolls internally (see below). Without this, an
    OS zoom level change (Ctrl+/Ctrl- or a display scale change) can round
@@ -226,12 +234,12 @@ body {
 }
 .update-banner-dismiss {
   flex: none;
-  width: 16px; height: 16px;
+  width: calc(16px * var(--icon-scale, 1)); height: calc(16px * var(--icon-scale, 1));
   border: none;
   background: transparent;
   color: inherit;
   opacity: 0.8;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--icon-scale, 1));
   line-height: 1;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -253,7 +261,7 @@ body {
 .status-dot.off { background: var(--ink-3); box-shadow: none; }
 .wordmark {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--text-scale, 1));
   letter-spacing: 0.03em;
   color: var(--ink);
   overflow: hidden;
@@ -263,13 +271,17 @@ body {
 }
 
 .icons { display: flex; gap: 3px; -webkit-app-region: no-drag; flex: none; }
+/* Settings > "Icon Size" — its own slider, separate from Bar Text Size,
+   which used to zoom these along with everything else (item 6 — "Bar Text
+   size is also adjusting the zoom of the icons"). Scales the whole button
+   box, not just the glyph, so it stays a clean square at any size. */
 .icon-btn {
-  width: 20px; height: 20px;
+  width: calc(20px * var(--icon-scale, 1)); height: calc(20px * var(--icon-scale, 1));
   border: 1px solid var(--hair);
   background: transparent;
   color: var(--ink-2);
   border-radius: 6px;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--icon-scale, 1));
   line-height: 1;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -277,7 +289,7 @@ body {
 }
 .icon-btn:hover { border-color: var(--accent); color: var(--ink); }
 
-.empty-copy { color: var(--ink-2); font-size: 0.92rem; line-height: 1.4; margin-bottom: 10px; }
+.empty-copy { color: var(--ink-2); font-size: calc(0.92rem * var(--text-scale, 1)); line-height: 1.4; margin-bottom: 10px; }
 .empty-actions { display: flex; flex-direction: column; gap: 6px; }
 
 .pill-btn {
@@ -286,7 +298,7 @@ body {
   border: none;
   border-radius: 999px;
   padding: 7px 12px;
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--text-scale, 1));
   font-weight: 600;
   cursor: pointer;
 }
@@ -301,7 +313,7 @@ body {
   border: 1px solid var(--hair);
   border-radius: 8px;
   padding: 6px 8px;
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--text-scale, 1));
 }
 
 /* No visible scrollbar in the mini overlay — it's still scrollable (wheel/
@@ -317,7 +329,7 @@ body {
 }
 .fight-view::-webkit-scrollbar { width: 0; height: 0; }
 .subhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.mob-line { color: var(--ink-2); font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; min-width: 0; }
+.mob-line { color: var(--ink-2); font-size: calc(0.88rem * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; min-width: 0; }
 /* "the dps meter in that companion has a dropdown to show which fight" —
    a real <select> (see renderFightSelect() in app.js) styled to blend
    into the mob-line instead of looking like a form control: no native
@@ -366,16 +378,13 @@ body {
 .fight-icon.pulse { animation: spin 1.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .dps-side { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
-/* Both also scale with Settings > "Timer / dps / status size" (item 7) —
-   same --secondary-text-scale var #mob-state above uses. */
+/* Also scales with Settings > "Info Text Size" (item 7) — same
+   --secondary-text-scale var #mob-state above uses. */
 .dps-number { color: var(--accent); font-weight: 700; font-size: calc(1.2rem * var(--secondary-text-scale, 1)); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.fight-timer { color: var(--ink-3); font-size: calc(0.72rem * var(--secondary-text-scale, 1)); font-variant-numeric: tabular-nums; }
-/* "id also like to see Peak DPS like this graph does" — a short rolling-
-   window burst peak (see trackPeakDps() in app.js), separate from the
-   cumulative running-average number above, which trends toward the
-   fight's overall average and rarely spikes. Hidden entirely until
-   there's an actual peak to show (see #peak-dps' hidden attribute). */
-.peak-dps { color: var(--ink-3); font-size: calc(0.68rem * var(--secondary-text-scale, 1)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Settings > "Timer Text Size" (item 10) — its own slider, no longer
+   bundled into Info Text Size above, which never gave the timer a
+   reliable independent control in Bars or Circle mode. */
+.fight-timer { color: var(--ink-3); font-size: calc(0.72rem * var(--timer-text-scale, 1)); font-variant-numeric: tabular-nums; }
 
 .barlist { display: flex; flex-direction: column; gap: 4px; }
 /* Each row is a real proportional bar now, not just a flat tinted strip —
@@ -418,13 +427,13 @@ body {
   background: color-mix(in srgb, var(--swatch, var(--rank1)) calc(34% * var(--panel-alpha)), transparent);
   transition: width 0.6s ease;
 }
-.bar-row .rank { position: relative; z-index: 1; color: var(--ink-3); font-size: 0.8rem; text-align: right; }
+.bar-row .rank { position: relative; z-index: 1; color: var(--ink-3); font-size: calc(0.8rem * var(--text-scale, 1)); text-align: right; }
 .bar-row .dot { position: relative; z-index: 1; width: 7px; height: 7px; border-radius: 50%; background: var(--swatch, var(--rank1)); }
-.bar-row .name { position: relative; z-index: 1; font-weight: 600; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 5px; min-width: 0; }
+.bar-row .name { position: relative; z-index: 1; font-weight: 600; font-size: calc(0.92rem * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 5px; min-width: 0; }
 .bar-row .name .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar-row .pet-tag {
   flex: none;
-  font-size: 0.64rem;
+  font-size: calc(0.64rem * var(--text-scale, 1));
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -435,13 +444,13 @@ body {
   line-height: 1.4;
 }
 .bar-row .amount { position: relative; z-index: 1; text-align: right; font-variant-numeric: tabular-nums; }
-.bar-row .amount b { font-size: 0.92rem; color: var(--ink); }
-.bar-row .amount .unit { font-size: 0.72rem; color: var(--ink-3); margin-left: 2px; }
+.bar-row .amount b { font-size: calc(0.92rem * var(--text-scale, 1)); color: var(--ink); }
+.bar-row .amount .unit { font-size: calc(0.72rem * var(--text-scale, 1)); color: var(--ink-3); margin-left: 2px; }
 /* "I also want our meter to show DPS - Total dmg done... 322 - 12.2k" —
    the abbreviated (fmtAbbrev() in app.js) total damage riding right next
    to the dps/unit pair, same muted weight as .unit so it reads as one
    secondary figure, not a second competing number. */
-.bar-row .amount .sub-total { font-size: 0.72rem; color: var(--ink-3); margin-left: 2px; }
+.bar-row .amount .sub-total { font-size: calc(0.72rem * var(--text-scale, 1)); color: var(--ink-3); margin-left: 2px; }
 
 /* In-place spell/ability drill-down — click any row (yours, a groupmate's,
    or a pet's) in the main meter and the bar list itself swaps to that
@@ -464,19 +473,19 @@ body {
 .drill-who { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .drill-back {
   flex: none;
-  width: 20px; height: 20px;
+  width: calc(20px * var(--icon-scale, 1)); height: calc(20px * var(--icon-scale, 1));
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--hair);
   border-radius: 6px;
   background: transparent;
   color: var(--ink-2);
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--icon-scale, 1));
   line-height: 1;
   cursor: pointer;
 }
 .drill-back:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 40%, var(--hair)); }
-.drill-name { font-weight: 700; font-size: 0.92rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.drill-total { flex: none; font-size: 0.78rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.drill-name { font-weight: 700; font-size: calc(0.92rem * var(--text-scale, 1)); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drill-total { flex: none; font-size: calc(0.78rem * var(--text-scale, 1)); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .drill-list { display: flex; flex-direction: column; gap: 4px; }
 
 .submit-row { display: flex; justify-content: flex-end; margin-top: 8px; }
@@ -484,7 +493,7 @@ body {
 .submit-pill:hover { filter: brightness(1.08); }
 .submit-pill[disabled] { opacity: 0.55; cursor: default; filter: none; }
 
-.auto-submit-line { text-align: center; font-size: 0.82rem; color: var(--ink-2); margin-top: 8px; }
+.auto-submit-line { text-align: center; font-size: calc(0.82rem * var(--text-scale, 1)); color: var(--ink-2); margin-top: 8px; }
 .auto-submit-toggles { display: flex; gap: 4px; margin-top: 6px; }
 .toggle-btn {
   flex: 1;
@@ -493,7 +502,7 @@ body {
   color: var(--ink-2);
   border-radius: 7px;
   padding: 5px 4px;
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--text-scale, 1));
   cursor: pointer;
 }
 .toggle-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
@@ -529,20 +538,33 @@ body.mini .auto-submit-toggles { display: none; }
 body.mini .mini-bar { display: flex; order: -1; }
 body.mini .card { padding: 8px 9px; }
 .mini-bar .status-dot { flex: none; margin-top: 3px; }
-/* Two stacked lines now instead of one — your own name+dps, and (only
-   when your pet has actually dealt damage) a smaller pet sub-line right
-   under it, per item 3.9 of the newest feature list. */
-.mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
-.mini-main { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-.mini-name { font-weight: 700; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-.mini-dps { color: var(--accent); font-weight: 700; font-size: 0.95rem; font-variant-numeric: tabular-nums; flex: none; }
-.mini-pet-row { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+/* Reworked Sept 7 (item 1/2/9 of the mini-bar rework) — total damage done
+   on its own line above both dps rows, and each name+dps row (yours,
+   then your pet's) is its own bordered strip so they read as two
+   distinct rows at a glance instead of a name row not aligning with the
+   number row under it. */
+.mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+.mini-total { color: var(--ink-2); font-size: calc(0.72rem * var(--text-scale, 1)); font-variant-numeric: tabular-nums; padding: 0 2px; }
+.mini-main, .mini-pet-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--row-border-color, var(--hair)) 55%, transparent);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+.mini-name { font-weight: 700; font-size: calc(0.9rem * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+/* min-width (not just text-align) is what actually lines the player and
+   pet dps numbers up in one column regardless of how long either name
+   is — item 1 ("the DPS needs to align vertically, like the bars do"). */
+.mini-dps { color: var(--accent); font-weight: 700; font-size: calc(0.95rem * var(--text-scale, 1)); font-variant-numeric: tabular-nums; flex: none; text-align: right; min-width: 3.6em; }
 /* Settings > "Mini pet text size" — its own slider (item 5: the pet
    sub-line was too small and rode the same textScale as everything else,
    with no way to size it up on its own). --mini-pet-scale is set from
    app.js's applySettings(); 1 = the original fixed sizes below. */
 .mini-pet-name { color: var(--ink-3); font-size: calc(0.66rem * var(--mini-pet-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-.mini-pet-dps { color: var(--ink-2); font-size: calc(0.68rem * var(--mini-pet-scale, 1)); font-variant-numeric: tabular-nums; flex: none; }
+.mini-pet-dps { color: var(--ink-2); font-size: calc(0.68rem * var(--mini-pet-scale, 1)); font-variant-numeric: tabular-nums; flex: none; text-align: right; min-width: 3.6em; }
 .mini-restore { -webkit-app-region: no-drag; flex: none; align-self: flex-start; }
 
 /* ---- Circle display style (Settings > Display style) ----
@@ -611,12 +633,12 @@ body.watch .watch-badge { display: flex; }
 .watch-menu-btn {
   position: absolute;
   top: 6px; right: 6px;
-  width: 20px; height: 20px;
+  width: calc(20px * var(--icon-scale, 1)); height: calc(20px * var(--icon-scale, 1));
   border-radius: 50%;
   border: 1px solid var(--hair);
   background: color-mix(in srgb, var(--bg-card) 80%, transparent);
   color: var(--ink-3);
-  font-size: 11px;
+  font-size: calc(11px * var(--icon-scale, 1));
   line-height: 1;
   display: flex;
   align-items: center;
@@ -638,7 +660,9 @@ body.watch .watch-badge { display: flex; }
    previous distinct default (--accent/--ink-3/--ink-2) when unset. */
 .watch-dps #watch-dps-num { color: var(--circle-text-color, var(--accent)); font-weight: 700; font-size: calc(1.7rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
 .watch-unit { color: var(--circle-text-color, var(--ink-3)); font-size: calc(0.72rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); }
-.watch-timer { color: var(--circle-text-color, var(--ink-2)); font-size: calc(0.82rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
+/* Settings > "Timer Text Size" (item 10) — same independent slider the
+   Bars-mode fight timer now uses, not bundled into Info Text Size. */
+.watch-timer { color: var(--circle-text-color, var(--ink-2)); font-size: calc(0.82rem * var(--timer-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
 
 /* ---- Fade UI when idle (Settings > Fade UI when idle) ----
    Leaves the bar rows' color dot + name + dps number as the only fully
@@ -655,13 +679,13 @@ body.idle-faded .mob-line,
 body.idle-faded .fight-timer,
 body.idle-faded .dps-number,
 body.idle-faded .bar-row .rank,
-body.idle-faded .bar-row .pet-tag,
-body.idle-faded .submit-row,
-body.idle-faded .auto-submit-line,
-body.idle-faded .auto-submit-toggles {
+body.idle-faded .bar-row .pet-tag {
   opacity: 0;
   pointer-events: none;
 }
+/* The submit prompt is excluded from the fade above (Sept 7) — it used to
+   fade out with everything else, so a kill finishing while idle could go
+   completely unseen until the mouse moved again. */
 .header, .mob-line, .fight-timer, .dps-number,
 .bar-row .rank, .bar-row .pet-tag,
 .submit-row, .auto-submit-line, .auto-submit-toggles {

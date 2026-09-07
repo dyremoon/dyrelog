@@ -50,7 +50,7 @@
           above, the preview's Pet row disappears and You's number absorbs it.</p>
       </div>
 
-      <div class="settings-section" data-searchable="sizing background opacity bar height text size mini pet timer dps">
+      <div class="settings-section" data-searchable="sizing background opacity bar height text size icon timer mini pet dps">
         <p class="section-label">Sizing</p>
         <div class="row">
           <label for="set-opacity">Background Opacity</label>
@@ -70,6 +70,14 @@
           <label for="set-textscale">Bar Text Size</label>
           <input type="range" id="set-textscale" min="0.85" max="1.3" step="0.05">
         </div>
+        <p class="hint">Only resizes the name/dps text itself now, not the
+          overlay's window or its icons.</p>
+        <div class="row">
+          <label for="set-iconscale">Icon Size</label>
+          <input type="range" id="set-iconscale" min="0.7" max="1.6" step="0.05">
+        </div>
+        <p class="hint">The header/menu icon buttons, on their own — separate
+          from Bar Text Size above.</p>
         <div class="row">
           <label for="set-minipetscale">Mini-bar pet text</label>
           <input type="range" id="set-minipetscale" min="0.7" max="2.2" step="0.1">
@@ -80,9 +88,15 @@
           <label for="set-secondarytextscale">Info Text Size</label>
           <input type="range" id="set-secondarytextscale" min="0.7" max="2" step="0.1">
         </div>
-        <p class="hint">Sizes the fight timer, the "(defeated)"/"(live)"
-          state, and the "dps" unit label on their own, separate from Bar
-          Text Size above.</p>
+        <p class="hint">Sizes the "(defeated)"/"(live)" state and the "dps"
+          unit label on their own, separate from Bar Text Size above.</p>
+        <div class="row">
+          <label for="set-timertextscale">Timer Text Size</label>
+          <input type="range" id="set-timertextscale" min="0.7" max="2" step="0.1">
+        </div>
+        <p class="hint">The fight timer (Bars mode) and the timer inside the
+          Circle badge — its own slider now, separate from Info Text Size
+          above.</p>
       </div>
 
       <div class="settings-section" data-searchable="layout fade idle display style bars circle">
@@ -294,6 +308,32 @@
 
     <!-- ==================== Options ==================== -->
     <section class="tab-panel" data-tab-panel="options" hidden>
+      <!-- Moved here from a header icon on the mini-mode card (Sept 6) —
+           picking a new file/folder just re-saves the source, no separate
+           "forget" step needed; the mini-mode window updates live. -->
+      <div class="settings-section" data-searchable="log source file folder change eqlog character switch upload select everquest">
+        <p class="section-label">Log source</p>
+        <p class="hint source-hint" id="source-hint"><span class="source-dot"></span><span id="source-hint-text">No log source set yet.</span></p>
+        <div class="row">
+          <button class="link-btn" id="btn-settings-pick-folder" type="button">Select EverQuest folder&hellip;</button>
+          <button class="link-btn" id="btn-settings-pick-file" type="button">Upload log file&hellip;</button>
+        </div>
+        <div class="row row-stack" id="settings-folder-pick" hidden>
+          <label>Found more than one log in that folder &mdash; which one's yours?</label>
+          <select id="settings-folder-select"></select>
+          <button class="link-btn" id="btn-settings-folder-use" type="button">Use this one</button>
+        </div>
+      </div>
+
+      <div class="settings-section" data-searchable="account login logout discord log in log out">
+        <p class="section-label">Account</p>
+        <p class="hint" id="account-hint">Not logged in.</p>
+        <div class="row">
+          <button class="link-btn" id="btn-login" type="button">Log in with Discord</button>
+          <button class="link-btn" id="btn-logout" type="button" hidden>Log out</button>
+        </div>
+      </div>
+
       <div class="settings-section" data-searchable="leaderboard submission submit auto-submit disabled ask">
         <p class="section-label">Leaderboard submission</p>
         <div class="row row-stack">

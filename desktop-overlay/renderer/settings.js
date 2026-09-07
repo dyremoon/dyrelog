@@ -160,8 +160,10 @@
     opacity: document.getElementById("set-opacity"),
     barHeight: document.getElementById("set-barheight"),
     textScale: document.getElementById("set-textscale"),
+    iconScale: document.getElementById("set-iconscale"),
     miniPetScale: document.getElementById("set-minipetscale"),
     secondaryTextScale: document.getElementById("set-secondarytextscale"),
+    timerTextScale: document.getElementById("set-timertextscale"),
     circleScale: document.getElementById("set-circlescale"),
     bgColor: document.getElementById("set-bgcolor"),
     textColor: document.getElementById("set-textcolor"),
@@ -216,7 +218,17 @@
     previewMiniDps: document.getElementById("preview-mini-dps"),
     previewMiniPetRow: document.getElementById("preview-mini-pet-row"),
     previewMiniPetDps: document.getElementById("preview-mini-pet-dps"),
-    previewCircleDpsNum: document.getElementById("preview-circle-dps-num")
+    previewCircleDpsNum: document.getElementById("preview-circle-dps-num"),
+    sourceHint: document.getElementById("source-hint"),
+    sourceHintText: document.getElementById("source-hint-text"),
+    pickFileBtn: document.getElementById("btn-settings-pick-file"),
+    pickFolderBtn: document.getElementById("btn-settings-pick-folder"),
+    folderPickRow: document.getElementById("settings-folder-pick"),
+    folderSelect: document.getElementById("settings-folder-select"),
+    folderUseBtn: document.getElementById("btn-settings-folder-use"),
+    accountHint: document.getElementById("account-hint"),
+    btnLogin: document.getElementById("btn-login"),
+    btnLogout: document.getElementById("btn-logout")
   };
 
   // ---- tabs -----------------------------------------------------------
@@ -345,6 +357,7 @@
       frame.style.setProperty("--preview-barheight", String(s.barHeight != null ? s.barHeight : 1));
       frame.style.setProperty("--preview-textscale", String(s.textScale || 1));
       frame.style.setProperty("--preview-secondaryscale", String(s.secondaryTextScale != null ? s.secondaryTextScale : 1));
+      frame.style.setProperty("--preview-timerscale", String(s.timerTextScale != null ? s.timerTextScale : 1));
       frame.style.setProperty("--preview-minipetscale", String(s.miniPetTextScale != null ? s.miniPetTextScale : 1));
       frame.style.setProperty("--preview-circlescale", String(s.circleScale != null ? s.circleScale : 1));
       frame.style.setProperty("--preview-font", FONT_STACKS[s.fontFamily || "system"] || "inherit");
@@ -425,8 +438,10 @@
     els.opacity.value = s.opacity;
     els.barHeight.value = s.barHeight != null ? s.barHeight : 1;
     els.textScale.value = s.textScale;
+    els.iconScale.value = s.iconScale != null ? s.iconScale : 1;
     els.miniPetScale.value = s.miniPetTextScale != null ? s.miniPetTextScale : 1;
     els.secondaryTextScale.value = s.secondaryTextScale != null ? s.secondaryTextScale : 1;
+    els.timerTextScale.value = s.timerTextScale != null ? s.timerTextScale : 1;
     els.circleScale.value = s.circleScale != null ? s.circleScale : 1;
     els.bgColor.value = s.bgColor || THEME_BG[s.theme || "blue"];
     els.textColor.value = s.textColor || THEME_INK[s.theme || "blue"];
@@ -490,8 +505,10 @@
   els.opacity.addEventListener("input", function () { save({ opacity: parseFloat(els.opacity.value) }); });
   els.barHeight.addEventListener("input", function () { save({ barHeight: parseFloat(els.barHeight.value) }); });
   els.textScale.addEventListener("input", function () { save({ textScale: parseFloat(els.textScale.value) }); });
+  els.iconScale.addEventListener("input", function () { save({ iconScale: parseFloat(els.iconScale.value) }); });
   els.miniPetScale.addEventListener("input", function () { save({ miniPetTextScale: parseFloat(els.miniPetScale.value) }); });
   els.secondaryTextScale.addEventListener("input", function () { save({ secondaryTextScale: parseFloat(els.secondaryTextScale.value) }); });
+  els.timerTextScale.addEventListener("input", function () { save({ timerTextScale: parseFloat(els.timerTextScale.value) }); });
   els.circleScale.addEventListener("input", function () { save({ circleScale: parseFloat(els.circleScale.value) }); });
   els.bgColor.addEventListener("input", function () { save({ bgColor: els.bgColor.value }); });
   els.textColor.addEventListener("input", function () { save({ textColor: els.textColor.value }); });
@@ -541,6 +558,75 @@
   document.querySelectorAll("#settings-auto-toggles .segment").forEach(function (b) {
     b.addEventListener("click", function () { save({ autoSubmitMode: b.dataset.mode, autoSubmitChosen: true }); });
   });
+
+  // ---- log source ---------------------------------------------------
+  // Same pick-file/pick-folder calls the mini-mode card's own first-run
+  // empty state uses (see app.js) — picking here just re-saves and
+  // restarts tailing in main.js, which pushes the change to the
+  // mini-mode window live, no separate "forget" step needed.
+  function applySourceHint(cfg) {
+    var active = !!(cfg && cfg.path);
+    var name = active ? (cfg.fileName || String(cfg.path).split(/[\\/]/).pop()) : null;
+    els.sourceHintText.textContent = active ? "Currently reading: " + name : "No log source set yet.";
+    els.sourceHint.classList.toggle("ok", active);
+  }
+  window.dyrelog.getSavedSource().then(applySourceHint);
+  els.pickFileBtn.addEventListener("click", async function () {
+    var res = await window.dyrelog.pickFile();
+    if (res) applySourceHint({ fileName: res.fileName, path: res.path });
+  });
+  els.pickFolderBtn.addEventListener("click", async function () {
+    var res = await window.dyrelog.pickFolder();
+    if (!res) return;
+    if (!res.matches.length) {
+      alert("No eqlog_*.txt files found in that folder.");
+      return;
+    }
+    if (res.chosen) {
+      applySourceHint({ fileName: res.chosen, path: res.chosen });
+      return;
+    }
+    els.folderPickRow.hidden = false;
+    els.folderSelect.innerHTML = res.matches.map(function (m) { return '<option value="' + esc(m) + '">' + esc(m) + "</option>"; }).join("");
+    els.folderPickRow.dataset.dir = res.dir;
+  });
+  els.folderUseBtn.addEventListener("click", async function () {
+    var dir = els.folderPickRow.dataset.dir;
+    var fileName = els.folderSelect.value;
+    var res = await window.dyrelog.useFolderFile(dir, fileName);
+    if (res) {
+      applySourceHint({ fileName: res.fileName, path: res.path });
+      els.folderPickRow.hidden = true;
+    }
+  });
+
+  // ---- account (Sept 7) --------------------------------------------------
+  // Discord login for the desktop app itself — see the auth section of
+  // main.js for how openLoginWindow() actually runs the OAuth flow. This is
+  // the one settings section every other window's submit prompt (see the
+  // submit-popup window) depends on being filled in.
+  function applyAccountState(authState) {
+    if (authState) {
+      els.accountHint.textContent = "Logged in as " + authState.username + ".";
+      els.btnLogin.hidden = true;
+      els.btnLogout.hidden = false;
+    } else {
+      els.accountHint.textContent = "Not logged in — required before any kill can be submitted to the leaderboard.";
+      els.btnLogin.hidden = false;
+      els.btnLogout.hidden = true;
+    }
+  }
+  window.dyrelog.getAuthState().then(applyAccountState);
+  window.dyrelog.onAuthUpdate(applyAccountState);
+  els.btnLogin.addEventListener("click", async function () {
+    els.btnLogin.disabled = true;
+    var result = await window.dyrelog.loginWithDiscord();
+    els.btnLogin.disabled = false;
+    if (!result.ok && !result.cancelled && !result.alreadyOpen) {
+      els.accountHint.textContent = "Login failed — try again.";
+    }
+  });
+  els.btnLogout.addEventListener("click", function () { window.dyrelog.logout(); });
 
   // ---- search -----------------------------------------------------------
   // "a search bar at the top for people to find an option they're looking
@@ -612,7 +698,15 @@
   // same normalization renderAvailablePreview() used to do for just the
   // one "not yet installed" preview entry below.
   function parseReleaseItems(body) {
-    return String(body || "")
+    // Some release bodies come through as HTML (<p>...</p> etc.) instead of
+    // plain Markdown lines — turn block/line-break tags into real newlines
+    // first, then strip whatever tags are left, so "<p>foo</p>" doesn't show
+    // up as literal text in the list.
+    var text = String(body || "")
+      .replace(/<\/(p|li|div)>/gi, "\n")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, "");
+    return text
       .split("\n")
       .map(function (line) { return line.replace(/^[\s*\-•]+/, "").trim(); })
       .filter(Boolean);

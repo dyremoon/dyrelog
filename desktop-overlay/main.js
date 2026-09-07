@@ -19,7 +19,7 @@
 // it's fed pre-computed stats the mini-mode renderer already produced,
 // relayed through this process (see push-state/get-state/state-update).
 
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage, session, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
@@ -49,12 +49,19 @@ const WINDOW_PATH = path.join(app.getPath("userData"), "dyrelog-window.json");
 // into this file instead of replacing it.
 const HISTORY_PATH = path.join(app.getPath("userData"), "dyrelog-history.json");
 const MAX_HISTORY_ENCOUNTERS = 50;
+// Discord login + leaderboard submission (Sept 7) — same worker API the
+// website and its login link use (frontend/js/app.js's API_BASE / the
+// site's own "Log in with Discord" href), just driven from a real Electron
+// BrowserWindow instead of a normal browser tab. See the auth section below.
+const AUTH_PATH = path.join(app.getPath("userData"), "dyrelog-auth.json");
+const API_BASE = "https://dyrelog-api.dyremoon.workers.dev";
+const SITE_URL = "https://dyrelog.pages.dev"; // must match worker/wrangler.toml's SITE_URL — that's where a real login lands
 const EQLOG_RE = /^eqlog_.+\.(txt|log)$/i;
 
 const BASE_WIDTH = 320;
 const BASE_HEIGHT = 420;
 const MINI_WIDTH = 190;
-const MINI_HEIGHT = 76; // tall enough for the mini-mode pet sub-line — see index.html's #mini-pet-row
+const MINI_HEIGHT = 96; // tall enough for the total-damage line + pet sub-line — see index.html's #mini-total/#mini-pet-row
 const MIN_W = 170, MAX_W = 900, MIN_H = 56, MAX_H = 900;
 
 const DEFAULT_SETTINGS = {
@@ -65,8 +72,10 @@ const DEFAULT_SETTINGS = {
   // of living in this settings file at all.
   barHeight: 1, // multiplies each bar row's height — see "Bar height" in Settings
   textScale: 1, // independent of barHeight — see "Text size" in Settings
+  iconScale: 1, // header/drill-back/watch-menu icon buttons only — see "Icon Size" in Settings (item 6 — used to zoom right along with textScale)
   miniPetTextScale: 1, // mini mode's pet sub-line only — see "Mini pet text size" in Settings
-  secondaryTextScale: 1, // fight timer / status ("live"/"defeated") / "dps" unit label size — see "Timer / dps / status size"
+  secondaryTextScale: 1, // status ("live"/"defeated") / "dps" unit label / dps number size — see "Info Text Size"
+  timerTextScale: 1, // fight timer (Bars) / circle timer ONLY — see "Timer Text Size" in Settings (item 10)
   theme: "blue", // "blue" | "brass"
   bgColor: null, // explicit hex override for the panel background; null = use the theme's own
   textColor: null, // explicit hex override for all overlay text; null = the theme's own --ink
@@ -145,6 +154,14 @@ let win = null;
 let analysisWin = null;
 let leaderboardWin = null;
 let settingsWin = null;
+let authWin = null;
+let submitPopupWin = null;
+// The one submission currently staged behind the submit popup's Submit/
+// Discard buttons in "ask" mode — see request-submit below. Never more than
+// one at a time; a second eligible kill arriving before this one is
+// answered just replaces it (last kill wins), same as the popup's own
+// content does.
+let pendingSubmitPayload = null;
 let tray = null;
 // Set right before we deliberately tear the whole app down (see win's
 // "close" handler below) so the SAME close event firing a second time
@@ -376,10 +393,20 @@ function saveWindowBoundsFor(key, b) {
 // write landed last (sometimes with stale pre-resize dimensions) used to
 // silently clobber the correct one; reading live bounds only once
 // activity has actually settled sidesteps that race entirely.
+// "main" and "mini" are two DIFFERENT remembered sizes for the SAME
+// physical window (`win`) — item 3 ("I want them to keep their own
+// independent sizes"). Whichever one is NOT the currently active mode is
+// left alone entirely, and Circle (isWatchMode) never persists to either
+// one, since its size is always transient/derived (see applyDisplayStyle()/
+// applyCircleScale() in app.js, both of which always pass persist:false).
 function makeBoundsPersister(key, getWin) {
   var timer = null;
   return function schedule() {
-    if (key === "main" && (isMiniMode || isWatchMode)) return; // neither compact mode ever overwrites the main window's remembered real size
+    if (key === "main" || key === "mini") {
+      if (isWatchMode) return;
+      if (key === "main" && isMiniMode) return;
+      if (key === "mini" && !isMiniMode) return;
+    }
     clearTimeout(timer);
     timer = setTimeout(function () {
       var w = getWin();
@@ -389,16 +416,31 @@ function makeBoundsPersister(key, getWin) {
 }
 
 var schedulePersistBounds = makeBoundsPersister("main", function () { return win; });
+var schedulePersistMiniBounds = makeBoundsPersister("mini", function () { return win; });
 var schedulePersistSettingsBounds = makeBoundsPersister("settings", function () { return settingsWin; });
 var schedulePersistAnalysisBounds = makeBoundsPersister("analysis", function () { return analysisWin; });
 var schedulePersistLeaderboardBounds = makeBoundsPersister("leaderboard", function () { return leaderboardWin; });
 
-function findEqLogFiles(dir) {
-  return fs
-    .readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isFile() && EQLOG_RE.test(e.name))
-    .map((e) => e.name)
-    .sort();
+// Also checks one level of subfolders (e.g. "Logs") so picking the EverQuest
+// install root itself finds logs, not just a folder containing them directly.
+function findEqLogFiles(baseDir) {
+  var results = [];
+  [baseDir].concat(
+    fs.readdirSync(baseDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => path.join(baseDir, e.name))
+  ).forEach(function (dir) {
+    var entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (e) {
+      return;
+    }
+    entries
+      .filter((e) => e.isFile() && EQLOG_RE.test(e.name))
+      .forEach((e) => results.push(path.relative(baseDir, path.join(dir, e.name))));
+  });
+  return results.sort();
 }
 
 function clamp(n, lo, hi) {
@@ -481,6 +523,12 @@ function createWindow() {
   win.setAlwaysOnTop(true, "screen-saver"); // stays above fullscreen-bordered-window EQ, not just normal windows
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
 
+  // Diagnostic aid (Sept 6) — F12 opens DevTools on this frameless/no-menu
+  // window so a stuck-UI report can come with a real console error instead of a guess.
+  win.webContents.on("before-input-event", function (event, input) {
+    if (input.type === "keyDown" && input.key === "F12") win.webContents.toggleDevTools();
+  });
+
   win.webContents.once("did-finish-load", function () {
     var cfg = loadConfig();
     if (cfg && cfg.path) startTailing(cfg.path);
@@ -493,7 +541,10 @@ function createWindow() {
   // Dragging the window by its header (a native OS move, not an IPC call)
   // never goes through set-bounds below, so it needs its own persistence
   // hook — schedulePersistBounds() itself handles the isMiniMode check.
-  win.on("moved", schedulePersistBounds);
+  // Both persisters are called every time — each one's own guard above
+  // decides whether THIS move actually belongs to it (main vs. mini vs.
+  // neither, while Circle's transient size is active).
+  win.on("moved", function () { schedulePersistBounds(); schedulePersistMiniBounds(); });
 
   // Closing the main window used to just close the main window — if
   // Settings (or Analysis/Leaderboards) was still open, THAT window kept
@@ -529,7 +580,7 @@ function createWindow() {
     if (choice !== 1) return; // Cancel (or dismissed) — stay open
     appIsQuitting = true;
     if (tray) { tray.destroy(); tray = null; }
-    [settingsWin, analysisWin, leaderboardWin].forEach(function (w) {
+    [settingsWin, analysisWin, leaderboardWin, authWin, submitPopupWin].forEach(function (w) {
       if (w && !w.isDestroyed()) w.close();
     });
     win.close(); // re-enters this same handler, but appIsQuitting is true now — falls through to a real close
@@ -564,7 +615,7 @@ function ensureTray() {
         click: function () {
           appIsQuitting = true;
           if (tray) { tray.destroy(); tray = null; }
-          [settingsWin, analysisWin, leaderboardWin].forEach(function (w) {
+          [settingsWin, analysisWin, leaderboardWin, authWin, submitPopupWin].forEach(function (w) {
             if (w && !w.isDestroyed()) w.close();
           });
           if (win) win.close();
@@ -608,6 +659,11 @@ function createAnalysisWindow() {
   analysisWin.setAlwaysOnTop(true, "screen-saver");
   analysisWin.setMenuBarVisibility(false);
   analysisWin.loadFile(path.join(__dirname, "renderer", "analysis.html"));
+  // Same F12 DevTools diagnostic as the main window (Sept 6) — this window
+  // hides its menu bar too, so there was no way to see a real console error here.
+  analysisWin.webContents.on("before-input-event", function (event, input) {
+    if (input.type === "keyDown" && input.key === "F12") analysisWin.webContents.toggleDevTools();
+  });
   analysisWin.on("resize", schedulePersistAnalysisBounds);
   analysisWin.on("moved", schedulePersistAnalysisBounds);
   analysisWin.on("closed", function () { analysisWin = null; });
@@ -638,10 +694,265 @@ function createLeaderboardWindow() {
   leaderboardWin.setAlwaysOnTop(true, "screen-saver");
   leaderboardWin.setMenuBarVisibility(false);
   leaderboardWin.loadFile(path.join(__dirname, "renderer", "leaderboard.html"));
+  // Same F12 DevTools diagnostic as the main/Analysis windows (Sept 7).
+  leaderboardWin.webContents.on("before-input-event", function (event, input) {
+    if (input.type === "keyDown" && input.key === "F12") leaderboardWin.webContents.toggleDevTools();
+  });
   leaderboardWin.on("resize", schedulePersistLeaderboardBounds);
   leaderboardWin.on("moved", schedulePersistLeaderboardBounds);
   leaderboardWin.on("closed", function () { leaderboardWin = null; });
 }
+
+// ---- Discord login + leaderboard submission (Sept 7) ----------------------
+// Auth state on disk — { sessionCookie, userId, username, avatarUrl } once
+// logged in, null otherwise. sessionCookie is the exact value of the
+// worker's own dyrelog_session cookie (see worker/src/session.js) — we never
+// decode or re-sign it ourselves, just hold onto it and send it back
+// verbatim on every authenticated call. There's no local expiry tracking;
+// a call that comes back 401 (the worker's cookie itself expired, 30 days —
+// see session.js) just clears this and apiFetch's caller sees the failure.
+function loadAuth() {
+  try {
+    return JSON.parse(fs.readFileSync(AUTH_PATH, "utf8"));
+  } catch (e) {
+    return null;
+  }
+}
+function saveAuth(auth) {
+  if (auth) fs.writeFileSync(AUTH_PATH, JSON.stringify(auth, null, 2));
+  else { try { fs.unlinkSync(AUTH_PATH); } catch (e) {} }
+}
+// Only ever sends username/avatarUrl out to renderers — sessionCookie stays
+// main-process-only, no reason for any web content to ever see it.
+function broadcastAuthUpdate(auth) {
+  var publicState = auth ? { username: auth.username, avatarUrl: auth.avatarUrl } : null;
+  [win, settingsWin, analysisWin, leaderboardWin].forEach(function (w) {
+    if (w && !w.isDestroyed()) w.webContents.send("auth-update", publicState);
+  });
+}
+
+// Every authenticated call to the worker API goes through here. Node's own
+// fetch has no browser cookie jar behind it, so the session cookie a real
+// browser would send automatically (credentials:'include' — see frontend/
+// js/app.js's api() helper) has to be attached by hand instead.
+async function apiFetch(pathname, opts) {
+  var auth = loadAuth();
+  var headers = Object.assign({ "Content-Type": "application/json" }, (opts && opts.headers) || {});
+  if (auth && auth.sessionCookie) headers.Cookie = "dyrelog_session=" + auth.sessionCookie;
+  var res = await fetch(API_BASE + pathname, Object.assign({}, opts, { headers: headers }));
+  if (res.status === 401) { saveAuth(null); broadcastAuthUpdate(null); }
+  return res;
+}
+
+// Opens a real BrowserWindow and lets it run the exact same browser-facing
+// OAuth dance the website's own "Log in with Discord" link does (GET
+// /api/auth/login -> Discord's consent screen -> GET /api/auth/callback,
+// which sets the session cookie and 302s to SITE_URL). We never see the
+// Discord password or handle OAuth ourselves — we just let this window act
+// like a browser tab would, then harvest the session cookie it's holding
+// once it lands on SITE_URL, the same cookie a real browser would have kept.
+// A dedicated persistent session partition keeps this cookie jar separate
+// from anything else Electron might ever load.
+function openLoginWindow() {
+  return new Promise(function (resolve) {
+    if (authWin && !authWin.isDestroyed()) { authWin.focus(); resolve({ ok: false, alreadyOpen: true }); return; }
+
+    var authSession = session.fromPartition("persist:dyrelog-auth");
+    authWin = new BrowserWindow({
+      width: 460,
+      height: 640,
+      title: "Log in with Discord",
+      alwaysOnTop: true,
+      icon: path.join(__dirname, "renderer", "tray-icon.png"),
+      webPreferences: { session: authSession, contextIsolation: true, nodeIntegration: false }
+    });
+    authWin.setMenuBarVisibility(false);
+    authWin.loadURL(API_BASE + "/api/auth/login");
+    authWin.webContents.on("before-input-event", function (event, input) {
+      if (input.type === "keyDown" && input.key === "F12") authWin.webContents.toggleDevTools();
+    });
+
+    var settled = false;
+    function finish(result) {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    }
+
+    async function handleNavigation(url) {
+      if (settled || typeof url !== "string" || url.indexOf(SITE_URL) !== 0) return; // still mid-flow — keep waiting
+      try {
+        var cookies = await authSession.cookies.get({ url: API_BASE, name: "dyrelog_session" });
+        var cookie = cookies[0];
+        if (!cookie) { finish({ ok: false, error: "no_session_cookie" }); }
+        else {
+          var meRes = await fetch(API_BASE + "/api/me", { headers: { Cookie: "dyrelog_session=" + cookie.value } });
+          var me = await meRes.json().catch(function () { return { user: null }; });
+          if (!me.user) {
+            finish({ ok: false, error: "no_user" });
+          } else {
+            var auth = {
+              sessionCookie: cookie.value,
+              userId: me.user.id,
+              username: me.user.username,
+              avatarUrl: me.user.avatar_url || null
+            };
+            saveAuth(auth);
+            broadcastAuthUpdate(auth);
+            finish({ ok: true, username: auth.username });
+          }
+        }
+      } catch (err) {
+        finish({ ok: false, error: String((err && err.message) || err) });
+      }
+      if (authWin && !authWin.isDestroyed()) authWin.close();
+    }
+
+    authWin.webContents.on("did-navigate", function (evt, url) { handleNavigation(url); });
+    authWin.webContents.on("did-redirect-navigation", function (evt, url) { handleNavigation(url); });
+    authWin.on("closed", function () {
+      authWin = null;
+      finish({ ok: false, cancelled: true }); // no-op if handleNavigation above already resolved this
+    });
+  });
+}
+
+function logout() {
+  var auth = loadAuth();
+  saveAuth(null);
+  broadcastAuthUpdate(null);
+  // Best-effort — from this app's own perspective we're already logged out
+  // the moment the local cookie is gone, regardless of whether this reaches
+  // the worker.
+  if (auth && auth.sessionCookie) {
+    fetch(API_BASE + "/api/auth/logout", { method: "POST", headers: { Cookie: "dyrelog_session=" + auth.sessionCookie } }).catch(function () {});
+  }
+  session.fromPartition("persist:dyrelog-auth").clearStorageData().catch(function () {});
+}
+
+// Small always-on-top notification window, positioned at a fixed screen
+// corner rather than tied to whichever mode (bars/mini/circle) the main
+// window is currently in — "perhaps a second overlay is best so that we can
+// just call it regardless of mode we're in" (Sept 7). One instance reused
+// for every kill; a new one showing while an old one is still up just
+// replaces its content (see request-submit below).
+const SUBMIT_POPUP_WIDTH = 300, SUBMIT_POPUP_HEIGHT = 140;
+function ensureSubmitPopupWindow() {
+  if (submitPopupWin && !submitPopupWin.isDestroyed()) return submitPopupWin;
+  var area = screen.getPrimaryDisplay().workArea;
+  submitPopupWin = new BrowserWindow({
+    x: area.x + area.width - SUBMIT_POPUP_WIDTH - 20,
+    y: area.y + area.height - SUBMIT_POPUP_HEIGHT - 20,
+    width: SUBMIT_POPUP_WIDTH,
+    height: SUBMIT_POPUP_HEIGHT,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    backgroundColor: "#00000000",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  submitPopupWin.setAlwaysOnTop(true, "screen-saver");
+  submitPopupWin.loadFile(path.join(__dirname, "renderer", "submit-popup.html"));
+  submitPopupWin.webContents.on("before-input-event", function (event, input) {
+    if (input.type === "keyDown" && input.key === "F12") submitPopupWin.webContents.toggleDevTools();
+  });
+  submitPopupWin.on("closed", function () { submitPopupWin = null; pendingSubmitPayload = null; });
+  return submitPopupWin;
+}
+function sendToSubmitPopup(channel, data) {
+  var w = ensureSubmitPopupWindow();
+  var send = function () { w.webContents.send(channel, data); };
+  if (w.webContents.isLoadingMainFrame()) w.webContents.once("did-finish-load", send);
+  else send();
+}
+
+// The actual start -> batch -> finalize sequence against the worker API for
+// one finished encounter (see streaming.js/submissions.js) — this ships the
+// raw log text and lets the server re-derive every number itself, same as
+// it would for the website; nothing client-computed is ever trusted.
+async function performSubmit(payload) {
+  var startRes = await apiFetch("/api/streams", {
+    method: "POST",
+    body: JSON.stringify({ characterName: payload.characterName, realm: payload.realm, soloMode: !!payload.soloMode })
+  });
+  var startBody = await startRes.json().catch(function () { return {}; });
+  if (!startRes.ok) throw new Error(startBody.error || "Couldn't start the submission");
+
+  var batchRes = await apiFetch("/api/streams/" + startBody.submissionId + "/batches", {
+    method: "POST",
+    body: JSON.stringify({ chunk: payload.rawText })
+  });
+  if (!batchRes.ok) {
+    var batchBody = await batchRes.json().catch(function () { return {}; });
+    throw new Error(batchBody.error || "Couldn't upload the log");
+  }
+
+  var finalizeRes = await apiFetch("/api/streams/" + startBody.submissionId + "/finalize", {
+    method: "POST",
+    body: JSON.stringify(payload.difficulty ? { difficulty: payload.difficulty } : {})
+  });
+  var finalizeBody = await finalizeRes.json().catch(function () { return {}; });
+  if (!finalizeRes.ok) throw new Error(finalizeBody.error || "Couldn't finalize the submission");
+  return finalizeBody;
+}
+
+ipcMain.handle("login-with-discord", function () { return openLoginWindow(); });
+ipcMain.handle("logout", function () { logout(); return { ok: true }; });
+ipcMain.handle("get-auth-state", function () {
+  var auth = loadAuth();
+  return auth ? { username: auth.username, avatarUrl: auth.avatarUrl } : null;
+});
+
+// Single entry point the mini-mode renderer calls for every eligible kill,
+// regardless of which display mode (bars/mini/circle) it's currently in —
+// app.js never calls this at all when autoSubmitMode is "off".
+ipcMain.handle("request-submit", function (evt, payload) {
+  if (!loadAuth()) {
+    pendingSubmitPayload = null;
+    sendToSubmitPopup("submit-popup:show", { needsLogin: true });
+    return { ok: false, error: "not_logged_in" };
+  }
+
+  if (payload.mode === "auto") {
+    sendToSubmitPopup("submit-popup:show", { pending: true, mobName: payload.mobName });
+    performSubmit(payload).then(function (result) {
+      if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: true, status: result.status });
+    }).catch(function (err) {
+      if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: false, error: String((err && err.message) || err) });
+    });
+    return { ok: true };
+  }
+
+  // "ask" mode — stage the payload and wait for the popup's own Submit /
+  // Discard click below.
+  pendingSubmitPayload = payload;
+  sendToSubmitPopup("submit-popup:show", { mobName: payload.mobName, dps: payload.dps, damage: payload.damage });
+  return { ok: true };
+});
+
+ipcMain.on("submit-popup:confirm", function () {
+  if (!pendingSubmitPayload) return;
+  var payload = pendingSubmitPayload;
+  pendingSubmitPayload = null;
+  if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:show", { pending: true, mobName: payload.mobName });
+  performSubmit(payload).then(function (result) {
+    if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: true, status: result.status });
+  }).catch(function (err) {
+    if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: false, error: String((err && err.message) || err) });
+  });
+});
+
+ipcMain.on("submit-popup:discard", function () {
+  pendingSubmitPayload = null;
+  if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.close();
+});
 
 // A real popup window now (used to be an in-card panel swap inside win's
 // own renderer — see the root README/commit history) — a normal titled,
@@ -686,6 +997,12 @@ function createSettingsWindow() {
   settingsWin.setAlwaysOnTop(true, "screen-saver");
   settingsWin.setMenuBarVisibility(false);
   settingsWin.loadFile(path.join(__dirname, "renderer", "settings.html"));
+  // Same F12 DevTools diagnostic as the main/Analysis windows (Sept 7) — the
+  // new Account/login section is exactly the kind of thing worth being able
+  // to actually debug here.
+  settingsWin.webContents.on("before-input-event", function (event, input) {
+    if (input.type === "keyDown" && input.key === "F12") settingsWin.webContents.toggleDevTools();
+  });
   settingsWin.on("resize", schedulePersistSettingsBounds);
   settingsWin.on("moved", schedulePersistSettingsBounds);
   settingsWin.on("closed", function () { settingsWin = null; });
@@ -903,12 +1220,20 @@ ipcMain.handle("set-bounds", function (evt, bounds, opts) {
     height: clamp(Math.round(bounds.height), MIN_H, MAX_H)
   };
   win.setBounds(next);
-  if (!opts || opts.persist !== false) schedulePersistBounds();
+  if (!opts || opts.persist !== false) { schedulePersistBounds(); schedulePersistMiniBounds(); }
   return next;
 });
 
+// Mini mode's own remembered size (item 3) — falls back to the fixed
+// MINI_WIDTH/MINI_HEIGHT defaults the very first time mini mode is ever
+// entered, same convention loadWindowBoundsFor("main") already uses for
+// BASE_WIDTH/BASE_HEIGHT below.
 ipcMain.handle("get-mini-size", function () {
-  return { width: MINI_WIDTH, height: MINI_HEIGHT };
+  var saved = loadWindowBoundsFor("mini");
+  return {
+    width: saved ? clamp(Math.round(saved.width), MIN_W, MAX_W) : MINI_WIDTH,
+    height: saved ? clamp(Math.round(saved.height), MIN_H, MAX_H) : MINI_HEIGHT
+  };
 });
 
 ipcMain.on("set-mini-mode", function (evt, val) { isMiniMode = !!val; });

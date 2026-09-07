@@ -11,5 +11,12 @@ const path = require("path");
 const src = path.join(__dirname, "..", "..", "worker", "src", "eqp-core.js");
 const dest = path.join(__dirname, "..", "renderer", "eqp-core.js");
 
-fs.copyFileSync(src, dest);
-console.log("Synced eqp-core.js -> desktop-overlay/renderer/eqp-core.js");
+// worker's copy ends with an "export default ..." line for its own ESM
+// context — that's a hard SyntaxError in a plain <script> tag (Sept 6 bug:
+// it broke every button in the overlay, since the parse error left EQP
+// undefined and app.js threw before it ever wired up its click handlers).
+// Strip that line rather than a plain file copy.
+let code = fs.readFileSync(src, "utf8");
+code = code.replace(/^export\s+default[^\n]*\n?/m, "");
+fs.writeFileSync(dest, code);
+console.log("Synced eqp-core.js -> desktop-overlay/renderer/eqp-core.js (ESM export stripped)");

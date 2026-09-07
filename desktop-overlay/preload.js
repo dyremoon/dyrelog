@@ -78,5 +78,27 @@ contextBridge.exposeInMainWorld("dyrelog", {
   // load and then listens for live updates.
   pushState: (data) => ipcRenderer.send("push-state", data),
   getState: () => ipcRenderer.invoke("get-state"),
-  onStateUpdate: (cb) => ipcRenderer.on("state-update", (_evt, data) => cb(data))
+  onStateUpdate: (cb) => ipcRenderer.on("state-update", (_evt, data) => cb(data)),
+
+  // Discord login (Sept 7) — the Settings window's Account section calls
+  // these; every window can listen for onAuthUpdate() to know the logged-in
+  // username live (used for the settings-window header and nothing else so
+  // far). See the auth section of main.js for how the actual OAuth dance
+  // happens (a real browser window, not something this bridge does itself).
+  loginWithDiscord: () => ipcRenderer.invoke("login-with-discord"),
+  logout: () => ipcRenderer.invoke("logout"),
+  getAuthState: () => ipcRenderer.invoke("get-auth-state"),
+  onAuthUpdate: (cb) => ipcRenderer.on("auth-update", (_evt, authState) => cb(authState)),
+
+  // Leaderboard submission (Sept 7) — the mini-mode window calls this once
+  // per eligible kill regardless of display mode (bars/mini/circle); main.js
+  // owns the actual worker API calls and the small submit-popup window that
+  // shows the result. See request-submit in main.js.
+  requestSubmit: (payload) => ipcRenderer.invoke("request-submit", payload),
+
+  // submit-popup window only (renderer/submit-popup.js).
+  onSubmitPopupShow: (cb) => ipcRenderer.on("submit-popup:show", (_evt, payload) => cb(payload)),
+  onSubmitPopupResult: (cb) => ipcRenderer.on("submit-popup:result", (_evt, result) => cb(result)),
+  confirmSubmit: () => ipcRenderer.send("submit-popup:confirm"),
+  discardSubmit: () => ipcRenderer.send("submit-popup:discard")
 });
