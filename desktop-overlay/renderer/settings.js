@@ -174,6 +174,8 @@
     secondaryTextColor: document.getElementById("set-secondarytextcolor"),
     myNameTextColor: document.getElementById("set-mynametextcolor"),
     petNameTextColor: document.getElementById("set-petnametextcolor"),
+    dpsTextColor: document.getElementById("set-dpstextcolor"),
+    totalDpsColor: document.getElementById("set-totaldpscolor"),
     resetTextColors: document.getElementById("btn-reset-textcolors"),
     // "Add color options to edit the circle colors: border, background,
     // text colors" (Sept 6) — Circle display style never had any color
@@ -214,7 +216,7 @@
     previewRowPet: document.getElementById("preview-row-pet"),
     previewDpsYou: document.getElementById("preview-dps-you"),
     previewDpsPet: document.getElementById("preview-dps-pet"),
-    previewDpsTotal: document.getElementById("preview-dps-total"),
+    previewTotal: document.getElementById("preview-total"),
     previewMiniDps: document.getElementById("preview-mini-dps"),
     previewMiniPetRow: document.getElementById("preview-mini-pet-row"),
     previewMiniPetDps: document.getElementById("preview-mini-pet-dps"),
@@ -353,6 +355,8 @@
       frame.style.setProperty("--preview-my-name-color", myNameColor);
       frame.style.setProperty("--preview-pet-name-color", petNameColor);
       frame.style.setProperty("--preview-secondary-color", s.secondaryTextColor || THEME_INK2[theme]);
+      frame.style.setProperty("--preview-dps-color", s.dpsTextColor || textColor);
+      frame.style.setProperty("--preview-total-color", s.totalDpsColor || accent);
       frame.style.setProperty("--preview-accent", accent);
       frame.style.setProperty("--preview-barheight", String(s.barHeight != null ? s.barHeight : 1));
       frame.style.setProperty("--preview-textscale", String(s.textScale || 1));
@@ -381,7 +385,11 @@
     // so only the bare numbers get written here.
     els.previewFillYou.style.width = "100%";
     els.previewDpsYou.textContent = String(youDps);
-    els.previewDpsTotal.textContent = String(youDps);
+    // Total damage is now the mob-line's ONLY figure (item 3 — bar rows are
+    // dps-only, see .preview-row's amount below), flat-formatted same as
+    // the real fmtNum() — a representative mock total, not derived from
+    // any real fight length.
+    els.previewTotal.textContent = "· " + (youDps * 27).toLocaleString();
     if (showPets) {
       els.previewRowPet.style.display = "";
       els.previewFillPet.style.width = Math.round((PREVIEW_PET_DPS / PREVIEW_YOU_DPS) * 100) + "%";
@@ -451,6 +459,8 @@
     els.secondaryTextColor.value = s.secondaryTextColor || THEME_INK2[s.theme || "blue"];
     els.myNameTextColor.value = s.myNameTextColor || THEME_INK[s.theme || "blue"];
     els.petNameTextColor.value = s.petNameTextColor || THEME_INK[s.theme || "blue"];
+    els.dpsTextColor.value = s.dpsTextColor || THEME_INK[s.theme || "blue"];
+    els.totalDpsColor.value = s.totalDpsColor || THEME_ACCENT[s.theme || "blue"];
     els.circleBgColor.value = s.circleBgColor || THEME_BG[s.theme || "blue"];
     els.circleBorderColor.value = s.circleBorderColor || THEME_ACCENT[s.theme || "blue"];
     els.circleTextColor.value = s.circleTextColor || THEME_ACCENT[s.theme || "blue"];
@@ -521,8 +531,10 @@
   els.secondaryTextColor.addEventListener("input", function () { save({ secondaryTextColor: els.secondaryTextColor.value }); });
   els.myNameTextColor.addEventListener("input", function () { save({ myNameTextColor: els.myNameTextColor.value }); });
   els.petNameTextColor.addEventListener("input", function () { save({ petNameTextColor: els.petNameTextColor.value }); });
+  els.dpsTextColor.addEventListener("input", function () { save({ dpsTextColor: els.dpsTextColor.value }); });
+  els.totalDpsColor.addEventListener("input", function () { save({ totalDpsColor: els.totalDpsColor.value }); });
   els.resetTextColors.addEventListener("click", function () {
-    save({ secondaryTextColor: null, myNameTextColor: null, petNameTextColor: null });
+    save({ secondaryTextColor: null, myNameTextColor: null, petNameTextColor: null, dpsTextColor: null, totalDpsColor: null });
   });
   els.circleBgColor.addEventListener("input", function () { save({ circleBgColor: els.circleBgColor.value }); });
   els.circleBorderColor.addEventListener("input", function () { save({ circleBorderColor: els.circleBorderColor.value }); });

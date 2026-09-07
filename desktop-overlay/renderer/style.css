@@ -252,7 +252,14 @@ body {
   justify-content: space-between;
   gap: 6px;
   -webkit-app-region: drag; /* frameless window — this row is the drag handle */
-  margin-bottom: 8px;
+  /* Bordered box (item 1 of the newest UI list — "player name -- icons
+     [wrapped in a border]") instead of floating text; margin/padding
+     trimmed at the same time to close up the "so much space above the
+     actual bars" gap the un-boxed header used to leave. */
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  padding: 4px 7px;
+  margin-bottom: 6px;
   flex: none;
 }
 .brand { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -328,15 +335,14 @@ body {
   -ms-overflow-style: none;
 }
 .fight-view::-webkit-scrollbar { width: 0; height: 0; }
-.subhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.subhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; position: relative; }
 .mob-line { color: var(--ink-2); font-size: calc(0.88rem * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; min-width: 0; }
 /* "the dps meter in that companion has a dropdown to show which fight" —
-   a real <select> (see renderFightSelect() in app.js) styled to blend
-   into the mob-line instead of looking like a form control: no native
-   chrome, inherits the same color/weight/size the plain mob-name text
-   used to have. Its own currently-selected option IS the mob name (see
-   sessionShortLabel()) — nothing else needs to write "Lady Vox" anywhere
-   once this exists. */
+   a themed popup (see renderFightSelect()/#fight-popup in app.js), not a
+   native <select> any more (its dropdown popup couldn't be recolored off
+   the OS-default white background — "the white/white text looks bad").
+   This button IS the trigger; its own text is whatever fight is currently
+   being shown, same as the old select's chosen option used to display. */
 .fight-select {
   appearance: none;
   -webkit-appearance: none;
@@ -354,37 +360,61 @@ body {
   white-space: nowrap;
   min-width: 0;
   max-width: 100%;
-  /* A minimal custom chevron since appearance:none also removes the
-     native one — small enough to read as "this picks something" without
-     looking like a bulky form dropdown. */
+  /* A minimal custom chevron — small enough to read as "this picks
+     something" without looking like a bulky form dropdown. */
   background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
   background-position: right 5px top 55%, right 1px top 55%;
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
 }
 .fight-select:hover { color: var(--accent); }
-.fight-select option { color: initial; background: initial; font-weight: 400; } /* readable in the native popup regardless of theme */
 .mob-line .diff { color: var(--ink-3); }
-/* Settings > "Timer / dps / status size" (item 7) — its own independent
-   multiplier, separate from the main Text size slider, which never sized
-   the "(live)"/"(defeated)" status text on its own (only the whole
-   .mob-line, mob name included, which this deliberately doesn't touch). */
-#mob-state { display: inline-block; font-size: calc(0.88rem * var(--secondary-text-scale, 1)); }
-/* Static by default — only actually spinning while a fight is truly live
-   (app.js toggles the .pulse class itself; see render()). It used to spin
-   nonstop even on "Waiting for a fight…", which read as the app being
-   stuck rather than idle. */
-.fight-icon { display: inline-block; }
-.fight-icon.pulse { animation: spin 1.6s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.dps-side { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
-/* Also scales with Settings > "Info Text Size" (item 7) — same
-   --secondary-text-scale var #mob-state above uses. */
-.dps-number { color: var(--accent); font-weight: 700; font-size: calc(1.2rem * var(--secondary-text-scale, 1)); white-space: nowrap; font-variant-numeric: tabular-nums; }
-/* Settings > "Timer Text Size" (item 10) — its own slider, no longer
-   bundled into Info Text Size above, which never gave the timer a
-   reliable independent control in Bars or Circle mode. */
+/* Opens UPWARD from #fight-select (bottom-anchored, positioned in app.js's
+   positionFightPopup() via getBoundingClientRect()) with the most recent
+   fight — labeled "Current Fight" — closest to the trigger at the BOTTOM,
+   oldest fights above it (item 3 of the newest UI list — "make it expand
+   upward... most recent fight being at the bottom"). position:fixed so it
+   escapes .fight-view's scroll clipping and .card's overflow:hidden
+   regardless of where it sits in the DOM. */
+.fight-popup {
+  position: fixed;
+  z-index: 50;
+  min-width: 150px;
+  max-width: 260px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fight-popup-item {
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: calc(0.82rem * var(--text-scale, 1));
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fight-popup-item:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.fight-popup-item.active { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); font-weight: 700; }
+.dps-side { display: flex; align-items: baseline; gap: 4px; flex: none; }
+/* Settings > "Timer Text Size" (item 10) — its own slider. */
 .fight-timer { color: var(--ink-3); font-size: calc(0.72rem * var(--timer-text-scale, 1)); font-variant-numeric: tabular-nums; }
+/* Total damage done this fight — the ONLY place total damage shows any
+   more (item 3 of the newest UI list: bar rows below are DPS-only, see
+   amountHtml() in app.js). Flat number (fmtNum(), "4,503") not abbreviated
+   — item 7. Its own color picker (Settings > Appearance > "Total DPS
+   text"), independent of --accent, so recoloring the theme doesn't drag
+   this along too. */
+.fight-total { color: var(--total-dps-color, var(--accent)); font-weight: 700; font-size: calc(0.88rem * var(--secondary-text-scale, 1)); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fight-total:not(:empty)::before { content: "· "; color: var(--ink-3); font-weight: 400; }
 
 .barlist { display: flex; flex-direction: column; gap: 4px; }
 /* Each row is a real proportional bar now, not just a flat tinted strip —
@@ -444,13 +474,12 @@ body {
   line-height: 1.4;
 }
 .bar-row .amount { position: relative; z-index: 1; text-align: right; font-variant-numeric: tabular-nums; }
-.bar-row .amount b { font-size: calc(0.92rem * var(--text-scale, 1)); color: var(--ink); }
+/* DPS only now (item 3 — the per-row total-damage sub-total moved to the
+   single top-line #fight-total instead, see amountHtml() in app.js). Its
+   own color picker (Settings > Appearance > "DPS text"), independent of
+   the general --ink text color. */
+.bar-row .amount b { font-size: calc(0.92rem * var(--text-scale, 1)); color: var(--dps-text-color, var(--ink)); }
 .bar-row .amount .unit { font-size: calc(0.72rem * var(--text-scale, 1)); color: var(--ink-3); margin-left: 2px; }
-/* "I also want our meter to show DPS - Total dmg done... 322 - 12.2k" —
-   the abbreviated (fmtAbbrev() in app.js) total damage riding right next
-   to the dps/unit pair, same muted weight as .unit so it reads as one
-   secondary figure, not a second competing number. */
-.bar-row .amount .sub-total { font-size: calc(0.72rem * var(--text-scale, 1)); color: var(--ink-3); margin-left: 2px; }
 
 /* In-place spell/ability drill-down — click any row (yours, a groupmate's,
    or a pet's) in the main meter and the bar list itself swaps to that
@@ -544,7 +573,12 @@ body.mini .card { padding: 8px 9px; }
    distinct rows at a glance instead of a name row not aligning with the
    number row under it. */
 .mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
-.mini-total { color: var(--ink-2); font-size: calc(0.72rem * var(--text-scale, 1)); font-variant-numeric: tabular-nums; padding: 0 2px; }
+/* Right-aligned (item 8 of the newest list — "total damage should be top
+   right not top left") and bumped up a size from before (item 7 — "too
+   small to see"), flat-formatted (fmtNum(), see updateMiniBar() in
+   app.js) instead of abbreviated. Own color picker, same --total-dps-color
+   the mob-line's #fight-total uses. */
+.mini-total { color: var(--total-dps-color, var(--ink-2)); font-size: calc(0.78rem * var(--text-scale, 1)); font-variant-numeric: tabular-nums; padding: 0 2px; text-align: right; }
 .mini-main, .mini-pet-row {
   display: flex;
   align-items: baseline;
@@ -554,18 +588,24 @@ body.mini .card { padding: 8px 9px; }
   border-radius: 6px;
   padding: 2px 6px;
 }
-.mini-name { font-weight: 700; font-size: calc(0.9rem * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.mini-name { font-weight: 700; font-size: calc(0.95rem * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 /* min-width (not just text-align) is what actually lines the player and
    pet dps numbers up in one column regardless of how long either name
-   is — item 1 ("the DPS needs to align vertically, like the bars do"). */
-.mini-dps { color: var(--accent); font-weight: 700; font-size: calc(0.95rem * var(--text-scale, 1)); font-variant-numeric: tabular-nums; flex: none; text-align: right; min-width: 3.6em; }
+   is — item 1 ("the DPS needs to align vertically, like the bars do").
+   Bumped up a size (item 7 — "too small to see the actual dps"). Own
+   color picker (Settings > Appearance > "DPS text"), same --dps-text-color
+   the bar-row amount uses. */
+.mini-dps { color: var(--dps-text-color, var(--accent)); font-weight: 700; font-size: calc(1.05rem * var(--text-scale, 1)); font-variant-numeric: tabular-nums; flex: none; text-align: right; min-width: 3.6em; }
 /* Settings > "Mini pet text size" — its own slider (item 5: the pet
    sub-line was too small and rode the same textScale as everything else,
    with no way to size it up on its own). --mini-pet-scale is set from
    app.js's applySettings(); 1 = the original fixed sizes below. */
 .mini-pet-name { color: var(--ink-3); font-size: calc(0.66rem * var(--mini-pet-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .mini-pet-dps { color: var(--ink-2); font-size: calc(0.68rem * var(--mini-pet-scale, 1)); font-variant-numeric: tabular-nums; flex: none; text-align: right; min-width: 3.6em; }
-.mini-restore { -webkit-app-region: no-drag; flex: none; align-self: flex-start; }
+/* Settings gear added to mini mode (item 6) alongside the existing expand
+   button, both no-drag, stacked in their own small column. */
+.mini-actions { display: flex; flex-direction: column; gap: 4px; flex: none; align-self: flex-start; }
+.mini-settings, .mini-restore { -webkit-app-region: no-drag; flex: none; }
 
 /* ---- Circle display style (Settings > Display style) ----
    Item 8 — "a theme that is a circle and it just has a dps number in it...
@@ -677,7 +717,7 @@ body.watch .watch-badge { display: flex; }
 body.idle-faded .header,
 body.idle-faded .mob-line,
 body.idle-faded .fight-timer,
-body.idle-faded .dps-number,
+body.idle-faded .fight-total,
 body.idle-faded .bar-row .rank,
 body.idle-faded .bar-row .pet-tag {
   opacity: 0;
@@ -686,7 +726,7 @@ body.idle-faded .bar-row .pet-tag {
 /* The submit prompt is excluded from the fade above (Sept 7) — it used to
    fade out with everything else, so a kill finishing while idle could go
    completely unseen until the mouse moved again. */
-.header, .mob-line, .fight-timer, .dps-number,
+.header, .mob-line, .fight-timer, .fight-total,
 .bar-row .rank, .bar-row .pet-tag,
 .submit-row, .auto-submit-line, .auto-submit-toggles {
   transition: opacity 0.8s ease;

@@ -48,8 +48,30 @@
   // mergeAbilityArrays() below.
   var combinePets = false;
 
+  // "I want the link to open the log and the fight up in the website" — a
+  // session only has something to deep-link to if one of its members was
+  // actually SUBMITTED (submissionId gets written onto that exact encounter
+  // by main.js's recordSubmission(), once the submit that started as this
+  // window's own push-state payload finishes — see requestSubmitFor() in
+  // app.js). Reuses the website's existing per-user "view a past submission"
+  // page (analyze.html?submissionId=X&name=Y — same one profile.html's own
+  // submission history already links to) rather than inventing a second
+  // mechanism — no upload needed, it's an authenticated fetch of your own
+  // log. Falls back to the bare homepage for a session with nothing
+  // submitted, exactly as DJ asked ("if that's not possible, we can scrap
+  // the idea and just make it so the website link... opens the analysis
+  // page").
   document.getElementById("btn-open-site").addEventListener("click", function () {
-    window.dyrelog.openExternal(SITE_BASE);
+    var sessions = buildSessions();
+    var session = sessions.find(function (s) { return sessionKey(s) === selectedKey; });
+    var submitted = session && session.members.find(function (m) { return m.submissionId != null; });
+    if (submitted) {
+      var url = SITE_BASE + "/analyze.html?submissionId=" + encodeURIComponent(submitted.submissionId) +
+        "&name=" + encodeURIComponent(latest.characterName || "");
+      window.dyrelog.openExternal(url);
+    } else {
+      window.dyrelog.openExternal(SITE_BASE + "/analyze.html");
+    }
   });
 
   // Same "You" -> real character name swap as the mini-mode card (see

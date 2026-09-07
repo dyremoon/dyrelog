@@ -510,10 +510,10 @@ label.check input { accent-color: var(--accent); }
    pointer being over this specific card either. Mini/Circle previews
    aren't included — the real mini and watch modes don't participate in
    idle-fade at all (there's nothing in either of them idle-fade targets). */
-.preview-topbar, .preview-mobline, .preview-timer, .preview-dpsnum,
+.preview-topbar, .preview-mobline, .preview-timer, .preview-total,
 .preview-rank, .preview-pet-tag { transition: opacity 0.4s ease; }
 .preview-idle .preview-topbar, .preview-idle .preview-mobline,
-.preview-idle .preview-timer, .preview-idle .preview-dpsnum,
+.preview-idle .preview-timer, .preview-idle .preview-total,
 .preview-idle .preview-rank, .preview-idle .preview-pet-tag { opacity: 0.08; }
 
 /* Top drag-handle row (style.css's .header) — wordmark + status dot +
@@ -565,27 +565,23 @@ label.check input { accent-color: var(--accent); }
 }
 .preview-mobline-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .preview-mobline-diff { opacity: 0.75; }
-/* Real .mob-line always leads with the spin-icon and ends with "(live)"/
-   "(defeated)" (see index.html's #fight-icon/#mob-state) — this mockup
-   was missing both, showing only the mob name and difficulty tag. A
-   static "(live)" reads correctly here since the mockup's dps number is
-   always a non-zero in-progress value, never a finished fight's. */
-.preview-fight-icon { flex: none; }
-.preview-mobline-state { opacity: 0.75; }
-.preview-dpsside { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
-.preview-dpsnum {
-  display: flex; align-items: baseline; gap: 3px;
-  color: var(--preview-accent, #6f9bff); font-weight: 700;
-  font-size: calc(1em * var(--preview-secondaryscale, 1));
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.preview-dpsunit, .preview-dps-abbrev {
-  font-size: 0.68em; font-weight: 600; color: var(--preview-secondary-color, #a89f8d);
-}
+/* Mirrors the real .mob-line/.dps-side after the Sept 7 redesign — no
+   loading icon or "(live)"/"(defeated)" state any more (both removed), and
+   total damage is now the ONLY figure on this line, inline with the timer
+   instead of a big stacked dps number (see #fight-total/.dps-side in
+   style.css). */
+.preview-dpsside { display: flex; align-items: baseline; gap: 4px; flex: none; }
 .preview-timer {
   color: var(--preview-secondary-color, #a89f8d);
   font-size: calc(0.66em * var(--preview-timerscale, 1));
   font-variant-numeric: tabular-nums;
+}
+.preview-total {
+  color: var(--preview-total-color, var(--preview-accent, #6f9bff));
+  font-weight: 700;
+  font-size: calc(0.88em * var(--preview-secondaryscale, 1));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* Bar rows (style.css's .bar-row) — same 4-column grid (rank | dot | name
@@ -646,7 +642,7 @@ label.check input { accent-color: var(--accent); }
   border-radius: 4px; padding: 0 4px; line-height: 1.4;
 }
 .preview-amount { text-align: right; font-variant-numeric: tabular-nums; }
-.preview-amount b { font-size: 0.95em; color: var(--preview-text, #f2ede1); font-weight: 700; }
+.preview-amount b { font-size: 0.95em; color: var(--preview-dps-color, var(--preview-text, #f2ede1)); font-weight: 700; }
 .preview-unit { font-size: 0.68em; color: var(--preview-secondary-color, #a89f8d); margin-left: 2px; }
 
 /* Mini-bar preview — style.css's .mini-bar: a status dot + your own

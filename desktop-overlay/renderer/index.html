@@ -50,12 +50,22 @@
     <!-- Live/fight view -->
     <div class="fight-view" id="fight-view" hidden>
       <div class="subhead">
-        <span class="mob-line" id="mob-line"><span class="fight-icon" id="fight-icon">&#8635;</span> <select class="fight-select" id="fight-select" title="Pick which recent fight to view"></select> <span id="mob-diff" class="diff"></span> <span id="mob-state">(live)</span></span>
+        <span class="mob-line" id="mob-line">
+          <button type="button" class="fight-select" id="fight-select" title="Pick which recent fight to view">Waiting for a fight&hellip;</button>
+          <span id="mob-diff" class="diff"></span>
+        </span>
         <span class="dps-side">
-          <span class="dps-number" id="dps-number">0 dps</span>
           <span class="fight-timer" id="fight-timer"></span>
+          <span class="fight-total" id="fight-total"></span>
         </span>
       </div>
+      <!-- Themed fight-history popup (replaces a native <select> — its
+           dropdown popup can't be recolored away from the OS default white,
+           see the old .fight-select option rule this superseded) — opens
+           UPWARD from #fight-select, most-recent entry closest to the
+           trigger. position:fixed (JS-positioned in app.js) so it escapes
+           .fight-view's own scroll clipping. -->
+      <div class="fight-popup" id="fight-popup" hidden></div>
       <div class="barlist" id="barlist"></div>
       <div class="submit-row" id="submit-row" hidden>
         <button class="submit-pill" id="btn-submit">&uarr; Submit</button>
@@ -75,8 +85,9 @@
     <div class="mini-bar" id="mini-bar">
       <span class="status-dot" id="mini-dot"></span>
       <div class="mini-info">
-        <!-- Total damage done, above both dps rows — item 2 of the mini-bar
-             rework ("move the total damage done above both DPS"). -->
+        <!-- Total damage done, above both dps rows, flat-formatted (see
+             fmtNum() — "4,503" not "4.5k") and right-aligned (item 8 of the
+             newest mini-bar list). -->
         <div class="mini-total" id="mini-total"></div>
         <div class="mini-main">
           <span class="mini-name" id="mini-name">Dyrelog</span>
@@ -89,7 +100,10 @@
           <span class="mini-pet-dps" id="mini-pet-dps"></span>
         </div>
       </div>
-      <button class="icon-btn mini-restore" id="btn-restore" title="Expand">&#9633;</button>
+      <div class="mini-actions">
+        <button class="icon-btn mini-settings" id="btn-mini-settings" title="Settings">&#9881;</button>
+        <button class="icon-btn mini-restore" id="btn-restore" title="Expand">&#9633;</button>
+      </div>
     </div>
 
     <!-- Circle display style (Settings > Display style — item 8) — a small

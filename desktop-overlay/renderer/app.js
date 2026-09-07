@@ -233,11 +233,10 @@
     folderPick: document.getElementById("folder-pick"),
     folderSelect: document.getElementById("folder-select"),
     fightView: document.getElementById("fight-view"),
-    fightIcon: document.getElementById("fight-icon"),
     fightSelect: document.getElementById("fight-select"),
+    fightPopup: document.getElementById("fight-popup"),
     mobDiff: document.getElementById("mob-diff"),
-    mobState: document.getElementById("mob-state"),
-    dpsNumber: document.getElementById("dps-number"),
+    fightTotal: document.getElementById("fight-total"),
     fightTimer: document.getElementById("fight-timer"),
     barlist: document.getElementById("barlist"),
     submitRow: document.getElementById("submit-row"),
@@ -271,11 +270,10 @@
     return Math.round(n).toLocaleString();
   }
 
-  // Companion-style abbreviated totals ("4.1k", "2.0k", "620") for the new
-  // "dps · total dmg" amount format — see item "I also want our meter to
-  // show DPS - Total dmg done... 322 - 12.2k". A whole number under 1,000
-  // is shown as-is (matching how ability-level damage reads in their own
-  // screenshots — "620", not "0.6k").
+  // Abbreviated totals ("4.1k", "2.0k") — no longer used for any total
+  // damage display (Sept 7: every one of those switched to fmtNum()'s flat
+  // "4,503" instead, per DJ's own request). Left defined in case a future
+  // compact figure needs it again.
   function fmtAbbrev(n) {
     n = Math.max(0, n || 0);
     if (n >= 1000000) return (n / 1000000).toFixed(1) + "m";
@@ -414,6 +412,14 @@
       document.documentElement.style.removeProperty("--ink-2");
       document.documentElement.style.removeProperty("--ink-3");
     }
+    // Per-row "DPS" number color and the total-damage figure's color (mob-
+    // line + mini-bar) — two separate pickers per item 9 of the newest
+    // list, independent of --ink/--accent so recoloring the theme doesn't
+    // silently drag these along too.
+    if (s.dpsTextColor) document.documentElement.style.setProperty("--dps-text-color", s.dpsTextColor);
+    else document.documentElement.style.removeProperty("--dps-text-color");
+    if (s.totalDpsColor) document.documentElement.style.setProperty("--total-dps-color", s.totalDpsColor);
+    else document.documentElement.style.removeProperty("--total-dps-color");
     // Mini mode's pet sub-line gets its own size control (item 5) instead of
     // riding the main textScale, which the pet line was too small under.
     document.documentElement.style.setProperty("--mini-pet-scale", String(s.miniPetTextScale || 1));
@@ -536,11 +542,13 @@
     return null;
   }
 
-  // Shared by both the ranked list and the drill-down list below, so the
-  // "dps · total dmg" format ("I also want our meter to show DPS - Total
-  // dmg done... 322 - 12.2k") only ever needs writing once.
+  // Shared by both the ranked list and the drill-down list below — DPS
+  // only now (item 3 of the newest UI list: "the dps meter with just the
+  // DPS... total damage you can only see at the top, on that first top
+  // line"). damage is unused here now but still passed in by both callers
+  // so the per-row total, if it ever comes back, has nowhere else to change.
   function amountHtml(dps, damage) {
-    return '<b>' + fmtNum(dps) + '</b><span class="unit">dps</span><span class="sub-total">· ' + fmtAbbrev(damage) + "</span>";
+    return '<b>' + fmtNum(dps) + '</b><span class="unit">dps</span>';
   }
 
   function renderBarList(rows) {
@@ -618,7 +626,7 @@
       '<div class="drill-header" data-drill-back="1">' +
         '<div class="drill-who"><button class="drill-back" title="Back">&#8249;</button>' +
           '<span class="drill-name">' + esc(sel.name) + "</span></div>" +
-        '<span class="drill-total">' + fmtNum(sel.dps) + " dps · " + fmtAbbrev(sel.damage) + "</span>" +
+        '<span class="drill-total">' + fmtNum(sel.dps) + " dps · " + fmtNum(sel.damage) + "</span>" +
       "</div>" +
       '<div class="drill-list">' + listHtml + "</div>";
   }
@@ -708,7 +716,11 @@
       dps: youRow ? youRow.dps : 0,
       damage: youRow ? youRow.damage : 0,
       difficulty: finishedEnc.difficultyKnown ? finishedEnc.difficulty : null,
-      rawText: rawTextForEncounter(finishedEnc)
+      rawText: rawTextForEncounter(finishedEnc),
+      // Lets main.js write the resulting submissionId back onto this exact
+      // local history entry once the submit succeeds — see recordSubmission()
+      // there and the website deep-link button in analysis.js.
+      startTime: finishedEnc.startTime
     });
   }
 
@@ -776,29 +788,59 @@
       (partyCount > 0 ? " +" + partyCount : "");
   }
 
-  // Rebuilt every render() tick (like the bar list) so the default entry
-  // always reflects whatever fight is actually live/last right now, and
-  // any brand-new fight shows up in the list immediately. The default
-  // (auto-follow) option's own label IS the current mob name — nothing
-  // else needs to separately display it any more (see .fight-select in
-  // style.css and the now-removed #mob-name span).
+  // Rebuilt every render() tick (like the bar list) so the trigger button's
+  // own label always reflects whatever fight is actually being shown right
+  // now, and any brand-new fight shows up in the popup immediately. Custom
+  // popup instead of a native <select> — see .fight-popup in style.css for
+  // why (a native select's option list can't be recolored off the OS
+  // default white). sessions is oldest-first (buildSessions()'s own order),
+  // so the auto-follow slot is naturally the LAST entry — labeled "Current
+  // Fight" in the popup itself ("it's not implied that it'll update to the
+  // next fight" — this makes that explicit) — and it renders at the BOTTOM
+  // of the upward-opening popup, closest to the trigger, oldest fights
+  // above it.
   function renderFightSelect(sessions) {
-    var reversed = sessions.slice().reverse(); // newest-first
-    var autoTarget = reversed[0];
-    var autoLabel = autoTarget ? sessionShortLabel(autoTarget) : "Waiting for a fight…";
-    var optionsHtml = '<option value="">' + esc(autoLabel) + "</option>" +
-      reversed.map(function (s, i) {
-        if (i === 0) return ""; // same fight the auto option above already represents
-        return '<option value="' + esc(sessionKeyOf(s)) + '">' + esc(sessionShortLabel(s)) + "</option>";
-      }).join("");
-    els.fightSelect.innerHTML = optionsHtml;
-    els.fightSelect.value = selectedSessionKey || "";
-    if (els.fightSelect.value !== (selectedSessionKey || "")) selectedSessionKey = null; // stale key — no matching option any more
+    var current = sessions[sessions.length - 1];
+    if (selectedSessionKey && !sessions.some(function (s) { return sessionKeyOf(s) === selectedSessionKey; })) {
+      selectedSessionKey = null; // stale key — no matching session any more, fall back to auto-follow
+    }
+    var activeKey = selectedSessionKey || "";
+    var activeSession = selectedSessionKey
+      ? sessions.find(function (s) { return sessionKeyOf(s) === selectedSessionKey; })
+      : current;
+    els.fightSelect.textContent = activeSession ? sessionShortLabel(activeSession) : "Waiting for a fight…";
+    if (!sessions.length) {
+      els.fightPopup.innerHTML = '<div class="fight-popup-item" style="cursor:default;">Waiting for a fight…</div>';
+      return;
+    }
+    els.fightPopup.innerHTML = sessions.map(function (s, i) {
+      var isCurrent = i === sessions.length - 1;
+      var key = isCurrent ? "" : sessionKeyOf(s);
+      var label = isCurrent ? "Current Fight" : sessionShortLabel(s);
+      return '<div class="fight-popup-item' + (key === activeKey ? " active" : "") + '" data-key="' + esc(key) + '">' + esc(label) + "</div>";
+    }).join("");
   }
-  els.fightSelect.addEventListener("change", function () {
-    selectedSessionKey = els.fightSelect.value || null;
+  function positionFightPopup() {
+    var rect = els.fightSelect.getBoundingClientRect();
+    els.fightPopup.style.left = Math.round(rect.left) + "px";
+    els.fightPopup.style.bottom = Math.round(window.innerHeight - rect.top + 4) + "px";
+  }
+  function closeFightPopup() { els.fightPopup.hidden = true; }
+  els.fightSelect.addEventListener("click", function (evt) {
+    evt.stopPropagation();
+    if (!els.fightPopup.hidden) { closeFightPopup(); return; }
+    positionFightPopup();
+    els.fightPopup.hidden = false;
+  });
+  els.fightPopup.addEventListener("click", function (evt) {
+    var item = evt.target.closest(".fight-popup-item[data-key]");
+    if (!item) return;
+    selectedSessionKey = item.dataset.key || null;
+    closeFightPopup();
     render();
   });
+  document.addEventListener("click", closeFightPopup);
+  window.addEventListener("resize", closeFightPopup);
 
   // An explicitly picked (not auto-followed) past fight — frozen, since
   // nothing about an already-closed fight changes tick to tick. Picking
@@ -815,11 +857,8 @@
     var merged = EQP.mergeEncounters(members);
     var stats = EQP.computeStats(merged);
     var self = selfSummary(stats);
-    els.fightIcon.classList.toggle("pulse", session.isLive);
     els.mobDiff.textContent = merged.difficultyKnown ? "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base") : "";
-    var lastMember = session.members[session.members.length - 1];
-    els.mobState.textContent = session.isLive ? "(live)" : (lastMember.mobKilled ? "(defeated)" : "(ended)");
-    els.dpsNumber.textContent = fmtNum(self.dps) + " dps · " + fmtAbbrev(self.damage);
+    els.fightTotal.textContent = fmtNum(self.damage);
     els.fightTimer.textContent = fmtDur((merged.endTime - merged.startTime) / 1000);
     lastRenderedRows = stats.rows;
     renderBarList(stats.rows);
@@ -875,10 +914,8 @@
       var merged = EQP.mergeEncounters(extended);
       var stats = EQP.computeStats(merged);
       var self = selfSummary(stats);
-      els.fightIcon.classList.add("pulse"); // only actually spins while a fight is truly live — see item 4
       els.mobDiff.textContent = merged.difficultyKnown ? "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base") : "";
-      els.mobState.textContent = "(live)";
-      els.dpsNumber.textContent = fmtNum(self.dps) + " dps · " + fmtAbbrev(self.damage);
+      els.fightTotal.textContent = fmtNum(self.damage);
       els.fightTimer.textContent = fmtDur((merged.endTime - merged.startTime) / 1000);
       lastRenderedRows = stats.rows;
       renderBarList(stats.rows);
@@ -903,10 +940,8 @@
       var lastMerged = EQP.mergeEncounters(lastMembers);
       var lastStats = EQP.computeStats(lastMerged);
       var lastSelf = selfSummary(lastStats);
-      els.fightIcon.classList.remove("pulse");
       els.mobDiff.textContent = lastMerged.difficultyKnown ? "· " + (DIFFICULTY_LABELS[lastMerged.difficulty] || "Base") : "";
-      els.mobState.textContent = last.mobKilled ? "(defeated)" : "(ended)";
-      els.dpsNumber.textContent = fmtNum(lastSelf.dps) + " dps · " + fmtAbbrev(lastSelf.damage);
+      els.fightTotal.textContent = fmtNum(lastSelf.damage);
       els.fightTimer.textContent = fmtDur(lastStats.duration);
       lastRenderedRows = lastStats.rows;
       renderBarList(lastStats.rows);
@@ -918,10 +953,8 @@
       updateWatchBadge(lastSelf.dps, els.fightTimer.textContent);
     } else {
       combatSessionStart = null;
-      els.fightIcon.classList.remove("pulse");
       els.mobDiff.textContent = "";
-      els.mobState.textContent = "";
-      els.dpsNumber.textContent = "0 dps";
+      els.fightTotal.textContent = "";
       els.fightTimer.textContent = "";
       lastRenderedRows = [];
       renderBarList([]);
@@ -946,7 +979,7 @@
   // actually line up as a column — see .mini-dps/.mini-pet-dps's shared
   // min-width in style.css.
   function updateMiniBar(dps, damage, pet) {
-    els.miniTotal.textContent = fmtAbbrev(damage) + " total dmg";
+    els.miniTotal.textContent = fmtNum(damage) + " total dmg"; // flat number, not "4.5k" — item 7 of the newest list
     els.miniName.textContent = characterName || "Dyrelog";
     els.miniDps.textContent = fmtNum(dps) + " dps";
     if (pet && pet.dps > 0) {
@@ -1089,6 +1122,12 @@
   }
   document.getElementById("btn-mini").addEventListener("click", toggleMini);
   document.getElementById("btn-restore").addEventListener("click", toggleMini);
+  // Mini mode had no way back to Settings at all before (item 6 of the
+  // newest list) — every other display mode already has a gear somewhere.
+  document.getElementById("btn-mini-settings").addEventListener("click", function (evt) {
+    evt.stopPropagation(); // don't also toggle mini mode via a bubbled drag/click on .mini-bar
+    window.dyrelog.openSettings();
+  });
 
   // ---- display style (Settings > Display style: Bars / Circle) ------------
   // Circle (item 8's "watch" look) used to be its own header icon you could
@@ -1160,14 +1199,31 @@
   // Analysis / Leaderboards / Switch to Bars — see the comment on
   // .watch-badge in style.css for why a single plain click isn't trusted
   // alone. showWatchMenu() pops a real native context menu (main.js).
+  // Same fight list buildSessions()/renderFightSelect() already build for
+  // the Bars-mode popup, newest-first for a native menu's natural reading
+  // order — Circle mode had no way to change fights at all before this.
+  function fightMenuSessions() {
+    var sessions = buildSessions();
+    var reversed = sessions.slice().reverse();
+    var activeKey = selectedSessionKey || "";
+    return reversed.map(function (s, i) {
+      var isCurrent = i === 0;
+      var key = isCurrent ? "" : sessionKeyOf(s);
+      return { key: key, label: isCurrent ? "Current Fight" : sessionShortLabel(s), active: key === activeKey };
+    });
+  }
   els.watchBadge.addEventListener("click", function () { window.dyrelog.openSettings(); });
   els.watchBadge.addEventListener("contextmenu", function (evt) {
     evt.preventDefault();
-    window.dyrelog.showWatchMenu();
+    window.dyrelog.showWatchMenu(fightMenuSessions());
   });
   els.watchMenuBtn.addEventListener("click", function (evt) {
     evt.stopPropagation(); // don't also fire the badge's own click-to-Settings handler above
-    window.dyrelog.showWatchMenu();
+    window.dyrelog.showWatchMenu(fightMenuSessions());
+  });
+  window.dyrelog.onFightPicked(function (key) {
+    selectedSessionKey = key || null;
+    render();
   });
 
   // ---- manual corner/edge resize ----------------------------------------

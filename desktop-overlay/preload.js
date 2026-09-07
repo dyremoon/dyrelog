@@ -68,10 +68,12 @@ contextBridge.exposeInMainWorld("dyrelog", {
   openLeaderboard: () => ipcRenderer.send("open-leaderboard"),
   openSettings: () => ipcRenderer.send("open-settings"),
   openExternal: (url) => ipcRenderer.send("open-external", url),
-  // Circle display style's escape-hatch menu (Settings/Analysis/
-  // Leaderboards/Switch to Bars/Close) — see showWatchMenu() in main.js
-  // and its click/right-click/gear-button wiring in app.js.
-  showWatchMenu: () => ipcRenderer.send("show-watch-menu"),
+  // Circle display style's escape-hatch menu (Change Fight/Settings/
+  // Analysis/Leaderboards/Switch to Bars/Close) — see showWatchMenu() in
+  // main.js and its click/right-click/gear-button wiring in app.js.
+  // sessions is [{key, label, active}], rebuilt fresh on every open.
+  showWatchMenu: (sessions) => ipcRenderer.send("show-watch-menu", sessions),
+  onFightPicked: (cb) => ipcRenderer.on("fight-picked", (_evt, key) => cb(key)),
 
   // state relay: the mini-mode window pushes its computed stats out on
   // every render tick; the Analysis window reads the latest snapshot on

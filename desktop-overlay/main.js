@@ -84,6 +84,8 @@ const DEFAULT_SETTINGS = {
   // rather than --ink — this recolors that whole tier at once instead of
   // needing a separate control per element. null = the theme's own.
   secondaryTextColor: null,
+  dpsTextColor: null, // per-row "DPS" number color, bars + mini — see item 9 of the newest list; null = the theme's own
+  totalDpsColor: null, // the top-line/mini-bar total-damage figure's color — independent of dpsTextColor
   // Your own name's TEXT color specifically — independent of myBarColor
   // (which only colors the bar/dot, not the name string itself).
   myNameTextColor: null,
@@ -340,6 +342,20 @@ function saveHistory(encounters) {
   } catch (err) {
     console.error("Failed to save encounter history:", err);
   }
+}
+
+// Writes a successful submission's server-side id back onto the matching
+// local history entry (matched by startTime — see the startTime field
+// requestSubmitFor() now adds in app.js) so Combat Analysis' "Open full
+// website" button can deep-link straight to that exact log instead of just
+// the homepage — see the #btn-open-site handler in analysis.js.
+function recordSubmission(startTime, submissionId) {
+  if (startTime == null || submissionId == null) return;
+  var enc = persistedHistory.find(function (e) { return e.startTime === startTime; });
+  if (!enc) return;
+  enc.submissionId = submissionId;
+  saveHistory(persistedHistory);
+  if (analysisWin && !analysisWin.isDestroyed()) analysisWin.webContents.send("state-update", lastKnownState);
 }
 
 // Manual corner/edge resize (and dragging the window by its header) used
@@ -923,6 +939,7 @@ ipcMain.handle("request-submit", function (evt, payload) {
   if (payload.mode === "auto") {
     sendToSubmitPopup("submit-popup:show", { pending: true, mobName: payload.mobName });
     performSubmit(payload).then(function (result) {
+      recordSubmission(payload.startTime, result.submissionId);
       if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: true, status: result.status });
     }).catch(function (err) {
       if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: false, error: String((err && err.message) || err) });
@@ -943,6 +960,7 @@ ipcMain.on("submit-popup:confirm", function () {
   pendingSubmitPayload = null;
   if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:show", { pending: true, mobName: payload.mobName });
   performSubmit(payload).then(function (result) {
+    recordSubmission(payload.startTime, result.submissionId);
     if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: true, status: result.status });
   }).catch(function (err) {
     if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: false, error: String((err && err.message) || err) });
@@ -1247,9 +1265,27 @@ ipcMain.on("set-watch-mode", function (evt, val) { isWatchMode = !!val; });
 // -webkit-app-region:drag there), and because the user asked for direct
 // access to Analysis/Leaderboards/Submit from Circle mode, not just a
 // detour through Settings every time.
-ipcMain.on("show-watch-menu", function () {
+// sessions (from app.js's fightMenuSessions()) is [{key, label, active}] —
+// Circle mode had no way to change fights at all before this (newest list,
+// "we need a way to change fights from the circle mode as well"). Picking
+// one sends its key back to the renderer, same selectedSessionKey the Bars
+// popup sets directly — see the "fight-picked" listener in app.js.
+ipcMain.on("show-watch-menu", function (evt, sessions) {
   if (!win) return;
+  sessions = Array.isArray(sessions) ? sessions : [];
+  var fightItems = sessions.length
+    ? sessions.map(function (s) {
+        return {
+          label: s.label,
+          type: "checkbox",
+          checked: !!s.active,
+          click: function () { win.webContents.send("fight-picked", s.key); }
+        };
+      })
+    : [{ label: "Waiting for a fight…", enabled: false }];
   var menu = Menu.buildFromTemplate([
+    { label: "Change Fight", submenu: fightItems },
+    { type: "separator" },
     { label: "Combat Analysis", click: function () { createAnalysisWindow(); } },
     { label: "Leaderboards", click: function () { createLeaderboardWindow(); } },
     { label: "Settings…", click: function () { createSettingsWindow(); } },
