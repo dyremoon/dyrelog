@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dyrelog</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: transparent;
+    font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    overflow: hidden;
+  }
+  .card {
+    box-sizing: border-box;
+    height: 100%;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(20, 18, 15, 0.94);
+    border: 1px solid rgba(76, 139, 245, 0.45);
+    border-radius: 10px;
+    color: #f2ede1;
+    -webkit-app-region: drag;
+  }
+  .title { font-size: 13px; font-weight: 600; line-height: 1.3; }
+  .sub { font-size: 12px; color: #a89f8d; }
+  .row { display: flex; gap: 8px; -webkit-app-region: no-drag; }
+  button {
+    flex: 1;
+    -webkit-app-region: no-drag;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.12);
+    cursor: pointer;
+  }
+  .btn-primary { background: #4c8bf5; color: #06121f; border-color: #4c8bf5; }
+  .btn-secondary { background: transparent; color: #f2ede1; }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.08); }
+  .ok { color: #7fb238; }
+  .err { color: #e0715a; }
+  .spinner {
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid rgba(242,237,225,0.25);
+    border-top-color: #f2ede1;
+    display: inline-block;
+    animation: spin 0.8s linear infinite;
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="title" id="title"></div>
+    <div class="sub" id="sub"></div>
+    <div class="row" id="actions"></div>
+  </div>
+  <script src="submit-popup.js"></script>
+</body>
+</html>

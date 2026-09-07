@@ -361,6 +361,35 @@ table tbody tr:hover { background: var(--surface-2); }
   font-size: 0.95rem;
 }
 .boss-picker-heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; }
+/* Boss/kill picker row — got dropped from this file at some point (dead
+   class names, no rule at all), which is why the two selects rendered as
+   unstyled native dropdowns and the row didn't lay out as a row. Restored,
+   same dark-select look as .class-picker-slot select above. */
+.boss-picker-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin: 4px 0 12px; }
+.boss-picker-col { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 200px; }
+.boss-picker-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.boss-select {
+  width: 100%;
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--hair-strong);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+.boss-select:focus { outline: none; border-color: var(--gold-2); }
+.boss-pagination { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 4px; }
+.page-btn {
+  background: var(--surface-2);
+  color: var(--ink-2);
+  border: 1px solid var(--hair-strong);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.page-btn:hover { border-color: var(--gold-2); color: var(--ink); }
+.page-btn.active { background: var(--gold-2); color: var(--gold-ink); border-color: var(--gold-2); font-weight: 700; }
 
 /* Boss page header (boss.html) — wiki link + optional portrait, "where/who
    this boss is" per DJ's ask, shown above the leaderboard table itself. */

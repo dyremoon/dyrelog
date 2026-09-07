@@ -160,7 +160,7 @@
         const { user, characters, isAdmin } = await api('/api/me');
         if (isAdmin) document.getElementById('admin-section').hidden = false;
         if (user) {
-          document.getElementById('profile-username').textContent = user.username;
+          document.getElementById('profile-username').textContent = capitalizeName(user.username);
           document.getElementById('logout-btn').hidden = false;
           initBio(user.bio);
         } else {

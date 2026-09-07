@@ -28,7 +28,7 @@ async function renderAuthNav() {
     // section") — the header's own job is just getting you there.
     const { user } = await api('/api/me');
     slot.innerHTML = user
-      ? `<a href="./profile.html">My Profile (${user.username})</a>`
+      ? `<a href="./profile.html">My Profile (${capitalizeName(user.username)})</a>`
       : `
         <a href="./profile.html">My Profile</a>
         <a class="btn btn-brass" href="${API_BASE}/api/auth/login">Log in with Discord</a>
@@ -36,6 +36,13 @@ async function renderAuthNav() {
   } catch (err) {
     slot.innerHTML = `<span class="muted">Can't reach the API</span>`;
   }
+}
+
+// Discord usernames come back all-lowercase — just capitalize the first
+// letter for display, don't touch the underlying value anywhere it's used
+// for lookups/URLs.
+function capitalizeName(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
 function fmtNumber(n) {
