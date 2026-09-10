@@ -148,11 +148,22 @@
     }
   }
 
+  // A curated boss can spawn with a trailing "+N" tier suffix baked right
+  // into its own EQ name (e.g. "Grandmaster R'tal +4") that DJ's curated
+  // roster tracks by base name only — stripping it before matching is what
+  // makes a "+N" spawn still count as that boss instead of silently
+  // failing an exact-string match. See "I killed grandmaster r'tal...
+  // it didn't submit... I'm in a +4."
+  function stripTierSuffix(name) {
+    return name ? name.replace(/\s*\+\d+\s*$/, "") : name;
+  }
+
   // Gates the Submit prompt (item 4.3) — only a curated, leaderboard-eligible
   // boss should ever trigger it, never a trash mob. Unknown-yet (fetch still
   // in flight, or failed) errs toward NOT showing the prompt.
   function isKnownBoss(mobName) {
-    return !!(knownBossNames && mobName && knownBossNames.has(mobName));
+    if (!knownBossNames || !mobName) return false;
+    return knownBossNames.has(mobName) || knownBossNames.has(stripTierSuffix(mobName));
   }
 
   var state = makeState(null);
@@ -251,16 +262,45 @@
     miniPetRow: document.getElementById("mini-pet-row"),
     miniPetName: document.getElementById("mini-pet-name"),
     miniPetDps: document.getElementById("mini-pet-dps"),
+    miniPartyList: document.getElementById("mini-party-list"),
     watchBadge: document.getElementById("watch-badge"),
     watchMenuBtn: document.getElementById("watch-menu-btn"),
     watchMiniBtn: document.getElementById("watch-mini-btn"),
     watchBarsBtn: document.getElementById("watch-bars-btn"),
+    watchPetsBtn: document.getElementById("watch-pets-btn"),
     watchDpsNum: document.getElementById("watch-dps-num"),
+    watchPet: document.getElementById("watch-pet"),
     watchTimer: document.getElementById("watch-timer"),
     updateBanner: document.getElementById("update-banner"),
     updateBannerText: document.getElementById("update-banner-text"),
-    updateBannerDismiss: document.getElementById("update-banner-dismiss")
+    updateBannerDismiss: document.getElementById("update-banner-dismiss"),
+    iconTooltip: document.getElementById("icon-tooltip")
   };
+
+  // Instant floating label for any [data-tooltip] element — native title=""
+  // tooltips are unreliable on this frameless/transparent window, so this
+  // shows on hover with no OS delay instead. Positions below the element,
+  // flipping above if that would run off the bottom of the screen.
+  function wireIconTooltips() {
+    var tip = els.iconTooltip;
+    if (!tip) return;
+    document.querySelectorAll("[data-tooltip]").forEach(function (el) {
+      el.addEventListener("mouseenter", function () {
+        var r = el.getBoundingClientRect();
+        tip.textContent = el.getAttribute("data-tooltip");
+        tip.hidden = false;
+        var tipRect = tip.getBoundingClientRect();
+        var left = Math.min(Math.max(4, r.left + r.width / 2 - tipRect.width / 2), window.innerWidth - tipRect.width - 4);
+        var below = r.bottom + 6;
+        var top = (below + tipRect.height > window.innerHeight) ? (r.top - tipRect.height - 6) : below;
+        tip.style.left = left + "px";
+        tip.style.top = top + "px";
+      });
+      el.addEventListener("mouseleave", function () { tip.hidden = true; });
+      el.addEventListener("mousedown", function () { tip.hidden = true; });
+    });
+  }
+  wireIconTooltips();
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -365,6 +405,7 @@
 
   function applySettings(s) {
     settings = s;
+    s = Appearance.resolve(s, s.displayStyle === "circle" ? "circle" : miniMode ? "mini" : "bars");
     document.documentElement.setAttribute("data-theme", THEME_NAMES.indexOf(s.theme) !== -1 ? s.theme : "blue");
     // Text/icon/timer size are three fully independent scale variables now
     // (Sept 7 — "adjusting the bar text size seemingly is just zooming in
@@ -376,9 +417,12 @@
     document.documentElement.style.setProperty("--icon-scale", String(s.iconScale || 1));
     document.documentElement.style.setProperty("--timer-text-scale", String(s.timerTextScale || 1));
     // Background-only opacity — see the long comment on --panel-alpha in
-    // style.css. Unitless so it plugs into the bar-row fill's calc().
+    // style.css. Genuinely background-only now: the bar fills used to
+    // multiply their own tint by this and washed out to grey at a low
+    // setting (see .bar-row .fill), which Settings' copy never promised.
     document.documentElement.style.setProperty("--panel-alpha", String(s.opacity));
     document.documentElement.style.setProperty("--bar-height-mult", String(s.barHeight || 1));
+    document.documentElement.style.setProperty("--idle-ui-opacity", String(s.fadeIdleOpacity != null ? s.fadeIdleOpacity : 0.15));
     document.documentElement.style.setProperty("--font-family", FONT_STACKS[s.fontFamily] || FONT_STACKS.fantasy);
     // An explicit background color always wins over the theme's own — see
     // the "Reset to default colors" button and the theme-swatch click
@@ -454,7 +498,7 @@
     // Circle size BEFORE display style, so that if this save is what's
     // actually turning Circle on, the window opens at the right size the
     // first time instead of at the old scale for one frame.
-    applyCircleScale(s.circleScale || 1);
+    applyCircleScale(Appearance.resolve(settings, "circle").circleScale);
     // Bars vs. Circle (item 8) — only ever changes from a Settings save now,
     // never a header-icon click; see applyDisplayStyle() further down, which
     // no-ops if this isn't actually a change from what's already applied.
@@ -684,7 +728,8 @@
   // is live / nothing has happened yet). Per item 4.3, this whole row of
   // UI should only ever appear after a REAL leaderboard-eligible boss kill
   // — not after every trash mob you happen to stop fighting.
-  function updateSubmitUI(finishedEnc) {
+  var visitCompletedKills = createCompletedKillQueue();
+  function updateSubmitUI(finishedEnc, displayOnly) {
     var eligible = !!(finishedEnc && finishedEnc.mobKilled && isKnownBoss(finishedEnc.mobName));
     // The in-window submit-row/auto-submit-line are gone (Sept 7) — the
     // small submit-popup window (see requestSubmitFor() below) is now the
@@ -700,8 +745,9 @@
     }
     // The first-run toggle row only ever shows until you've picked once —
     // see item 2. After that, Settings > Auto-submit is the only control.
-    els.autoSubmitToggles.hidden = !!settings.autoSubmitChosen;
-    if (settings.autoSubmitMode === "off") return;
+    els.autoSubmitToggles.hidden = true;
+    if (displayOnly) return;
+    if (!FirstRunPolicy.permitsSubmission(settings)) return;
     // updateSubmitUI() fires on every render tick while this stays the most
     // recently finished encounter — only actually ask/auto-submit once per
     // kill, keyed on its unique startTime.
@@ -718,7 +764,16 @@
     if (!characterName || !realm) return; // no log source identified yet — nothing to attribute this to
     var stats = EQP.computeStats(finishedEnc);
     var youRow = (stats.rows || []).find(function (r) { return r.name === "You"; });
-    window.dyrelog.requestSubmit({
+    var rawText = rawTextForEncounter(finishedEnc);
+    // If this fight was already being streamed live (see maybeStreamLiveFight()
+    // below), finish that SAME submission instead of starting a new one — only
+    // the unsent tail of the log goes up now. This is what satisfies the
+    // server's checkStreamingPattern() check (worker/src/anticheat.js): a
+    // submission that arrived as one lump batch at kill time was flagging
+    // every real fight lasting 20+ seconds.
+    var stream = liveStreams[finishedEnc.startTime];
+    delete liveStreams[finishedEnc.startTime];
+    var payload = {
       mode: mode,
       characterName: characterName,
       realm: realm,
@@ -727,12 +782,52 @@
       dps: youRow ? youRow.dps : 0,
       damage: youRow ? youRow.damage : 0,
       difficulty: finishedEnc.difficultyKnown ? finishedEnc.difficulty : null,
-      rawText: rawTextForEncounter(finishedEnc),
       // Lets main.js write the resulting submissionId back onto this exact
       // local history entry once the submit succeeds — see recordSubmission()
       // there and the website deep-link button in analysis.js.
       startTime: finishedEnc.startTime
-    });
+    };
+    if (stream && stream.submissionId) {
+      payload.existingSubmissionId = stream.submissionId;
+      payload.finalChunk = rawText.slice(stream.sentLength);
+    } else {
+      // Never got a live stream going (too short, or the fight ended before
+      // the /api/streams start call resolved) — same one-shot path as before.
+      payload.rawText = rawText;
+    }
+    window.dyrelog.requestSubmit(payload);
+  }
+
+  // ---- live streaming (Sept 7) -------------------------------------------
+  // Uploads a curated boss fight's raw log lines to the server AS IT
+  // HAPPENS, once per render tick, instead of waiting for the kill and
+  // sending the whole thing as one lump batch — see requestSubmitFor()
+  // above for how the fight is finalized once it ends. Only starts once a
+  // fight is already recognizable as a curated boss (isKnownBoss()) and the
+  // user is logged in; a trash pull is never streamed.
+  var liveStreams = {}; // startTime -> { submissionId, sentLength, starting }
+  var STREAM_MIN_MS_BEFORE_START = 5000; // skip instant-kill trash before bothering to open a stream
+  function maybeStreamLiveFight(enc) {
+    if (!FirstRunPolicy.permitsSubmission(settings)) return;
+    if (!characterName || !realm) return;
+    if (!enc || !isKnownBoss(enc.mobName)) return;
+    if ((enc.endTime - enc.startTime) < STREAM_MIN_MS_BEFORE_START) return;
+    var stream = liveStreams[enc.startTime];
+    if (!stream) stream = liveStreams[enc.startTime] = { submissionId: null, sentLength: 0, starting: false };
+    if (!stream.submissionId) {
+      if (stream.starting) return; // start call already in flight
+      stream.starting = true;
+      window.dyrelog.startLiveStream({ characterName: characterName, realm: realm, soloMode: false }).then(function (res) {
+        stream.starting = false;
+        if (res && res.ok) stream.submissionId = res.submissionId;
+      });
+      return;
+    }
+    var fullText = rawTextForEncounter(enc);
+    if (fullText.length <= stream.sentLength) return; // nothing new since the last tick
+    var chunk = fullText.slice(stream.sentLength);
+    stream.sentLength = fullText.length;
+    window.dyrelog.pushLiveBatch(stream.submissionId, chunk);
   }
 
   // Every finished encounter that belongs to the SAME continuous combat
@@ -795,7 +890,7 @@
     var primary = byMob[0];
     var partyCount = (stats.rows || []).filter(function (r) { return r.name !== "You"; }).length;
     return primary.name +
-      (primary.generation > 1 ? " (" + primary.generation + ")" : "") +
+      (primary.generation > 1 ? " (spawn " + primary.generation + ")" : "") +
       (partyCount > 0 ? " +" + partyCount : "");
   }
 
@@ -878,12 +973,16 @@
     // fight that just ended," and resurfacing it for something already
     // decided on (or a much older kill) would just be confusing.
     updateSubmitUI(null);
-    updateMiniBar(self.dps, self.damage, self.pet);
-    updateWatchBadge(self.dps, els.fightTimer.textContent);
+    updateMiniBar(self.dps, self.damage, self.pet, stats.rows);
+    updateWatchBadge(self.dps, els.fightTimer.textContent, self.pet);
   }
 
   function render() {
     EQP.checkTimeout(state, Date.now());
+    if (knownBossNames && characterName && realm) {
+      visitCompletedKills(state.encounters, function (enc) { updateSubmitUI(enc); });
+    }
+    if (state.current) maybeStreamLiveFight(state.current);
     var now = Date.now();
 
     // Raw data straight through to Analysis — it has its own copy of EQP
@@ -933,8 +1032,8 @@
       lastRenderedRows = stats.rows;
       renderBarList(stats.rows);
       updateSubmitUI(null);
-      updateMiniBar(self.dps, self.damage, self.pet);
-      updateWatchBadge(self.dps, els.fightTimer.textContent);
+      updateMiniBar(self.dps, self.damage, self.pet, stats.rows);
+      updateWatchBadge(self.dps, els.fightTimer.textContent, self.pet);
     } else if (state.encounters.length) {
       // No live fight right now, but don't treat a brief natural gap
       // between one kill and the next target's first hit as "combat
@@ -961,9 +1060,9 @@
       // Submission is still gated on the specific individual kill (a
       // curated boss, not the session average) — see updateSubmitUI()'s
       // own comment, so this stays `last`, not the merged session.
-      updateSubmitUI(last);
-      updateMiniBar(lastSelf.dps, lastSelf.damage, lastSelf.pet);
-      updateWatchBadge(lastSelf.dps, els.fightTimer.textContent);
+      updateSubmitUI(last, true);
+      updateMiniBar(lastSelf.dps, lastSelf.damage, lastSelf.pet, lastStats.rows);
+      updateWatchBadge(lastSelf.dps, els.fightTimer.textContent, lastSelf.pet);
     } else {
       combatSessionStart = null;
       els.mobDiff.textContent = "";
@@ -991,10 +1090,23 @@
   // numbers are now the SAME kind of value ("NNN dps", nothing else) and
   // actually line up as a column — see .mini-dps/.mini-pet-dps's shared
   // min-width in style.css.
-  function updateMiniBar(dps, damage, pet) {
+  function updateMiniBar(dps, damage, pet, rows) {
+    // Same split buildDisplayRows() does for Bars mode. `dps` arrives as the
+    // COMBINED self+pet total every time (selfSummary() reads the "You" row,
+    // whose dps already has pet damage folded in by eqp-core's ingest()), so
+    // showing it as-is made "Show pets as separate bars" look broken here:
+    // toggling it off removed the pet's sub-line without your own number
+    // moving, i.e. "merge isn't merging the dps, it's just removing the pet's
+    // dps." Splitting pets out has to subtract them from your own number;
+    // merging them back in is what makes it climb.
+    var showPets = !(settings && settings.showPets === false);
+    var petDps = pet && pet.dps > 0 ? pet.dps : 0;
+    var ownDps = showPets ? Math.max(0, dps - petDps) : dps;
+    if (!showPets) pet = null;
+    document.getElementById("mini-timer").textContent = els.fightTimer.textContent || "0:00";
     els.miniTotal.textContent = fmtNum(damage) + " total dmg"; // flat number, not "4.5k" — item 7 of the newest list
     els.miniName.textContent = characterName || "Dyrelog";
-    els.miniDps.textContent = fmtNum(dps) + " dps";
+    els.miniDps.textContent = fmtNum(ownDps) + " dps";
     if (pet && pet.dps > 0) {
       els.miniPetRow.hidden = false;
       els.miniPetName.textContent = pet.name;
@@ -1002,6 +1114,13 @@
     } else {
       els.miniPetRow.hidden = true;
     }
+    var party = (rows || []).filter(function (r) { return r.name !== "You"; });
+    var maxDamage = party.reduce(function (max, r) { return Math.max(max, Number(r.damage) || 0); }, 0);
+    els.miniPartyList.innerHTML = party.map(function (r, i) {
+      var rank = Math.min(i + 1, 6), damage = Number(r.damage) || 0;
+      var fill = maxDamage ? Math.round(damage / maxDamage * 100) : 0;
+      return '<div class="mini-party-bar" style="--swatch:var(--rank' + rank + ');--fill:' + fill + '%"><span>' + esc(r.name) + '</span><b>' + fmtNum(r.dps) + ' dps</b><small>' + fmtNum(damage) + '</small></div>';
+    }).join('');
   }
 
   // Watch mode's own tiny circular badge (item 8 — "a theme that is a
@@ -1009,9 +1128,23 @@
   // just your own dps and the current fight's duration, nothing else, so
   // it only ever needs these two values regardless of which render()
   // branch is live right now.
-  function updateWatchBadge(dps, timerText) {
-    els.watchDpsNum.textContent = fmtNum(dps);
+  function updateWatchBadge(dps, timerText, pet) {
+    // Same self/pet split as updateMiniBar() above — merging the pet in has to
+    // move the badge's own number, otherwise the toggle just deletes the pet
+    // line. See that function's comment for why `dps` is always combined.
+    var showPets = !(settings && settings.showPets === false);
+    var petDps = pet && pet.dps > 0 ? pet.dps : 0;
+    var ownDps = showPets ? Math.max(0, dps - petDps) : dps;
+    els.watchDpsNum.textContent = fmtNum(ownDps);
     els.watchTimer.textContent = timerText || "0:00";
+    var showPet = showPets && petDps > 0;
+    els.watchPet.hidden = !showPet;
+    // Numbers only. The badge is ~132px across and the pet's name pushed the
+    // line into an ellipsis ("Dyremoon`s warder 78 ..." ) that told you
+    // nothing — "in circle mode the pet ui has text and numbers, we just want
+    // numbers." The row directly above it is already your own dps, so the
+    // second number reads as the pet's without needing to be labelled.
+    els.watchPet.textContent = showPet ? fmtNum(petDps) : "";
   }
 
   // ---- fade UI when idle -------------------------------------------------
@@ -1022,7 +1155,7 @@
   function scheduleIdleFade() {
     clearTimeout(idleTimer);
     document.body.classList.remove("idle-faded");
-    if (!settings || !settings.fadeIdleEnabled || miniMode || currentDisplayStyle === "circle") return;
+    if (!settings || !settings.fadeIdleEnabled) return;
     idleTimer = setTimeout(function () {
       document.body.classList.add("idle-faded");
     }, (settings.fadeIdleSeconds || 10) * 1000);
@@ -1116,6 +1249,7 @@
   function toggleMini() {
     miniMode = !miniMode;
     document.body.classList.toggle("mini", miniMode);
+    if (settings) applySettings(settings);
     scheduleIdleFade(); // re-evaluate now that miniMode changed
     if (miniMode) {
       window.dyrelog.getBounds().then(function (b) {
@@ -1134,7 +1268,17 @@
     }
   }
   document.getElementById("btn-mini").addEventListener("click", toggleMini);
-  document.getElementById("btn-restore").addEventListener("click", toggleMini);
+  // Mini's bars/restore control sits inside the mini-bar drag handle. Make
+  // the interaction explicit on pointerdown as well as click so Electron's
+  // frameless drag handling cannot swallow it before the click is generated.
+  document.getElementById("btn-restore").addEventListener("pointerdown", function (evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+  });
+  document.getElementById("btn-restore").addEventListener("click", function (evt) {
+    evt.stopPropagation();
+    toggleMini();
+  });
   document.getElementById("btn-mini-circle").addEventListener("click", function (evt) {
     evt.stopPropagation();
     switchMode("circle");
@@ -1144,6 +1288,20 @@
   document.getElementById("btn-mini-settings").addEventListener("click", function (evt) {
     evt.stopPropagation(); // don't also toggle mini mode via a bubbled drag/click on .mini-bar
     window.dyrelog.openSettings();
+  });
+  document.getElementById("btn-mini-pets").addEventListener("click", function (evt) {
+    evt.stopPropagation();
+    // Keyboard activation remains supported; mouse activation is handled by
+    // pointerup below because the parent is an Electron drag region.
+    if (evt.detail === 0) window.dyrelog.saveSettings({ showPets: !(settings.showPets !== false) }).then(applySettings);
+  });
+  document.getElementById("btn-mini-pets").addEventListener("pointerdown", function (evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+  });
+  document.getElementById("btn-mini-pets").addEventListener("pointerup", function (evt) {
+    evt.stopPropagation();
+    window.dyrelog.saveSettings({ showPets: !(settings.showPets !== false) }).then(applySettings);
   });
 
   // ---- display style (Settings > Display style: Bars / Circle) ------------
@@ -1235,6 +1393,11 @@
     window.dyrelog.saveSettings({ displayStyle: goingCircle ? "circle" : "bars" });
   }
   document.getElementById("btn-circle").addEventListener("click", function () { switchMode("circle"); });
+  function togglePets() {
+    window.dyrelog.saveSettings({ showPets: !(settings.showPets !== false) }).then(applySettings);
+  }
+  document.getElementById("btn-pets").addEventListener("click", togglePets);
+  wireBadgeIcon(els.watchPetsBtn, "pets", togglePets);
 
   // Three independent ways back out to a menu with Settings / Combat
   // Analysis / Leaderboards / Switch to Bars — see the comment on
@@ -1265,15 +1428,22 @@
   // A mousedown/mouseup with no real movement in between is a plain click,
   // same as before. angleKey indexes into settings.iconAngles; onActivate
   // is whatever the button used to do unconditionally.
+  // "pets" belongs in this list. wireBadgeIcon(els.watchPetsBtn, "pets", ...)
+  // below happily SAVED iconAngles.pets on every drag, but this only ever
+  // re-applied menu/mini/bars, so the pet/merge button silently snapped back
+  // to its CSS default (--btn-angle: 180deg) on the next launch — "rebooting
+  // the app isn't saving the merge icon position on the circle." It looked
+  // like it stuck until then only because the drag's own inline style was
+  // still on the element and nothing here cleared it.
   function applyIconAngles(angles) {
-    [["menu", els.watchMenuBtn], ["mini", els.watchMiniBtn], ["bars", els.watchBarsBtn]].forEach(function (pair) {
+    [["menu", els.watchMenuBtn], ["mini", els.watchMiniBtn], ["bars", els.watchBarsBtn], ["pets", els.watchPetsBtn]].forEach(function (pair) {
       var deg = angles[pair[0]];
       if (deg != null) pair[1].style.setProperty("--btn-angle", deg + "deg");
       else pair[1].style.removeProperty("--btn-angle"); // falls back to the CSS default for that button
     });
   }
   function wireBadgeIcon(btn, angleKey, onActivate) {
-    var dragging = false, moved = false, startX = 0, startY = 0, angle = 0;
+    var dragging = false, moved = false, suppressClick = false, startX = 0, startY = 0, angle = 0;
     // Both stops matter: mousedown's stopPropagation keeps the badge's own
     // drag region from swallowing the interaction; the click listener's
     // stopPropagation is what actually matters for a real click, since the
@@ -1285,10 +1455,18 @@
       evt.preventDefault(); // no native drag-ghost/text-selection while sliding this around
       dragging = true;
       moved = false;
+      suppressClick = false;
       startX = evt.clientX;
       startY = evt.clientY;
     });
-    btn.addEventListener("click", function (evt) { evt.stopPropagation(); });
+    btn.addEventListener("click", function (evt) {
+      evt.stopPropagation();
+      // Activate on the button's own click. Relying on document-level mouseup
+      // is flaky in frameless Electron windows because Chromium may route that
+      // event to the app-region drag handler instead of the renderer.
+      if (!suppressClick) onActivate();
+      suppressClick = false;
+    });
     document.addEventListener("mousemove", function (evt) {
       if (!dragging) return;
       if (!moved && (Math.abs(evt.clientX - startX) > 4 || Math.abs(evt.clientY - startY) > 4)) moved = true;
@@ -1303,11 +1481,10 @@
       if (!dragging) return;
       dragging = false;
       if (moved) {
+        suppressClick = true;
         var next = Object.assign({}, settings.iconAngles || {});
         next[angleKey] = Math.round(angle);
         window.dyrelog.saveSettings({ iconAngles: next }).then(applySettings);
-      } else {
-        onActivate();
       }
     });
   }

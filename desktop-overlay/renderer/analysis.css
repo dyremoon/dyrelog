@@ -277,7 +277,13 @@ table tbody tr:hover { background: var(--bg-card); }
    numbers. viewBox + preserveAspectRatio="none" is what lets .dps-chart's
    own width:100%/height:150px stretch the drawing to fit without any JS
    resize-observer wiring. */
-.dps-chart-wrap { margin: 2px 0 4px; position: relative; }
+.dps-chart-wrap { margin: 2px 0 4px; }
+/* This, not .dps-chart-wrap, is what the axis/peak-label/hover-tip percentage
+   positions below are computed against (see the big comment on it in
+   buildDpsChart()) — it has to be exactly the svg's own box, with nothing
+   else (like .dps-chart-legend) sharing it, or "97% down" stops meaning
+   the svg's own bottom edge. */
+.dps-chart-plot { position: relative; }
 .dps-chart { display: block; width: 100%; height: 150px; }
 .dps-grid { stroke: var(--hair); stroke-width: 1; }
 /* Axis numbers and the Peak label are plain HTML, positioned in % so they
@@ -331,7 +337,10 @@ table tbody tr:hover { background: var(--bg-card); }
    and dps at that point. Both start hidden ([hidden] wins via the
    stylesheet's own top-of-file rule) and are shown/positioned by
    wireDpsChartHover's mousemove listener in analysis.js. */
-.dps-hover-line { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; }
+/* Bumped from --ink-3/1px (Sept 7 — too faint to notice, "have a vertical
+   line indicating where we're currently observing") to --ink-2/1.5px, a
+   real step up in contrast against the chart background. */
+.dps-hover-line { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 3 3; }
 .dps-hover-tip {
   position: absolute;
   top: 6px;

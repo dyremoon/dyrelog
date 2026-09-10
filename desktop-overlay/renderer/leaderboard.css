@@ -12,6 +12,20 @@
   flex-direction: column;
   gap: 20px;
 }
+
+#personal-list { overflow-x: auto; }
+#fight-body { overflow: auto; padding: 18px 20px; }
+#fight-body[hidden] { display: none; }
+#board-rows { overflow-x: auto; }
+.lb-picker-row { flex-wrap: wrap; }
+.difficulty-checks { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; padding: 6px 10px 10px; border: 1px solid var(--hair); border-radius: 7px; }
+.difficulty-checks legend { padding: 0 4px; color: var(--ink-2); font-size: 12.5px; }
+.difficulty-checks label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.difficulty-checks input { accent-color: var(--accent); margin: 0; }
+.difficulty-checks input:checked { accent-color: var(--accent-2, var(--accent)); }
+.table-sort { border: 0; background: transparent; color: inherit; font: inherit; padding: 0; cursor: pointer; }
+.table-sort:hover { color: var(--accent); }
+#personal-list th, #personal-list td { white-space: nowrap; }
 #lb-body::-webkit-scrollbar { width: 9px; }
 #lb-body::-webkit-scrollbar-track { background: transparent; }
 #lb-body::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 999px; border: 2px solid var(--bg); background-clip: padding-box; }
@@ -57,3 +71,24 @@
 
 .boss-detail-heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 4px; font-size: 15px; }
 .boss-detail-meta { color: var(--ink-2); font-size: 12px; margin-bottom: 12px; }
+
+/* "My Kills" row action — jumps to that boss on the Public Leaderboards
+   tab. Plain text-link styling, no button chrome, to stay small in a
+   dense table row. */
+.view-lb-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--accent); font-size: 12px; text-decoration: underline;
+  white-space: nowrap;
+}
+.view-lb-link:hover { color: var(--ink); }
+
+/* "My Kills" boss name — always links to that boss's public leaderboard
+   (regardless of whether THIS particular kill made it there), separate
+   from .view-lb-link above which only shows once this exact kill did. */
+.boss-name-link { color: var(--ink); text-decoration: underline; cursor: pointer; }
+.boss-name-link:hover { color: var(--accent); }
+
+/* Item 5 — "inside of the Leaderboards overlay, I want a link to
+   'submission settings'." Groups it with the existing "Open full website"
+   button so the header keeps its one flex row instead of wrapping. */
+.header-actions { display: flex; align-items: center; gap: 8px; }

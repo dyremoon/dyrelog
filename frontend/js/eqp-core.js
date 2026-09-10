@@ -212,22 +212,33 @@
           raw: raw
         };
       }
-      // Damage being dealt TO a mob/NPC — figure out who cast it so it
-      // lands under the right combatant (You, your pet, or a groupmate)
-      // instead of a catch-all. Two cases give us a real name: "from
-      // your X" -> you; "from <name>'s X" (a pet's own proc, or a
-      // groupmate's named proc) -> that name. A bare spell name with no
-      // stated owner ("...from Envenomed Breath.") is genuinely
-      // ambiguous — it's always been the player's own proc in solo
-      // testing, but in a group it could just as easily be a groupmate's
-      // unnamed proc, and guessing "You" would silently steal credit for
-      // someone else's damage. So an unnamed case falls through to the
-      // same "nonmelee" path plain unattributed DoTs already use below,
-      // which respects the Solo mode checkbox instead of assuming.
-      var attribution = mm[3];
+      // Figure out who cast it so this lands under the right combatant
+      // (You, your pet, a groupmate, or a mob) via the SAME hit pipeline
+      // RE_MELEE uses (considerMobIdentity/knownPlayerNames etc.), instead
+      // of a separate "nonmelee, unattributed" guess — this is what was
+      // silently mis-tagging a groupmate as a mob (see Sept 8's Stoten fix)
+      // and skewing pet-owner DPS on Unnamed DoT ticks, because that guess
+      // treated any target here that wasn't "You" as automatically a mob.
+      // Three ways the log names a caster: "from your X" -> you; "from
+      // <name>'s X" (a pet's or groupmate's own proc) -> that name; "from
+      // <spell> by <name>" (the common DoT-tick/nuke phrasing, e.g. "has
+      // taken 20 damage from Dooming Darkness by King Tranix.") -> that
+      // name, whichever side of the fight it's actually on — checked
+      // against a real 274k-line DJ log and every "damage from" line names
+      // its caster one of these three ways, so a bare ownerless spell name
+      // essentially never happens; the "nonmelee" fallback below stays only
+      // as a last resort for a line that somehow still matches none of the
+      // three. A trailing "(Critical)"/etc tag (only reachable via the "by
+      // <name>" phrasing) is stripped off and kept as the hit's modifier so
+      // these crits count, same as a normal melee hit's.
+      var tagMatch = /^(.*?)\s*\(([^)]*)\)\s*$/.exec(mm[3]);
+      var attribution = (tagMatch ? tagMatch[1] : mm[3]).replace(/\.\s*$/, "");
+      var criticalTag = tagMatch ? tagMatch[2] : null;
       var possessive = /^(.+?)'s\s+/.exec(attribution);
-      if (/^your\b/i.test(attribution) || possessive) {
-        var src2 = /^your\b/i.test(attribution) ? "You" : canon(possessive[1]);
+      var byClause = /^(.+?)\s+by\s+(.+)$/i.exec(attribution);
+      if (/^your\b/i.test(attribution) || possessive || byClause) {
+        var src2 = /^your\b/i.test(attribution) ? "You"
+          : possessive ? canon(possessive[1]) : canon(byClause[2]);
         return {
           time: time, type: "hit",
           source: src2, target: tgt2,
@@ -235,7 +246,7 @@
           nonMelee: true,
           damageType: null,
           viaSpell: attribution,
-          modifier: null,
+          modifier: criticalTag,
           selfInvolved: src2 === "You",
           raw: raw
         };
@@ -325,6 +336,12 @@
       gapMs: (opts.gapSeconds || 9) * 1000,
       maxUnmatched: opts.maxUnmatched || 40,
       knownBossNames: knownBossNames,
+      // Names confirmed as PLAYERS (dealt damage to an already-confirmed
+      // mob at some point) — see the nonmelee branch in ingest() below.
+      // "<Name> has taken N points of non-melee damage." is the same
+      // sentence shape whether <Name> is a mob or a groupmate eating a
+      // DoT tick. See "Stoten was a spawn... how is he in Mobs fought."
+      knownPlayerNames: new Set(),
       // The submitting character's real name (e.g. "Dyremoon"), used only
       // to fold that player's own pet lines onto "You" — see
       // resolveCombatant(). Optional; without it, a pet still folds onto
@@ -458,6 +475,9 @@
     if (m) return m[1];
     var m2 = /^.+?'s\s+(.+)$/.exec(ev.viaSpell);
     if (m2) return m2[1];
+    // "Envenomed Bolt VI by Stoten" -> "Envenomed Bolt VI" (the "by <name>" case above).
+    var m3 = /^(.+?)\s+by\s+.+$/i.exec(ev.viaSpell);
+    if (m3) return m3[1];
     return ev.viaSpell;
   }
 
@@ -612,6 +632,21 @@
   // the second is still confirmed into enc.mobs like any other add (its
   // damage now counts toward the encounter total — see "Add damage" —
   // it just never becomes the thing the fight is named/submitted as).
+  // A curated boss can spawn with a trailing "+N" tier suffix baked right
+  // into its own EQ name (e.g. "Grandmaster R'tal +4") that a curated
+  // roster typically tracks by base name only — stripping it before
+  // matching is what makes a "+N" spawn still count as that boss instead
+  // of silently failing an exact-string match and never being promoted to
+  // the encounter's primary identity at all. See "I killed grandmaster
+  // r'tal... it didn't submit... I'm in a +4."
+  function stripTierSuffix(name) {
+    return name ? name.replace(/\s*\+\d+\s*$/, "") : name;
+  }
+  function isKnownBossName(state, name) {
+    if (!state.knownBossNames || !name) return false;
+    return state.knownBossNames.has(name) || state.knownBossNames.has(stripTierSuffix(name));
+  }
+
   function considerMobIdentity(state, enc, name) {
     if (!name) return;
     if (!enc.mobs[name]) {
@@ -630,8 +665,8 @@
       enc.mobName = name;
       return;
     }
-    var nameIsBoss = state.knownBossNames && state.knownBossNames.has(name);
-    var currentIsBoss = state.knownBossNames && state.knownBossNames.has(enc.mobName);
+    var nameIsBoss = isKnownBossName(state, name);
+    var currentIsBoss = isKnownBossName(state, enc.mobName);
     if (nameIsBoss && !currentIsBoss) {
       var bossRec = enc.mobs[name]; // freshly created above (or already tracked, if seen before) — kept as-is
       // Every OTHER mob getting wiped below is having its data discarded
@@ -747,6 +782,10 @@
 
         if (dealtToMob && !dealtByMob) {
           var resolvedSource = resolvedSourceForIdentity;
+          // Dealt real damage to a confirmed mob => definitely a player
+          // (or their pet, folded), never a mob itself.
+          state.knownPlayerNames.add(resolvedSource);
+          state.knownPlayerNames.add(ev.source);
           var c = combatant(enc, resolvedSource);
           c.damage += ev.amount;
           c.hits += 1;
@@ -773,16 +812,20 @@
           }
           // Only a hit that actually NAMES a spell/ability tells us
           // anything about who owns a DoT — a plain melee swing doesn't,
-          // so it never overwrites this. Originally this checked
-          // ev.nonMelee, but that flag is only true for the literal
-          // "non-melee" damage-type string — a typed proc that still
-          // names its caster ("...for 30 points of poison damage by
-          // Blood Draw Strike.") has ev.nonMelee === false yet clearly
-          // does name someone via ev.viaSpell, so it was being missed and
-          // silently understating who a following unnamed tick should be
-          // attributed to. See lastSpellCaster's comment in
-          // blankEncounter() and the nonmelee branch below.
-          if (ev.viaSpell) enc.lastSpellCaster = resolvedSource;
+          // so it never overwrites this. Needs EITHER ev.nonMelee (a plain
+          // nuke named as the sentence's own subject, "Fizmo hits X for N
+          // points of non-melee damage.") OR ev.viaSpell (a typed proc that
+          // names itself via a trailing "by <Spell>" clause) — checking
+          // only ev.viaSpell (an earlier fix here) silently stopped
+          // tracking every ordinary named nuke, which is why unnamed DoT
+          // ticks kept landing on "Unattributed" or a stale prior caster
+          // ("we are still seeing unattributed dps"). Stores the RAW
+          // (pre-fold) source, not resolvedSource — see the nonmelee
+          // branch below, which needs to know if this was specifically a
+          // PET so an unnamed tick that's actually the pet's own DoT still
+          // lands in the pet's own sub-breakdown, not the owner's ("could
+          // the unnamed dot tick be my pet's damage?").
+          if (ev.nonMelee || ev.viaSpell) enc.lastSpellCaster = ev.source;
           // Per-mob breakdown — which SPECIFIC confirmed mob this hit
           // landed on, so Analysis can show dps per mob even though the
           // combined totals above no longer require it to be enc.mobName.
@@ -811,6 +854,11 @@
           a2.hits += 1;
           enc.totalTaken += ev.amount;
           addBucket(enc.inBuckets, ev.time, ev.amount);
+        } else if (state.knownPlayerNames.has(ev.target)) {
+          // A DoT/proc landing on a GROUPMATE, not you and not a mob — see
+          // state.knownPlayerNames' own comment above. Nothing useful to
+          // attribute this to (v1 only tracks damage taken by you) — drop
+          // it, don't confirm a groupmate as hostile.
         } else {
           considerMobIdentity(state, enc, ev.target);
           if (enc.mobs[ev.target]) {
@@ -822,7 +870,20 @@
             // Solo mode still wins outright (nothing to guess when you're
             // the only possible source), and a tick before anyone's first
             // named spell hit still has no better answer than Unattributed.
-            var who = state.soloMode ? "You" : (enc.lastSpellCaster || "Unattributed");
+            // rawWho is PRE-fold (may be a pet's own raw name); who is the
+            // top-level combatant it folds onto — same split the hit-event
+            // branch above uses, so a pet's own DoT tick still lands in the
+            // pet's own sub-breakdown, not silently inflating its owner.
+            var rawWho = state.soloMode ? "You" : (enc.lastSpellCaster || null);
+            var who = rawWho ? resolveCombatant(state, rawWho) : "Unattributed";
+            // Once the resolved owner has an active pet, guessing which of
+            // them an UNNAMED tick belongs to just skews their dps — fall
+            // back to Unattributed instead. See "remove Unnamed DoT tick
+            // from people who have pets... creating skewed dps."
+            if (enc.combatants[who] && enc.combatants[who].pets && Object.keys(enc.combatants[who].pets).length) {
+              who = "Unattributed";
+              rawWho = null;
+            }
             var c2 = combatant(enc, who);
             c2.damage += ev.amount;
             c2.hits += 1;
@@ -833,7 +894,15 @@
             // this — bucketed generically rather than left out of the
             // abilities breakdown entirely (which would make its sum fall
             // short of this combatant's selfDamage in the Analysis window).
-            tallyAbility(c2.abilities, "Unnamed DoT tick", ev.amount, false);
+            if (rawWho && rawWho !== who) {
+              if (!c2.pets[rawWho]) c2.pets[rawWho] = { name: rawWho, damage: 0, hits: 0, crits: 0, abilities: {} };
+              var petTick = c2.pets[rawWho];
+              petTick.damage += ev.amount;
+              petTick.hits += 1;
+              tallyAbility(petTick.abilities, "Unnamed DoT tick", ev.amount, false);
+            } else {
+              tallyAbility(c2.abilities, "Unnamed DoT tick", ev.amount, false);
+            }
             tallyMobHit(enc.mobs[ev.target], who, ev.amount, false, ev.time);
           }
           // else: a DoT tick landing on a mob that's never been confirmed

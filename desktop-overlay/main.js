@@ -22,6 +22,12 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage, session, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const { watchGameForeground } = require("./game-window-policy.cjs");
+let gameForeground = false;
+let stopForegroundWatch = null;
+const Appearance = require("./renderer/appearance.js");
+const FirstRunPolicy = require("./renderer/first-run-policy.js");
+const { createSubmissionSounds } = require("./submission-sounds.cjs");
 const { autoUpdater } = require("electron-updater");
 
 // Pin the app name explicitly, BEFORE any app.getPath("userData") call
@@ -61,7 +67,7 @@ const EQLOG_RE = /^eqlog_.+\.(txt|log)$/i;
 const BASE_WIDTH = 320;
 const BASE_HEIGHT = 420;
 const MINI_WIDTH = 190;
-const MINI_HEIGHT = 96; // tall enough for the total-damage line + pet sub-line — see index.html's #mini-total/#mini-pet-row
+const MINI_HEIGHT = 120; // room for icons, timer/total, player and pet rows
 const MIN_W = 170, MAX_W = 900, MIN_H = 56, MAX_H = 900;
 
 const DEFAULT_SETTINGS = {
@@ -99,6 +105,7 @@ const DEFAULT_SETTINGS = {
   circleScale: 1, // Settings > Circle size — multiplies the circle badge's diameter (and the window sized to fit it) — see watchWindowSizeFor()/applyCircleScale() in app.js
   fadeIdleEnabled: false, // fades header/icons/timer/labels after fadeIdleSeconds of no mouse activity — see item 3.11
   fadeIdleSeconds: 10,
+  fadeIdleOpacity: 0.15,
   // "Use class colors" — a convenience preset for your OWN bar (colorForRow()
   // in app.js prefers this over myBarColor when both a class is picked and
   // this is on), not a second/competing color system — see item 4.
@@ -143,11 +150,14 @@ const DEFAULT_SETTINGS = {
   iconColor: null,
   // Per-icon angle (degrees, clockwise from top) around the Circle badge's
   // rim — Sept 7, "give the player the option to click and drag the icons
-  // around the circle mode." Keyed "menu"/"mini"/"bars" for the gear/mini/
-  // bars buttons; an icon with no entry here uses its own built-in default
-  // position — see applySettings()/wireBadgeIcon() in app.js.
+  // around the circle mode." Keyed "menu"/"mini"/"bars"/"pets" for the gear/
+  // mini/bars/pet-toggle buttons; an icon with no entry here uses its own
+  // built-in default position — see applySettings()/wireBadgeIcon() in
+  // app.js. Every key wireBadgeIcon() is called with has to be listed in
+  // applyIconAngles() too, or its saved angle is written but never restored.
   iconAngles: {},
   autoSubmitMode: "ask", // "off" | "ask" | "auto"
+  firstRunSetupComplete: false,
   autoSubmitChosen: false, // first-run toggle row (see the fight-view) only ever shows until this flips true
   // A local cache of the curated leaderboard boss list (see
   // fetchKnownBosses() in app.js) — the app used to always wait on a
@@ -165,8 +175,10 @@ const DEFAULT_SETTINGS = {
 
 let win = null;
 let analysisWin = null;
+let pendingAnalysisFightKey = null;
 let leaderboardWin = null;
 let settingsWin = null;
+let setupWin = null;
 let authWin = null;
 let submitPopupWin = null;
 // The one submission currently staged behind the submit popup's Submit/
@@ -175,6 +187,11 @@ let submitPopupWin = null;
 // answered just replaces it (last kill wins), same as the popup's own
 // content does.
 let pendingSubmitPayload = null;
+// A kill that arrived while logged out — held here (not pendingSubmitPayload,
+// which dies with the popup window) so that finishing the Discord login flow
+// in openLoginWindow() can resume it, instead of the kill silently vanishing
+// once the "Log In" click closes the needs-login popup. See request-submit.
+let pendingLoginSubmitPayload = null;
 let tray = null;
 // Set right before we deliberately tear the whole app down (see win's
 // "close" handler below) so the SAME close event firing a second time
@@ -331,7 +348,7 @@ function clearConfig() {
 }
 
 function loadSettings() {
-  return loadJson(SETTINGS_PATH, DEFAULT_SETTINGS);
+  return Appearance.migrate(loadJson(SETTINGS_PATH, DEFAULT_SETTINGS));
 }
 
 function saveSettings(settings) {
@@ -360,13 +377,26 @@ function saveHistory(encounters) {
 // requestSubmitFor() now adds in app.js) so Combat Analysis' "Open full
 // website" button can deep-link straight to that exact log instead of just
 // the homepage — see the #btn-open-site handler in analysis.js.
-function recordSubmission(startTime, submissionId) {
+// status/visibility (Sept 7) — also written back so "My Kills" (leaderboard.js)
+// can tell a kill that's genuinely public+verified apart from one that's
+// still private or pending review, instead of showing "View on leaderboard"
+// for every submitted kill regardless of whether it actually reached the
+// public board.
+function recordSubmission(startTime, submissionId, status, visibility) {
   if (startTime == null || submissionId == null) return;
   var enc = persistedHistory.find(function (e) { return e.startTime === startTime; });
   if (!enc) return;
   enc.submissionId = submissionId;
+  enc.submissionStatus = status || null;
+  enc.submissionVisibility = visibility || null;
   saveHistory(persistedHistory);
-  if (analysisWin && !analysisWin.isDestroyed()) analysisWin.webContents.send("state-update", lastKnownState);
+  broadcastHistoryState();
+}
+
+function broadcastHistoryState() {
+  [analysisWin, leaderboardWin].forEach(function (w) {
+    if (w && !w.isDestroyed()) w.webContents.send("state-update", lastKnownState);
+  });
 }
 
 // Manual corner/edge resize (and dragging the window by its header) used
@@ -527,7 +557,7 @@ function createWindow() {
     frame: false,
     transparent: true,
     hasShadow: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     resizable: true,
     // Opacity is a CSS concern now (--panel-alpha on .card::before — see
     // style.css), not a BrowserWindow-level fade: the OS-level opacity
@@ -542,12 +572,13 @@ function createWindow() {
     // every window, not just this one.
     icon: path.join(__dirname, "renderer", "tray-icon.png"),
     webPreferences: {
+      autoplayPolicy: 'no-user-gesture-required',
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false
     }
   });
-  win.setAlwaysOnTop(true, "screen-saver"); // stays above fullscreen-bordered-window EQ, not just normal windows
+  win.setAlwaysOnTop(gameForeground, "floating");
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
 
   // Diagnostic aid (Sept 6) — F12 opens DevTools on this frameless/no-menu
@@ -607,7 +638,7 @@ function createWindow() {
     if (choice !== 1) return; // Cancel (or dismissed) — stay open
     appIsQuitting = true;
     if (tray) { tray.destroy(); tray = null; }
-    [settingsWin, analysisWin, leaderboardWin, authWin, submitPopupWin].forEach(function (w) {
+    [setupWin, settingsWin, analysisWin, leaderboardWin, authWin, submitPopupWin].forEach(function (w) {
       if (w && !w.isDestroyed()) w.close();
     });
     win.close(); // re-enters this same handler, but appIsQuitting is true now — falls through to a real close
@@ -642,7 +673,7 @@ function ensureTray() {
         click: function () {
           appIsQuitting = true;
           if (tray) { tray.destroy(); tray = null; }
-          [settingsWin, analysisWin, leaderboardWin, authWin, submitPopupWin].forEach(function (w) {
+          [setupWin, settingsWin, analysisWin, leaderboardWin, authWin, submitPopupWin].forEach(function (w) {
             if (w && !w.isDestroyed()) w.close();
           });
           if (win) win.close();
@@ -673,7 +704,7 @@ function createAnalysisWindow() {
     minWidth: 420,
     minHeight: 320,
     frame: true,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     title: "Dyrelog — Combat Analysis",
     backgroundColor: "#14120f",
     icon: path.join(__dirname, "renderer", "tray-icon.png"),
@@ -683,13 +714,19 @@ function createAnalysisWindow() {
       nodeIntegration: false
     }
   });
-  analysisWin.setAlwaysOnTop(true, "screen-saver");
+  analysisWin.setAlwaysOnTop(gameForeground, "floating");
   analysisWin.setMenuBarVisibility(false);
   analysisWin.loadFile(path.join(__dirname, "renderer", "analysis.html"));
   // Same F12 DevTools diagnostic as the main window (Sept 6) — this window
   // hides its menu bar too, so there was no way to see a real console error here.
   analysisWin.webContents.on("before-input-event", function (event, input) {
     if (input.type === "keyDown" && input.key === "F12") analysisWin.webContents.toggleDevTools();
+  });
+  analysisWin.webContents.on("did-finish-load", function () {
+    if (pendingAnalysisFightKey != null) {
+      analysisWin.webContents.send("fight-picked", pendingAnalysisFightKey);
+      pendingAnalysisFightKey = null;
+    }
   });
   analysisWin.on("resize", schedulePersistAnalysisBounds);
   analysisWin.on("moved", schedulePersistAnalysisBounds);
@@ -708,7 +745,7 @@ function createLeaderboardWindow() {
     minWidth: 380,
     minHeight: 320,
     frame: true,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     title: "Dyrelog — Leaderboards",
     backgroundColor: "#14120f",
     icon: path.join(__dirname, "renderer", "tray-icon.png"),
@@ -718,7 +755,7 @@ function createLeaderboardWindow() {
       nodeIntegration: false
     }
   });
-  leaderboardWin.setAlwaysOnTop(true, "screen-saver");
+  leaderboardWin.setAlwaysOnTop(gameForeground, "floating");
   leaderboardWin.setMenuBarVisibility(false);
   leaderboardWin.loadFile(path.join(__dirname, "renderer", "leaderboard.html"));
   // Same F12 DevTools diagnostic as the main/Analysis windows (Sept 7).
@@ -753,7 +790,7 @@ function saveAuth(auth) {
 // main-process-only, no reason for any web content to ever see it.
 function broadcastAuthUpdate(auth) {
   var publicState = auth ? { username: auth.username, avatarUrl: auth.avatarUrl } : null;
-  [win, settingsWin, analysisWin, leaderboardWin].forEach(function (w) {
+  [win, setupWin, settingsWin, analysisWin, leaderboardWin].forEach(function (w) {
     if (w && !w.isDestroyed()) w.webContents.send("auth-update", publicState);
   });
 }
@@ -789,7 +826,9 @@ function openLoginWindow() {
       width: 460,
       height: 640,
       title: "Log in with Discord",
-      alwaysOnTop: true,
+      parent: setupWin || undefined,
+      modal: !!setupWin,
+      alwaysOnTop: false,
       icon: path.join(__dirname, "renderer", "tray-icon.png"),
       webPreferences: { session: authSession, contextIsolation: true, nodeIntegration: false }
     });
@@ -827,6 +866,13 @@ function openLoginWindow() {
             saveAuth(auth);
             broadcastAuthUpdate(auth);
             finish({ ok: true, username: auth.username });
+            // Resume the kill that triggered this login, if any — see
+            // pendingLoginSubmitPayload above.
+            if (pendingLoginSubmitPayload) {
+              var resumePayload = pendingLoginSubmitPayload;
+              pendingLoginSubmitPayload = null;
+              beginSubmitFlow(resumePayload);
+            }
           }
         }
       } catch (err) {
@@ -848,6 +894,7 @@ function logout() {
   var auth = loadAuth();
   saveAuth(null);
   broadcastAuthUpdate(null);
+  pendingLoginSubmitPayload = null; // don't resubmit a stale kill on the next login
   // Best-effort — from this app's own perspective we're already logged out
   // the moment the local cookie is gone, regardless of whether this reaches
   // the worker.
@@ -875,7 +922,7 @@ function ensureSubmitPopupWindow() {
     frame: false,
     transparent: true,
     hasShadow: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     resizable: false,
     skipTaskbar: true,
     backgroundColor: "#00000000",
@@ -885,7 +932,7 @@ function ensureSubmitPopupWindow() {
       nodeIntegration: false
     }
   });
-  submitPopupWin.setAlwaysOnTop(true, "screen-saver");
+  submitPopupWin.setAlwaysOnTop(gameForeground, "floating");
   submitPopupWin.loadFile(path.join(__dirname, "renderer", "submit-popup.html"));
   submitPopupWin.webContents.on("before-input-event", function (event, input) {
     if (input.type === "keyDown" && input.key === "F12") submitPopupWin.webContents.toggleDevTools();
@@ -904,24 +951,36 @@ function sendToSubmitPopup(channel, data) {
 // one finished encounter (see streaming.js/submissions.js) — this ships the
 // raw log text and lets the server re-derive every number itself, same as
 // it would for the website; nothing client-computed is ever trusted.
+// payload.existingSubmissionId (Sept 7): when the fight was already being
+// streamed live (see start-live-stream/push-live-batch below), this skips
+// re-starting a brand-new /api/streams submission and just finalizes the
+// one already in progress, sending only payload.finalChunk (whatever raw
+// text hadn't been streamed yet) rather than the whole fight over again.
 async function performSubmit(payload) {
-  var startRes = await apiFetch("/api/streams", {
-    method: "POST",
-    body: JSON.stringify({ characterName: payload.characterName, realm: payload.realm, soloMode: !!payload.soloMode })
-  });
-  var startBody = await startRes.json().catch(function () { return {}; });
-  if (!startRes.ok) throw new Error(startBody.error || "Couldn't start the submission");
-
-  var batchRes = await apiFetch("/api/streams/" + startBody.submissionId + "/batches", {
-    method: "POST",
-    body: JSON.stringify({ chunk: payload.rawText })
-  });
-  if (!batchRes.ok) {
-    var batchBody = await batchRes.json().catch(function () { return {}; });
-    throw new Error(batchBody.error || "Couldn't upload the log");
+  var submissionId = payload.existingSubmissionId;
+  if (!submissionId) {
+    var startRes = await apiFetch("/api/streams", {
+      method: "POST",
+      body: JSON.stringify({ characterName: payload.characterName, realm: payload.realm, soloMode: !!payload.soloMode })
+    });
+    var startBody = await startRes.json().catch(function () { return {}; });
+    if (!startRes.ok) throw new Error(startBody.error || "Couldn't start the submission");
+    submissionId = startBody.submissionId;
   }
 
-  var finalizeRes = await apiFetch("/api/streams/" + startBody.submissionId + "/finalize", {
+  var chunk = payload.existingSubmissionId ? payload.finalChunk : payload.rawText;
+  if (chunk) {
+    var batchRes = await apiFetch("/api/streams/" + submissionId + "/batches", {
+      method: "POST",
+      body: JSON.stringify({ chunk: chunk })
+    });
+    if (!batchRes.ok) {
+      var batchBody = await batchRes.json().catch(function () { return {}; });
+      throw new Error(batchBody.error || "Couldn't upload the log");
+    }
+  }
+
+  var finalizeRes = await apiFetch("/api/streams/" + submissionId + "/finalize", {
     method: "POST",
     body: JSON.stringify(payload.difficulty ? { difficulty: payload.difficulty } : {})
   });
@@ -930,38 +989,105 @@ async function performSubmit(payload) {
   return finalizeBody;
 }
 
+// Live streaming (Sept 7) — start-live-stream opens the same /api/streams
+// submission performSubmit() would otherwise open at the very end, just
+// much earlier (while the fight is still going); push-live-batch uploads
+// each new slice of raw log text as app.js's maybeStreamLiveFight() notices
+// it, once per render tick. See streaming.js on the worker side — it
+// already supported real incremental batches, this is what actually uses
+// that instead of sending everything as one batch at the end.
+ipcMain.handle("start-live-stream", async function (evt, payload) {
+  if (!FirstRunPolicy.permitsSubmission(loadSettings())) return { ok: false, error: "submissions_disabled" };
+  if (!loadAuth()) return { ok: false, error: "not_logged_in" };
+  try {
+    var res = await apiFetch("/api/streams", {
+      method: "POST",
+      body: JSON.stringify({ characterName: payload.characterName, realm: payload.realm, soloMode: !!payload.soloMode })
+    });
+    var body = await res.json().catch(function () { return {}; });
+    if (!res.ok) return { ok: false, error: body.error || "Couldn't start streaming" };
+    return { ok: true, submissionId: body.submissionId };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
+ipcMain.handle("push-live-batch", async function (evt, submissionId, chunk) {
+  if (!chunk) return { ok: true };
+  try {
+    var res = await apiFetch("/api/streams/" + submissionId + "/batches", {
+      method: "POST",
+      body: JSON.stringify({ chunk: chunk })
+    });
+    if (!res.ok) {
+      var body = await res.json().catch(function () { return {}; });
+      return { ok: false, error: body.error || "Couldn't upload chunk" };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
 ipcMain.handle("login-with-discord", function () { return openLoginWindow(); });
 ipcMain.handle("logout", function () { logout(); return { ok: true }; });
+ipcMain.handle("get-submission-statuses", async function (_evt, ids) {
+  if (!Array.isArray(ids) || ids.length > 50 || ids.some(id => !Number.isSafeInteger(id) || id < 1)) {
+    return { ok: false };
+  }
+  var auth = loadAuth();
+  if (!auth) return { ok: false };
+  try {
+    var res = await apiFetch("/api/me/submissions/status", {
+      method: "POST", body: JSON.stringify({ submissionIds: ids }), signal: AbortSignal.timeout(10000)
+    });
+    var currentAuth = loadAuth();
+    if (!res.ok || !currentAuth || currentAuth.sessionCookie !== auth.sessionCookie) return { ok: false };
+    return { ok: true, submissions: (await res.json()).submissions };
+  } catch (_err) { return { ok: false }; }
+});
 ipcMain.handle("get-auth-state", function () {
   var auth = loadAuth();
   return auth ? { username: auth.username, avatarUrl: auth.avatarUrl } : null;
 });
 
-// Single entry point the mini-mode renderer calls for every eligible kill,
-// regardless of which display mode (bars/mini/circle) it's currently in —
-// app.js never calls this at all when autoSubmitMode is "off".
-ipcMain.handle("request-submit", function (evt, payload) {
-  if (!loadAuth()) {
-    pendingSubmitPayload = null;
-    sendToSubmitPopup("submit-popup:show", { needsLogin: true });
-    return { ok: false, error: "not_logged_in" };
-  }
-
+// Shared by request-submit below and by the login-resume path in
+// openLoginWindow() — either way we're now logged in and just need to
+// actually start (or stage) the submission for one finished encounter.
+function beginSubmitFlow(payload) {
   if (payload.mode === "auto") {
     sendToSubmitPopup("submit-popup:show", { pending: true, mobName: payload.mobName });
     performSubmit(payload).then(function (result) {
-      recordSubmission(payload.startTime, result.submissionId);
+      recordSubmission(payload.startTime, result.submissionId, result.status, result.visibility);
+      submissionSounds.notify(result);
       if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: true, status: result.status });
     }).catch(function (err) {
       if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: false, error: String((err && err.message) || err) });
     });
-    return { ok: true };
+    return;
   }
 
   // "ask" mode — stage the payload and wait for the popup's own Submit /
   // Discard click below.
   pendingSubmitPayload = payload;
   sendToSubmitPopup("submit-popup:show", { mobName: payload.mobName, dps: payload.dps, damage: payload.damage });
+}
+
+// Single entry point the mini-mode renderer calls for every eligible kill,
+// regardless of which display mode (bars/mini/circle) it's currently in —
+// app.js never calls this at all when autoSubmitMode is "off".
+ipcMain.handle("request-submit", function (evt, payload) {
+  if (!FirstRunPolicy.permitsSubmission(loadSettings())) return { ok: false, error: "submissions_disabled" };
+  if (!loadAuth()) {
+    // Hold onto this kill — see pendingLoginSubmitPayload — so it isn't lost
+    // once the needs-login popup closes; openLoginWindow() resumes it after
+    // a successful Discord login.
+    pendingLoginSubmitPayload = payload;
+    sendToSubmitPopup("submit-popup:show", { needsLogin: true });
+    return { ok: false, error: "not_logged_in" };
+  }
+
+  beginSubmitFlow(payload);
   return { ok: true };
 });
 
@@ -971,7 +1097,8 @@ ipcMain.on("submit-popup:confirm", function () {
   pendingSubmitPayload = null;
   if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:show", { pending: true, mobName: payload.mobName });
   performSubmit(payload).then(function (result) {
-    recordSubmission(payload.startTime, result.submissionId);
+    recordSubmission(payload.startTime, result.submissionId, result.status, result.visibility);
+      submissionSounds.notify(result);
     if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: true, status: result.status });
   }).catch(function (err) {
     if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: false, error: String((err && err.message) || err) });
@@ -980,6 +1107,7 @@ ipcMain.on("submit-popup:confirm", function () {
 
 ipcMain.on("submit-popup:discard", function () {
   pendingSubmitPayload = null;
+  pendingLoginSubmitPayload = null;
   if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.close();
 });
 
@@ -988,7 +1116,11 @@ ipcMain.on("submit-popup:discard", function () {
 // closable window is simpler than reinventing Done/Close semantics inside
 // a frameless card, and it means Settings can be open at the same time as
 // the mini-mode card without fighting it for space.
-function createSettingsWindow() {
+// initialTab (Sept 7, optional): which Settings tab to land on the moment
+// this actually opens the window — see openSettings() in preload.js. Has no
+// effect if Settings is already open (the toggle-close below still wins,
+// same as clicking the gear icon a second time always has).
+function createSettingsWindow(initialTab) {
   // Same open/close toggle as createAnalysisWindow() above.
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.close(); return; }
   var b = loadWindowBoundsFor("settings");
@@ -1008,7 +1140,7 @@ function createSettingsWindow() {
     minWidth: 480,
     minHeight: 460,
     frame: true,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     title: "Dyrelog Settings",
     // Matches settings.css's own --bg now (its own cool-graphite palette,
     // separate from the overlay's warm near-black default) — this is just
@@ -1023,9 +1155,12 @@ function createSettingsWindow() {
       nodeIntegration: false
     }
   });
-  settingsWin.setAlwaysOnTop(true, "screen-saver");
+  settingsWin.setAlwaysOnTop(gameForeground, "floating");
   settingsWin.setMenuBarVisibility(false);
-  settingsWin.loadFile(path.join(__dirname, "renderer", "settings.html"));
+  settingsWin.loadFile(
+    path.join(__dirname, "renderer", "settings.html"),
+    initialTab ? { search: "tab=" + encodeURIComponent(initialTab) } : undefined
+  );
   // Same F12 DevTools diagnostic as the main/Analysis windows (Sept 7) — the
   // new Account/login section is exactly the kind of thing worth being able
   // to actually debug here.
@@ -1037,13 +1172,50 @@ function createSettingsWindow() {
   settingsWin.on("closed", function () { settingsWin = null; });
 }
 
+function showFirstRunSetup() {
+  if (!FirstRunPolicy.needsSetup(loadSettings()) || setupWin) return;
+  setupWin = new BrowserWindow({
+    width: 560, height: 480, minWidth: 460, minHeight: 400,
+    title: 'Welcome to Dyrelog', parent: win, modal: true,
+    alwaysOnTop: gameForeground,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
+  });
+  setupWin.setMenuBarVisibility(false);
+  setupWin.loadFile(path.join(__dirname, 'renderer', 'setup.html'));
+  setupWin.on('closed', function() { setupWin = null; });
+}
+
+ipcMain.handle('complete-first-run', function(event, mode) {
+  if (!setupWin || setupWin.isDestroyed() || event.sender !== setupWin.webContents) return { ok: false, error: 'Setup is not open.' };
+  try {
+    applySettingsPartial(FirstRunPolicy.completion(mode, !!loadAuth()));
+    setupWin.close();
+    return { ok: true };
+  } catch (err) { return { ok: false, error: err.message }; }
+});
+
 app.whenReady().then(function () {
+  if (process.platform === 'win32') {
+    stopForegroundWatch = watchGameForeground({
+      appProcessId: process.pid,
+      onChange(active) {
+        gameForeground = active;
+        BrowserWindow.getAllWindows().forEach(window => {
+          if (!window.isDestroyed()) window.setAlwaysOnTop(active, 'floating');
+        });
+      },
+      onError(message) { console.error('EverQuest foreground detection:', message); }
+    });
+  }
   createWindow();
+  showFirstRunSetup();
   // Give the window a moment to actually appear before spending a network
   // request — a few seconds' delay here is invisible to the player either way.
   setTimeout(checkForUpdates, 5000);
   setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);
 });
+
+app.on('before-quit', function () { if (stopForegroundWatch) stopForegroundWatch(); });
 
 app.on("window-all-closed", function () {
   stopTailing();
@@ -1176,6 +1348,26 @@ ipcMain.handle("clear-source", function () {
   return true;
 });
 
+
+const submissionSounds = createSubmissionSounds({
+  userDir: app.getPath('userData'),
+  presetDir: path.join(__dirname, 'renderer', 'sounds'),
+  getSettings: loadSettings,
+  saveSettings: applySettingsPartial,
+  send: function(payload) { if (win && !win.isDestroyed()) win.webContents.send('submission-sound', payload); }
+});
+ipcMain.handle('get-submission-sounds', function() { return submissionSounds.list(); });
+ipcMain.handle('pick-submission-sound', async function() {
+  var picked = await dialog.showOpenDialog({ title: 'Choose submission sound', properties: ['openFile'], filters: [{ name: 'MP3 audio', extensions: ['mp3'] }] });
+  if (picked.canceled || !picked.filePaths.length) return { cancelled: true };
+  try { return { ok: true, settings: submissionSounds.importFile(picked.filePaths[0]) }; }
+  catch (err) { return { ok: false, error: err.message }; }
+});
+ipcMain.handle('preview-submission-sound', function() {
+  try { return { ok: true, audio: submissionSounds.audio() }; }
+  catch (err) { return { ok: false, error: err.message }; }
+});
+
 // ---- IPC: settings ----------------------------------------------------
 ipcMain.handle("get-settings", function () {
   return loadSettings();
@@ -1226,6 +1418,21 @@ function applySettingsPartial(partial) {
 
 ipcMain.handle("save-settings", function (evt, partial) {
   return applySettingsPartial(partial);
+});
+
+// Cursor coordinates come from Electron in desktop DIPs, including mixed-DPI monitors.
+let windowDrag = null;
+ipcMain.on('drag-window', function(event, phase) {
+  if (!win || win.isDestroyed() || event.sender !== win.webContents) return;
+  if (phase === 'start') {
+    windowDrag = { cursor: screen.getCursorScreenPoint(), bounds: win.getBounds() };
+  } else if (phase === 'move' && windowDrag) {
+    const cursor = screen.getCursorScreenPoint();
+    win.setPosition(windowDrag.bounds.x + cursor.x - windowDrag.cursor.x,
+      windowDrag.bounds.y + cursor.y - windowDrag.cursor.y);
+  } else if (phase === 'end') {
+    windowDrag = null;
+  }
 });
 
 // ---- IPC: window bounds (mini-mode toggle + manual corner/edge drag) ----
@@ -1317,8 +1524,13 @@ ipcMain.on("window-close", function () { if (win) win.close(); });
 
 // ---- IPC: secondary windows + state relay --------------------------------
 ipcMain.on("open-analysis", function () { createAnalysisWindow(); });
+ipcMain.on("open-analysis-fight", function (_event, key) {
+  pendingAnalysisFightKey = String(key || '');
+  if (!analysisWin || analysisWin.isDestroyed()) createAnalysisWindow();
+  else analysisWin.webContents.send("fight-picked", pendingAnalysisFightKey);
+});
 ipcMain.on("open-leaderboard", function () { createLeaderboardWindow(); });
-ipcMain.on("open-settings", function () { createSettingsWindow(); });
+ipcMain.on("open-settings", function (evt, tab) { createSettingsWindow(tab); });
 ipcMain.on("open-external", function (evt, url) {
   // Only ever Dyrelog's own hosts, its GitHub repo, and the fan-wiki
   // sources credited in Settings > About & Feedback — never an arbitrary
@@ -1365,7 +1577,7 @@ ipcMain.on("push-state", function (evt, data) {
   } else {
     lastKnownState = data;
   }
-  if (analysisWin && !analysisWin.isDestroyed()) analysisWin.webContents.send("state-update", lastKnownState);
+  broadcastHistoryState();
 });
 ipcMain.handle("get-state", function () {
   return lastKnownState;

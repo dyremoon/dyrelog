@@ -25,6 +25,7 @@
   var SITE_BASE = "https://dyrelog.pages.dev";
 
   var selectedKey = null; // the session's first member's startTime, as a string
+  window.dyrelog.onFightPicked(function (key) { selectedKey = String(key); render(); });
   var selectedMemberIndex = null; // null = combined session view; otherwise an index into session.members
   // "it also has an incoming tab, i like that" — "Outgoing" is everything
   // this window already showed (combatant table, healing, procs,
@@ -279,7 +280,7 @@
     var primary = byMob[0];
     var partyCount = (stats.rows || []).filter(function (r) { return r.name !== "You"; }).length;
     return primary.name +
-      (primary.generation > 1 ? " (" + primary.generation + ")" : "") +
+      (primary.generation > 1 ? " (spawn " + primary.generation + ")" : "") +
       (partyCount > 0 ? " +" + partyCount : "");
   }
 
@@ -455,9 +456,19 @@
     // renders the exact same numbers as expandable cards instead of a
     // table-plus-cards duplicate, with hits/crits folded into each card's
     // own header so nothing that used to be in the table is lost.
-    var canExpand = activeByMob.length <= 1;
+    // Always expandable now (Sept 7) — "I want to be able to click Stoten,
+    // Dyremoon, Vibarn, my warder, all separately to see their breakdown."
+    // Each combatant's own ability array (rows[i].abilities) is already an
+    // overall total for THAT COMBATANT, not scoped to any one target, so
+    // there was never a real reason this needed only one mob in view —
+    // that restriction only ever made sense for a genuinely different,
+    // still-unbuilt feature (splitting one combatant's damage out per
+    // TARGET when several were fought). See multiMobCaveat below for how
+    // that distinction gets called out to avoid implying a per-target
+    // split that isn't actually happening.
+    var canExpand = true;
     var deepDiveMobName = activeByMob.length === 1 ?
-      activeByMob[0].name + (activeByMob[0].generation > 1 ? " (" + activeByMob[0].generation + ")" : "") : null;
+      activeByMob[0].name + (activeByMob[0].generation > 1 ? " (spawn " + activeByMob[0].generation + ")" : "") : null;
     // "Create a toggle button to combine pets+pet owners into one
     // analysis" — sits in the section header regardless of which layout
     // (cards vs. plain table) renders below, since either one already
@@ -469,20 +480,13 @@
       '<button class="btn-toggle-sm' + (combinePets ? " active" : "") + '" id="btn-combine-pets" type="button" title="Only merges pets EQ names after their owner (like &quot;Owner`s warder&quot;) — a custom-named pet (e.g. a necro\'s skeleton) can\'t be identified as a pet and stays separate.">' +
         (combinePets ? "&#10003; Pets combined with owners" : "Combine pets with owners") +
       "</button>";
-    var combatantSectionHtml = canExpand
-      ? (
-          '<div class="section-label-row"><p class="section-label">Combatants' + (deepDiveMobName ? " against " + esc(deepDiveMobName) : "") + "</p>" + combineToggleHtml + "</div>" +
-          '<p class="muted" style="font-size:0.8rem; margin:-6px 0 10px;">Click a combatant for its full spell/ability breakdown.</p>' +
-          '<div class="combatants" id="combatants">' + rows.map(function (r, i) { return renderCombatantCard(r, i, viewKey, showPct); }).join("") + "</div>"
-        )
-      : (
-          '<div class="section-label-row"><p class="section-label">Combatants</p>' + combineToggleHtml + "</div>" +
-          "<table><thead><tr><th>Combatant</th><th class=\"num\">Damage</th><th class=\"num\">DPS</th>" +
-            (showPct ? '<th class="num" title="Share of this fight\'s total damage">% of total</th>' : "") +
-            '<th class="num">Hits</th><th class="num">Crits</th></tr></thead>' +
-          "<tbody>" + (rowsHtml || '<tr><td colspan="' + (showPct ? 6 : 5) + '" class="muted">No damage recorded.</td></tr>') + "</tbody></table>" +
-          '<p class="muted" style="font-size:0.8rem; margin-top:8px;">Per-ability breakdown isn\'t shown when more than one target was fought in this view — damage can\'t be reliably split by target at the ability level.</p>'
-        );
+    var multiMobCaveat = activeByMob.length > 1
+      ? '<p class="muted" style="font-size:0.8rem; margin:-6px 0 10px;">More than one target was fought in this view — click a combatant for its full spell/ability breakdown across all of them (not split out per target).</p>'
+      : '<p class="muted" style="font-size:0.8rem; margin:-6px 0 10px;">Click a combatant for its full spell/ability breakdown.</p>';
+    var combatantSectionHtml =
+      '<div class="section-label-row"><p class="section-label">Combatants' + (deepDiveMobName ? " against " + esc(deepDiveMobName) : "") + "</p>" + combineToggleHtml + "</div>" +
+      multiMobCaveat +
+      '<div class="combatants" id="combatants">' + rows.map(function (r, i) { return renderCombatantCard(r, i, viewKey, showPct); }).join("") + "</div>";
 
     var dpsChartSection = renderDpsChartSection(activeStats);
     // The active target pill already shows which mob is selected (its own
@@ -567,7 +571,7 @@
     var rowsHtml = byMob.map(function (m) {
       return (
         "<tr>" +
-          "<td>" + esc((m.name || "Unknown target") + (m.generation > 1 ? " (" + m.generation + ")" : "")) +
+          "<td>" + esc((m.name || "Unknown target") + (m.generation > 1 ? " (spawn " + m.generation + ")" : "")) +
             (m.mobKilled ? ' <span class="badge badge-good">killed</span>' : "") + "</td>" +
           '<td class="num">' + fmtDur(m.duration) + "</td>" +
           '<td class="num">' + m.dps.toFixed(1) + "</td>" +
@@ -687,17 +691,30 @@
       '<div class="dps-axis-label dps-axis-label-x dps-axis-label-x-end" style="left:' + pctX(W - padR) + '; top:' + pctY(H - 4) + ';">' + fmtDur(duration) + "</div>" +
       '<div class="dps-peak-label" style="left:' + pctX(peakLabelX) + '; top:' + pctY(peakAbove ? peakY - 8 : peakY + 16) + ';">Peak ' + fmtAbbrev(peakVal) + peakSuffix + "</div>";
 
+    // .dps-chart-plot is its own positioned box holding ONLY the svg plus
+    // the overlay/tooltip divs whose top/left are computed as a % of W/H
+    // above (pctX/pctY) — it has to be exactly the svg's own rendered box
+    // for those percentages to land correctly. Sept 7 bug: these used to
+    // be positioned straight inside .dps-chart-wrap, which is TALLER than
+    // the svg alone (it also holds .dps-chart-legend below), so "97% down"
+    // meant 97% of wrap+legend's combined height — pushing "0:00" and the
+    // Peak label down into the legend row instead of the svg's own bottom
+    // edge, which is exactly what read as "Your DPS" sitting on top of
+    // "0:00." Keeping the legend as a sibling OUTSIDE .dps-chart-plot,
+    // rather than inside it, is the actual fix.
     var html =
       '<div class="dps-chart-wrap">' +
-        '<svg class="dps-chart" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">' +
-          gridHtml +
-          (showIn && mode === "both" ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in" fill="none" />' : "") +
-          (mode === "in" ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in-solo" fill="none" />' : '<path d="' + pathFor(smoothOut) + '" class="dps-line-out" fill="none" />') +
-          '<line class="dps-hover-line" x1="0" y1="' + padT + '" x2="0" y2="' + (H - padB) + '" hidden />' +
-          '<circle cx="' + peakX.toFixed(1) + '" cy="' + peakY.toFixed(1) + '" r="3.5" class="dps-peak-dot' + (mode === "in" ? " dps-peak-dot-in" : "") + '" />' +
-        "</svg>" +
-        overlayHtml +
-        '<div class="dps-hover-tip" hidden></div>' +
+        '<div class="dps-chart-plot">' +
+          '<svg class="dps-chart" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">' +
+            gridHtml +
+            (showIn && mode === "both" ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in" fill="none" />' : "") +
+            (mode === "in" ? '<path d="' + pathFor(smoothIn) + '" class="dps-line-in-solo" fill="none" />' : '<path d="' + pathFor(smoothOut) + '" class="dps-line-out" fill="none" />') +
+            '<line class="dps-hover-line" x1="0" y1="' + padT + '" x2="0" y2="' + (H - padB) + '" hidden />' +
+            '<circle cx="' + peakX.toFixed(1) + '" cy="' + peakY.toFixed(1) + '" r="3.5" class="dps-peak-dot' + (mode === "in" ? " dps-peak-dot-in" : "") + '" />' +
+          "</svg>" +
+          overlayHtml +
+          '<div class="dps-hover-tip" hidden></div>' +
+        "</div>" +
         '<div class="dps-chart-legend">' +
           (mode === "in"
             ? '<span class="legend-item"><span class="legend-swatch in"></span>Incoming</span>'
@@ -723,12 +740,20 @@
       function showAt(clientX) {
         var rect = svg.getBoundingClientRect();
         if (!rect.width) return;
-        var rel = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        // clientX -> SVG-unit space (viewBox's 0..W maps 1:1 onto the
+        // element's real screen width thanks to preserveAspectRatio="none"),
+        // THEN normalize against the plot region [padL, W-padR] — not the
+        // full [0, W] box. The plotted line never reaches all the way to
+        // x=0 or x=W (that's what padL/padR are for), so normalizing
+        // against the full box was shifting the hover line to the right of
+        // the actual cursor for most of the chart's width.
+        var svgX = (clientX - rect.left) / rect.width * W;
+        var rel = Math.max(0, Math.min(1, (svgX - padL) / plotW));
         var idx = Math.round(rel * (n - 1));
         var x = xAt(idx);
         hoverLine.setAttribute("x1", x.toFixed(1));
         hoverLine.setAttribute("x2", x.toFixed(1));
-        hoverLine.hidden = false;
+        hoverLine.removeAttribute("hidden"); // attribute, not the .hidden property — an SVG element either way
         var outV = Math.round(smoothOut[idx]), inV = Math.round(smoothIn[idx]);
         var rows = mode === "in"
           ? '<div class="tip-row"><span class="tip-dot tip-dot-in"></span>Incoming <b>' + inV + " dps</b></div>"
@@ -741,7 +766,7 @@
         tip.style.left = Math.min(Math.max(x / W * 100, 14), 86).toFixed(2) + "%";
       }
       wrap.addEventListener("mousemove", function (evt) { showAt(evt.clientX); });
-      wrap.addEventListener("mouseleave", function () { hoverLine.hidden = true; tip.hidden = true; });
+      wrap.addEventListener("mouseleave", function () { hoverLine.setAttribute("hidden", ""); tip.hidden = true; });
     }
 
     return { html: html, wire: wire };
@@ -835,7 +860,7 @@
     var rowsHtml = byMob.map(function (m) {
       return (
         "<tr>" +
-          "<td>" + esc(m.name + (m.generation > 1 ? " (" + m.generation + ")" : "")) + "</td>" +
+          "<td>" + esc(m.name + (m.generation > 1 ? " (spawn " + m.generation + ")" : "")) + "</td>" +
           '<td class="num">' + fmtNum(m.totalTaken) + "</td>" +
           '<td class="num">' + m.takenDps.toFixed(1) + "</td>" +
           '<td class="num">' + (totalTaken > 0 ? (m.totalTaken / totalTaken * 100).toFixed(1) : "0.0") + "%</td>" +

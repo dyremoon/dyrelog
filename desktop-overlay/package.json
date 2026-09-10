@@ -1,13 +1,14 @@
 {
   "name": "dyrelog-desktop",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "description": "Dyrelog's always-on-top desktop overlay (Electron) — the mini-mode DPS meter from the README art spec.",
   "main": "main.js",
   "scripts": {
     "sync-eqp-core": "node scripts/sync-eqp-core.js",
-    "start": "npm run sync-eqp-core && electron .",
-    "dist": "npm run sync-eqp-core && electron-builder"
+    "start": "npm run sync-eqp-core && npm run sync-submission-sounds && electron .",
+    "dist": "npm run sync-eqp-core && npm run sync-submission-sounds && electron-builder",
+    "sync-submission-sounds": "node scripts/sync-submission-sounds.js"
   },
   "dependencies": {
     "electron-updater": "^6.3.9"
@@ -23,7 +24,10 @@
     "files": [
       "main.js",
       "preload.js",
-      "renderer/**/*"
+      "renderer/**/*",
+      "submission-sounds.cjs",
+      "game-window-policy.cjs",
+      "foreground-watch.ps1"
     ],
     "win": {
       "target": "nsis"
@@ -44,6 +48,9 @@
         "owner": "dyremoon",
         "repo": "dyrelog"
       }
+    ],
+    "asarUnpack": [
+      "foreground-watch.ps1"
     ]
   }
 }

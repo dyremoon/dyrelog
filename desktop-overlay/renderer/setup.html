@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Welcome to Dyrelog</title>
+  <link rel="stylesheet" href="settings.css">
+  <style>
+    body { display: block; overflow: auto; padding: 24px; }
+    h1 { margin: 0 0 12px; }
+    .setup-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+    .setup-copy { color: var(--ink-2); line-height: 1.6; }
+    #setup-public { margin-top: 20px; }
+    #setup-status { min-height: 1.5em; color: var(--ink-2); }
+    select { background: var(--bg-card); color: var(--ink); border: 1px solid var(--hair); padding: 8px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Welcome to Dyrelog</h1>
+  <p class="setup-copy">Would you like to submit your fights to the public leaderboards?</p>
+  <p class="setup-copy">You can use the damage meter and local history without submitting. You can change this later in Settings → Options.</p>
+  <div class="setup-actions">
+    <button class="btn-link" id="setup-yes" type="button">Yes, join the leaderboards</button>
+    <button class="link-btn" id="setup-no" type="button">No, keep my fights local</button>
+  </div>
+  <section id="setup-public" hidden>
+    <div class="row-stack">
+      <label for="setup-submit-mode">When a boss fight ends</label>
+      <select id="setup-submit-mode">
+        <option value="ask">Ask me before each submission</option>
+        <option value="auto">Automatically submit my boss fights</option>
+      </select>
+    </div>
+    <div class="setup-actions"><button class="btn-link" id="setup-discord" type="button">Sign in with Discord</button></div>
+  </section>
+  <p id="setup-status" role="status" aria-live="polite"></p>
+  <script src="setup.js"></script>
+</body>
+</html>

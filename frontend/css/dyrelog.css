@@ -360,6 +360,12 @@ table tbody tr:hover { background: var(--surface-2); }
   padding: 7px 10px;
   font-size: 0.95rem;
 }
+.difficulty-checks { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 7px 10px 9px; border: 1px solid var(--hair-strong); border-radius: 6px; color: var(--ink); }
+.difficulty-checks legend { padding: 0 4px; color: var(--ink-2); font-size: .85rem; }
+.difficulty-checks label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.difficulty-checks input { accent-color: var(--gold-2); margin: 0; }
+.table-sort { border: 0; background: transparent; color: inherit; font: inherit; padding: 0; cursor: pointer; }
+.table-sort:hover { color: var(--gold-2); }
 .boss-picker-heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; }
 /* Boss/kill picker row — got dropped from this file at some point (dead
    class names, no rule at all), which is why the two selects rendered as
@@ -693,7 +699,13 @@ table tbody tr:hover { background: var(--surface-2); }
    numbers (EQP.computeStats(enc).timeline), same as the overlay's own
    chart. viewBox + preserveAspectRatio="none" lets .dps-chart's own
    width:100%/height stretch to fit with no JS resize wiring. */
-.dps-chart-wrap { margin: 2px 0 4px; position: relative; }
+.dps-chart-wrap { margin: 2px 0 4px; }
+/* This, not .dps-chart-wrap, is what the axis/peak-label/hover-tip percentage
+   positions below are computed against — it has to be exactly the svg's own
+   box, with nothing else (like .dps-chart-legend) sharing it, or "97% down"
+   stops meaning the svg's own bottom edge (Sept 7 bug — see buildDpsChart()
+   in analyze.html for the full story). */
+.dps-chart-plot { position: relative; }
 .dps-chart { display: block; width: 100%; height: 160px; }
 .dps-grid { stroke: var(--hair); stroke-width: 1; }
 /* Axis numbers and the Peak label are plain HTML, positioned in % so they
@@ -743,7 +755,8 @@ table tbody tr:hover { background: var(--surface-2); }
    hovered point, plus a small bordered box with the timestamp and dps at
    that point. wireDpsChartHover-equivalent wire() in buildDpsChart()
    shows/positions both on mousemove. */
-.dps-hover-line { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+/* Bumped from --muted/1px (Sept 7 — too faint to notice) to --ink-2/1.5px. */
+.dps-hover-line { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 3 3; }
 .dps-hover-tip {
   position: absolute;
   top: 6px;

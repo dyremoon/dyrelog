@@ -56,8 +56,11 @@
     els.sub.textContent = "You're not logged in with Discord yet.";
     els.sub.className = "sub";
     clearActions();
-    addButton("Dismiss", "btn-secondary", function () { window.close(); });
+    addButton("Dismiss", "btn-secondary", function () { window.dyrelog.discardSubmit(); });
     addButton("Log In", "btn-primary", function () {
+      // The kill itself is held in main.js (pendingLoginSubmitPayload), not
+      // in this window, so closing here doesn't lose it — a successful
+      // Discord login re-opens this popup with the real Submit/Discard ask.
       window.dyrelog.loginWithDiscord();
       window.close();
     });

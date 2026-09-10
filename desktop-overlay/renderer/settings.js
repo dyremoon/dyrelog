@@ -197,6 +197,8 @@
     fadeIdleRow: document.getElementById("fadeidle-row"),
     fadeIdleSecs: document.getElementById("set-fadeidle-secs"),
     fadeIdleSecsVal: document.getElementById("fadeidle-secs-val"),
+    fadeIdleOpacity: document.getElementById("set-fadeidle-opacity"),
+    fadeIdleOpacityVal: document.getElementById("fadeidle-opacity-val"),
     keepInTray: document.getElementById("set-keepintray"),
     keepInTrayHint: document.getElementById("keepintray-hint"),
     launchAtStartup: document.getElementById("set-launchatstartup"),
@@ -252,6 +254,15 @@
   document.querySelectorAll(".tab").forEach(function (btn) {
     btn.addEventListener("click", function () { activateTab(btn.dataset.tab); });
   });
+
+  // Deep-link (Sept 7) — createSettingsWindow() in main.js loads this file
+  // with ?tab=<name> when it was opened via a link that wants a specific
+  // tab up front, e.g. the Leaderboards window's "Submission settings" link
+  // jumping straight to Options instead of the default Appearance tab.
+  (function jumpToInitialTab() {
+    var requested = new URLSearchParams(location.search).get("tab");
+    if (requested && document.querySelector('.tab[data-tab="' + requested + '"]')) activateTab(requested);
+  })();
 
   // "Have a text size option for the settings menu too" — scales every
   // font-size in settings.css at once (they're all in rem now) by setting
@@ -342,6 +353,8 @@
 
     [els.previewFrame, els.previewFrameMini, els.previewCircle].forEach(function (frame) {
       if (!frame) return;
+      var s = Appearance.resolve(currentSettings, frame === els.previewCircle ? 'circle' : frame === els.previewFrameMini ? 'mini' : 'bars');
+      var bgAlpha = s.opacity;
       // Only the background fades with the Background slider (--preview-bg-alpha,
       // consumed by settings.css's color-mix()) — text/bars/icons stay fully
       // opaque, same as the real overlay's own panel opacity behavior. The
@@ -349,6 +362,12 @@
       // circle scale) even though it ignores bar/text-scale ones entirely.
       frame.style.setProperty("--preview-bg-color", s.bgColor || THEME_BG[theme]);
       frame.style.setProperty("--preview-bg-alpha", String(bgAlpha));
+      // "Fade UI opacity" — the preview used to hardcode 0.08 and never read
+      // this at all, so dragging that slider moved its own % label and
+      // nothing else on screen, right next to the mockup that's supposed to
+      // be demonstrating it. Mirrors --idle-ui-opacity in the real overlay.
+      frame.style.setProperty("--preview-idle-opacity",
+        String(s.fadeIdleOpacity != null ? s.fadeIdleOpacity : 0.15));
       frame.style.setProperty("--preview-text", textColor);
       frame.style.setProperty("--preview-border", s.borderColor || THEME_HAIR[theme]);
       frame.style.setProperty("--preview-my-color", myColor);
@@ -361,6 +380,8 @@
       frame.style.setProperty("--preview-accent", accent);
       frame.style.setProperty("--preview-barheight", String(s.barHeight != null ? s.barHeight : 1));
       frame.style.setProperty("--preview-textscale", String(s.textScale || 1));
+      frame.style.setProperty("--preview-iconscale", String(s.iconScale || 1));
+      frame.style.setProperty("--preview-icon-color", s.iconColor || THEME_INK2[theme]);
       frame.style.setProperty("--preview-secondaryscale", String(s.secondaryTextScale != null ? s.secondaryTextScale : 1));
       frame.style.setProperty("--preview-timerscale", String(s.timerTextScale != null ? s.timerTextScale : 1));
       frame.style.setProperty("--preview-minipetscale", String(s.miniPetTextScale != null ? s.miniPetTextScale : 1));
@@ -378,6 +399,13 @@
       els.previewCircle.style.setProperty("--preview-circle-text", s.circleTextColor || accent);
     }
 
+    var defaultAngles = { menu: 45, mini: 315, bars: 135, pets: 180 };
+    document.querySelectorAll('.preview-circle-icon').forEach(function(icon) {
+      var key = icon.dataset.angleKey;
+      var angle = s.iconAngles && s.iconAngles[key] != null ? s.iconAngles[key] : defaultAngles[key];
+      icon.style.setProperty('--btn-angle', angle + 'deg');
+    });
+    document.getElementById('preview-circle-pet').hidden = !showPets;
     // Bars preview — You is rank 1, so its fill spans the full row; Pet's
     // fill is scaled to its actual share of You's dps (roughly a quarter
     // width here, not a copy-pasted full bar), and its row disappears
@@ -431,27 +459,68 @@
   var idleFadeTimer = null;
   function scheduleIdlePreviewFade() {
     clearTimeout(idleFadeTimer);
-    if (els.previewFrame) els.previewFrame.classList.remove("preview-idle");
+    [els.previewFrame, els.previewFrameMini, els.previewCircle].forEach(function(frame) { frame.classList.remove('preview-idle'); });
     if (!currentSettings.fadeIdleEnabled) return;
     var secs = currentSettings.fadeIdleSeconds != null ? currentSettings.fadeIdleSeconds : 10;
     idleFadeTimer = setTimeout(function () {
-      if (els.previewFrame) els.previewFrame.classList.add("preview-idle");
+      [els.previewFrame, els.previewFrameMini, els.previewCircle].forEach(function(frame) { frame.classList.add('preview-idle'); });
     }, secs * 1000);
   }
   ["mousemove", "mousedown", "keydown", "input", "click"].forEach(function (evt) {
     document.addEventListener(evt, scheduleIdlePreviewFade, { passive: true });
   });
 
+  var soundSelect = document.getElementById('submission-sound');
+  var soundVolume = document.getElementById('submission-volume');
+  var soundStatus = document.getElementById('submission-sound-status');
+  var soundListVersion = 0;
+  function applySoundSettings(s) {
+    soundVolume.value = s.submissionSoundVolume == null ? 70 : s.submissionSoundVolume;
+    document.getElementById('submission-volume-value').textContent = soundVolume.value + '%';
+    var version = ++soundListVersion;
+    window.dyrelog.getSubmissionSounds().then(function(choices) {
+      if (version !== soundListVersion) return;
+      soundSelect.replaceChildren();
+      choices.forEach(function(choice) { soundSelect.add(new Option(choice.name, choice.id)); });
+      soundSelect.value = s.submissionSound || 'none';
+      if (!soundSelect.value) soundSelect.value = 'none';
+      document.getElementById('test-submission-sound').disabled = soundSelect.value === 'none';
+    }).catch(function(err) { soundStatus.textContent = err.message; });
+  }
+  soundSelect.addEventListener('change', function() { save({ submissionSound: soundSelect.value }); });
+  soundVolume.addEventListener('input', function() {
+    var volume = Number(soundVolume.value);
+    SubmissionAudio.setVolume(volume);
+    document.getElementById('submission-volume-value').textContent = volume + '%';
+    save({ submissionSoundVolume: volume });
+  });
+  document.getElementById('upload-submission-sound').addEventListener('click', async function() {
+    soundStatus.textContent = '';
+    try {
+      var result = await window.dyrelog.pickSubmissionSound();
+      if (result.cancelled) return;
+      if (result.ok) applyToUI(result.settings);
+      else soundStatus.textContent = result.error;
+    } catch (err) { soundStatus.textContent = err.message; }
+  });
+  document.getElementById('test-submission-sound').addEventListener('click', async function() {
+    soundStatus.textContent = '';
+    try {
+      var result = await window.dyrelog.previewSubmissionSound();
+      if (!result.ok) throw new Error(result.error);
+      await SubmissionAudio.play(result.audio);
+    } catch (err) { soundStatus.textContent = 'Could not play sound: ' + err.message; }
+  });
+
   function applyToUI(s) {
     currentSettings = s;
-    els.opacity.value = s.opacity;
-    els.barHeight.value = s.barHeight != null ? s.barHeight : 1;
-    els.textScale.value = s.textScale;
-    els.iconScale.value = s.iconScale != null ? s.iconScale : 1;
-    els.miniPetScale.value = s.miniPetTextScale != null ? s.miniPetTextScale : 1;
-    els.secondaryTextScale.value = s.secondaryTextScale != null ? s.secondaryTextScale : 1;
-    els.timerTextScale.value = s.timerTextScale != null ? s.timerTextScale : 1;
-    els.circleScale.value = s.circleScale != null ? s.circleScale : 1;
+    document.querySelectorAll('[data-appearance-mode]').forEach(function(input) {
+      var field = input.dataset.appearanceField;
+      var value = Appearance.resolve(s, input.dataset.appearanceMode)[field];
+      input.value = value;
+      input.nextElementSibling.textContent = field === 'opacity' ? Math.round(value * 100) + '%' : value.toFixed(2) + '×';
+    });
+    applySoundSettings(s);
     els.bgColor.value = s.bgColor || THEME_BG[s.theme || "blue"];
     els.textColor.value = s.textColor || THEME_INK[s.theme || "blue"];
     els.myBarColor.value = s.myBarColor || DEFAULT_MY_COLOR;
@@ -483,6 +552,8 @@
     els.fadeIdleRow.hidden = !s.fadeIdleEnabled;
     els.fadeIdleSecs.value = s.fadeIdleSeconds != null ? s.fadeIdleSeconds : 10;
     els.fadeIdleSecsVal.textContent = els.fadeIdleSecs.value + "s";
+    els.fadeIdleOpacity.value = s.fadeIdleOpacity != null ? s.fadeIdleOpacity : 0.15;
+    els.fadeIdleOpacityVal.textContent = Math.round(Number(els.fadeIdleOpacity.value) * 100) + "%";
     els.keepInTray.checked = !!s.keepInTrayOnClose;
     els.keepInTrayHint.textContent = s.keepInTrayOnClose
       ? "Closing the window keeps Dyrelog running in the system tray, use its icon to reopen or quit for real."
@@ -510,18 +581,18 @@
     scheduleIdlePreviewFade(); // any settings refresh counts as activity, same as touching a control
   }
 
+  document.querySelectorAll('[data-appearance-mode]').forEach(function(input) {
+    input.addEventListener('input', function() {
+      var partial = {};
+      partial[Appearance.key(input.dataset.appearanceMode, input.dataset.appearanceField)] = Number(input.value);
+      save(partial);
+    });
+  });
+
   function save(partial) {
     window.dyrelog.saveSettings(partial).then(applyToUI);
   }
 
-  els.opacity.addEventListener("input", function () { save({ opacity: parseFloat(els.opacity.value) }); });
-  els.barHeight.addEventListener("input", function () { save({ barHeight: parseFloat(els.barHeight.value) }); });
-  els.textScale.addEventListener("input", function () { save({ textScale: parseFloat(els.textScale.value) }); });
-  els.iconScale.addEventListener("input", function () { save({ iconScale: parseFloat(els.iconScale.value) }); });
-  els.miniPetScale.addEventListener("input", function () { save({ miniPetTextScale: parseFloat(els.miniPetScale.value) }); });
-  els.secondaryTextScale.addEventListener("input", function () { save({ secondaryTextScale: parseFloat(els.secondaryTextScale.value) }); });
-  els.timerTextScale.addEventListener("input", function () { save({ timerTextScale: parseFloat(els.timerTextScale.value) }); });
-  els.circleScale.addEventListener("input", function () { save({ circleScale: parseFloat(els.circleScale.value) }); });
   els.bgColor.addEventListener("input", function () { save({ bgColor: els.bgColor.value }); });
   els.textColor.addEventListener("input", function () { save({ textColor: els.textColor.value }); });
   els.myBarColor.addEventListener("input", function () { save({ myBarColor: els.myBarColor.value }); });
@@ -555,6 +626,10 @@
     els.fadeIdleSecsVal.textContent = els.fadeIdleSecs.value + "s"; // instant feedback while dragging, before the save round-trip
     save({ fadeIdleSeconds: parseInt(els.fadeIdleSecs.value, 10) });
   });
+  els.fadeIdleOpacity.addEventListener("input", function () {
+    els.fadeIdleOpacityVal.textContent = Math.round(Number(els.fadeIdleOpacity.value) * 100) + "%";
+    save({ fadeIdleOpacity: parseFloat(els.fadeIdleOpacity.value) });
+  });
   els.keepInTray.addEventListener("change", function () { save({ keepInTrayOnClose: els.keepInTray.checked }); });
   els.launchAtStartup.addEventListener("change", function () { save({ launchAtStartup: els.launchAtStartup.checked }); });
   document.querySelectorAll(".theme-swatch").forEach(function (b) {
@@ -564,7 +639,7 @@
       // is still set. A custom bgColor/textColor pick (above) always wins
       // over whichever theme is active until it's cleared, here or via
       // "Reset to default colors".
-      save({ theme: b.dataset.theme, bgColor: null, textColor: null });
+      save({ theme: b.dataset.theme, bgColor: null, textColor: null, circleBgColor: null, circleBorderColor: null, circleTextColor: null });
     });
   });
   document.querySelectorAll("#settings-display-style .segment").forEach(function (b) {

@@ -146,17 +146,15 @@
         overlay, submit a fight, and see how it stacks up by boss!
       </p>
 
-      <!-- "The top ui shows the top 10 dps across all fights that are +4
-           only... this is like the highlights of the week." Actually
-           windowed to the current week now (Sept 6) — the worker resets
-           this at the most recent Tuesday 00:00 UTC (mostRecentTuesdayUtcIso()
-           in worker/src/leaderboard.js), timed to line up with EQ Legends'
-           own Tuesday patch day. Top 10 by dps, one row per character per
-           boss, within that window. See GET /api/leaderboard/highlights. -->
+      <!-- Weekly highlights reset each Tuesday at 00:00 UTC. -->
       <div class="plate plate-highlight" style="margin-bottom:24px;">
         <h2>Top 10 of the week</h2>
-        <p class="muted" style="margin-top:-6px;">The best D4 (Refined) parses on record for the week with one entry per character per boss.</p>
-        <div id="highlights-list">
+        <p class="muted" style="margin-top:-6px;">The highest DPS across all difficulties this week, with one entry per character per boss and difficulty.</p>
+        <div class="leaderboard-controls">
+          <label for="highlights-boss">Boss</label><select id="highlights-boss"><option value="">All bosses</option></select>
+          <label for="highlights-difficulty">Difficulty</label><select id="highlights-difficulty"><option value="">All difficulties</option><option value="D0">D0 · Base</option><option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option><option value="D4">D4</option></select>
+        </div>
+        <div id="highlights-list" aria-live="polite">
           <p class="muted">Loading…</p>
         </div>
       </div>
@@ -172,6 +170,8 @@
           <select id="boss-picker">
             <option value="">Loading…</option>
           </select>
+          <fieldset id="difficulty-filter" class="difficulty-checks"><legend>Difficulty</legend><label><input id="difficulty-all" type="checkbox" checked> All</label><label><input type="checkbox" value="D0" checked> D0</label><label><input type="checkbox" value="D1" checked> D1</label><label><input type="checkbox" value="D2" checked> D2</label><label><input type="checkbox" value="D3" checked> D3</label><label><input type="checkbox" value="D4" checked> D4</label></fieldset>
+          <label for="board-sort">Sort</label><select id="board-sort"><option value="dps">Highest DPS</option><option value="difficulty">Difficulty: D4 to D0</option></select>
         </div>
         <div id="boss-leaderboard">
           <p class="muted">Loading…</p>
@@ -191,20 +191,30 @@
        fall back to the http://127.0.0.1:8787 local-dev default. -->
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
+  <script src="./js/leaderboard-sort.js"></script>
   <script>
-    // ---- Highlights panel: top 10 D4 parses across every boss -----------
+    // ---- Weekly highlights, filtered before selecting the top ten ----
+    let highlightsRequest = 0;
     async function loadHighlights() {
       const el = document.getElementById('highlights-list');
+      const request = ++highlightsRequest;
+      const query = new URLSearchParams();
+      const difficulty = document.getElementById('highlights-difficulty').value;
+      const bossIds = document.getElementById('highlights-boss').value;
+      if (difficulty) query.set('difficulty', difficulty);
+      if (bossIds) query.set('bossIds', bossIds);
+      el.innerHTML = '<p class="muted">Loading…</p>';
       try {
-        const { highlights } = await api('/api/leaderboard/highlights');
+        const { highlights } = await api('/api/leaderboard/highlights?' + query);
+        if (request !== highlightsRequest) return;
         if (highlights.length === 0) {
-          el.innerHTML = '<p class="empty-state">No D4 (Refined) parses on the board yet — be the first.</p>';
+          el.innerHTML = '<p class="empty-state">No public verified parses match these filters this week.</p>';
           return;
         }
         el.innerHTML = `
           <table>
             <thead>
-              <tr><th>#</th><th>Character</th><th>Class</th><th>Boss</th><th class="num">DPS</th></tr>
+              <tr><th>#</th><th>Character</th><th>Class</th><th>Boss</th><th>Difficulty</th><th class="num">DPS</th></tr>
             </thead>
             <tbody>
               ${highlights
@@ -215,20 +225,31 @@
                   <td><a href="./parse.html?id=${h.encounter_id}">${h.character_name}</a> <span class="muted">(${h.realm})</span></td>
                   <td class="muted">${h.class_combo || '—'}</td>
                   <td><a href="./boss.html?id=${h.boss_id}">${h.boss_name}</a></td>
-                  <td class="num tabular">${fmtNumber(h.dps)}</td>
+                  <td>${h.difficulty || 'D0'}</td><td class="num tabular">${fmtNumber(h.dps)}</td>
                 </tr>`
                 )
                 .join('')}
             </tbody>
           </table>`;
       } catch (err) {
+        if (request !== highlightsRequest) return;
         el.innerHTML = `<p class="empty-state">Couldn't load the highlights right now — try refreshing in a moment.</p>`;
       }
     }
 
+    ['highlights-boss', 'highlights-difficulty'].forEach(id => document.getElementById(id).addEventListener('change', loadHighlights));
+
     // ---- Main leaderboard: a boss picker instead of a static list -------
-    function bossOptionLabel(b) {
-      return b.difficulty ? `${b.name} — ${fmtDifficulty(b.difficulty)}` : b.name;
+    function bossKey(name) { return String(name || '').trim().toLowerCase().replace(/[-\s]+/g, ' '); }
+    function groupBosses(bosses) {
+      const groups = new Map();
+      bosses.forEach((b) => {
+        const key = bossKey(b.name);
+        if (!groups.has(key)) groups.set(key, { ...b, difficulty: null, tiers: [] });
+        groups.get(key).tiers.push(b);
+        groups.get(key).entrant_count = (groups.get(key).entrant_count || 0) + (Number(b.entrant_count) || 0);
+      });
+      return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
     }
 
     function parseRow(p, i) {
@@ -237,38 +258,61 @@
           <td class="mono">${i + 1}</td>
           <td><a href="./parse.html?id=${p.encounter_id}">${p.character_name}</a> <span class="muted">(${p.realm})</span></td>
           <td class="muted">${p.class_combo || '—'}</td>
+          <td class="muted">${p.difficulty || 'D0'}</td>
           <td class="num tabular">${fmtNumber(p.dps)}</td>
           <td class="num tabular">${fmtNumber(p.damage)}</td>
           <td class="muted">${fmtDateOnly(p.start_time)}</td>
+          <td><a href="./parse.html?id=${p.encounter_id}">Analyze</a></td>
         </tr>`;
     }
-
-    async function loadBossLeaderboard(bossId) {
+    let publicSort = { key: 'dps', dir: -1 };
+    function sortHeader(label, key) { return LeaderboardSort.header(label, key, publicSort); }
+    function rankRows(rows) {
+      const selected = [...document.querySelectorAll('#difficulty-filter input[value]:checked')].map(box => box.value);
+      return LeaderboardSort.sort(rows.filter(row => selected.includes(row.difficulty || 'D0')), publicSort);
+    }
+    let bossRequest = 0;
+    async function loadBossLeaderboard(boss) {
+      const request = ++bossRequest;
       const el = document.getElementById('boss-leaderboard');
       el.innerHTML = '<p class="muted">Loading…</p>';
       try {
-        const { boss, parses, entrantCount } = await api(`/api/bosses/${bossId}/leaderboard`);
+        const results = await Promise.all(boss.tiers.map(async (tier) => {
+          const { parses } = await api(`/api/bosses/${tier.id}/leaderboard`);
+          return parses.map((row) => ({ ...row, difficulty: tier.difficulty || 'D0' }));
+        }));
+        if (request !== bossRequest) return;
+        const parses = results.flat();
+        const entrantCount = parses.length;
         // entrantCount can be missing on an older API response — never let
         // that render as a literal "NaN entries".
         const hasCount = Number.isFinite(entrantCount);
         const countLabel = hasCount ? `(${fmtNumber(entrantCount)} ${entrantCount === 1 ? 'entry' : 'entries'})` : '';
         const heading = `
           <h3 class="boss-picker-heading">
-            <a href="./boss.html?id=${boss.id}">${boss.name}${boss.difficulty ? ' ' + boss.difficulty : ''}</a>
+            <a href="./boss.html?id=${boss.tiers[0].id}">${boss.name}</a>
             <span class="muted">${countLabel}</span>
           </h3>`;
+        const render = () => {
+          const visible = rankRows(parses);
+          if (visible.length === 0) { el.innerHTML = heading + '<p class="empty-state">Select at least one difficulty with public verified parses.</p>'; return; }
+          el.innerHTML = heading + `<table><thead><tr><th>#</th><th>${sortHeader('Character','character')}</th><th>${sortHeader('Class','class')}</th><th>${sortHeader('Difficulty','difficulty')}</th><th class="num">${sortHeader('DPS','dps')}</th><th class="num">${sortHeader('Damage','damage')}</th><th>${sortHeader('Date','date')}</th><th></th></tr></thead><tbody>${visible.map((p, i) => parseRow(p, i)).join('')}</tbody></table>`;
+          LeaderboardSort.wire(el, publicSort, render);
+        };
         if (parses.length === 0) {
           el.innerHTML = heading + '<p class="empty-state">No verified parses for this boss yet — be the first to submit one.</p>';
           return;
         }
-        el.innerHTML = heading + `
-          <table>
-            <thead>
-              <tr><th>#</th><th>Character</th><th>Class</th><th class="num">DPS</th><th class="num">Damage</th><th>Date</th></tr>
-            </thead>
-            <tbody>${parses.map(parseRow).join('')}</tbody>
-          </table>`;
+        render();
+        document.getElementById('difficulty-filter').onchange = (event) => {
+          const boxes = [...document.querySelectorAll('#difficulty-filter input[value]')];
+          if (event.target.id === 'difficulty-all') boxes.forEach((box) => { box.checked = event.target.checked; });
+          else document.getElementById('difficulty-all').checked = boxes.every((box) => box.checked);
+          render();
+        };
+        document.getElementById('board-sort').onchange = (event) => { publicSort = { key: event.target.value, dir: -1 }; render(); };
       } catch (err) {
+        if (request !== bossRequest) return;
         el.innerHTML = `<p class="empty-state">Couldn't load this leaderboard right now — try another boss or refresh in a moment.</p>`;
       }
     }
@@ -276,7 +320,10 @@
     async function loadBossPicker() {
       const picker = document.getElementById('boss-picker');
       try {
-        const { bosses } = await api('/api/bosses');
+        const { bosses: rawBosses } = await api('/api/bosses');
+        const bosses = groupBosses(rawBosses);
+        const highlightsPicker = document.getElementById('highlights-boss');
+        bosses.forEach(boss => highlightsPicker.add(new Option(boss.name, boss.tiers.map(tier => tier.id).join(','))));
         if (bosses.length === 0) {
           picker.innerHTML = '<option value="">No bosses yet</option>';
           document.getElementById('boss-leaderboard').innerHTML = '<p class="empty-state">No bosses in the curated list yet.</p>';
@@ -296,12 +343,12 @@
         picker.innerHTML = orderedKeys
           .map((key) => `
             <optgroup label="${key}">
-              ${groups.get(key).map((b) => `<option value="${b.id}">${bossOptionLabel(b)}</option>`).join('')}
+              ${groups.get(key).map((b) => `<option value="${b.name}">${b.name} (${Number(b.entrant_count || 0).toLocaleString()})</option>`).join('')}
             </optgroup>`)
           .join('');
 
         picker.addEventListener('change', () => {
-          if (picker.value) loadBossLeaderboard(picker.value);
+          if (picker.value) loadBossLeaderboard(bosses.find((b) => b.name === picker.value));
         });
 
         // Open on the boss with the most tracked parses (entrant_count,
@@ -315,8 +362,8 @@
           const bestCount = best ? (Number(best.entrant_count) || 0) : -1;
           return count > bestCount ? b : best;
         }, null) || bosses[0];
-        picker.value = defaultBoss.id;
-        loadBossLeaderboard(defaultBoss.id);
+        picker.value = defaultBoss.name;
+        loadBossLeaderboard(defaultBoss);
       } catch (err) {
         picker.innerHTML = '<option value="">Couldn\'t load bosses</option>';
         document.getElementById('boss-leaderboard').innerHTML = `<p class="empty-state">Couldn't load the boss list right now — try refreshing in a moment.</p>`;

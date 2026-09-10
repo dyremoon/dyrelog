@@ -258,6 +258,12 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
   width: 10px; height: 2px; border-radius: 999px; flex: none;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
 }
+.tab-panel-appearance .section-label::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
 
 .row { display: flex; align-items: center; gap: 10px; }
 .hint { margin: -6px 0 0; font-size: 0.85rem; color: var(--ink-3); line-height: 1.45; }
@@ -479,7 +485,7 @@ label.check input { accent-color: var(--accent); }
      overlay's own --panel-alpha, text/bars/rank numbers stay fully opaque
      regardless (see renderPreview() in settings.js, which sets
      --preview-bg-alpha, not the whole element's opacity). */
-  background: color-mix(in srgb, var(--preview-bg-color, #14120f) calc(var(--preview-bg-alpha, 1) * 100%), transparent);
+  background: color-mix(in srgb, var(--preview-bg-color, #14120f) calc(var(--preview-bg-alpha, 1) * var(--preview-fade, 1) * 100%), transparent);
   border-radius: 8px; padding: 9px;
   max-width: 320px;
   margin: 0 auto;
@@ -507,14 +513,22 @@ label.check input { accent-color: var(--accent); }
    legible — same split the real body.idle-faded rule draws in style.css.
    Toggled by scheduleIdlePreviewFade() in settings.js on real idle TIME,
    not a hover pseudo-class, since the real feature doesn't key off the
-   pointer being over this specific card either. Mini/Circle previews
-   aren't included — the real mini and watch modes don't participate in
-   idle-fade at all (there's nothing in either of them idle-fade targets). */
+   pointer being over this specific card either. Only the Bars preview is
+   wired up so far; note that the real mini and Circle modes DO participate
+   in idle-fade (body.idle-faded fades .mini-actions and all four
+   .watch-*-btn icons in style.css), so those two mockups currently
+   under-report what the feature does. */
 .preview-topbar, .preview-mobline, .preview-timer, .preview-total,
 .preview-rank, .preview-pet-tag { transition: opacity 0.4s ease; }
 .preview-idle .preview-topbar, .preview-idle .preview-mobline,
 .preview-idle .preview-timer, .preview-idle .preview-total,
-.preview-idle .preview-rank, .preview-idle .preview-pet-tag { opacity: 0.08; }
+.preview-idle .preview-rank, .preview-idle .preview-pet-tag {
+  /* Follows Settings > "Fade UI opacity" (--preview-idle-opacity, set by
+     renderPreview()), same as --idle-ui-opacity in the real overlay. Was a
+     hardcoded 0.08, which made the slider look inert from the one place
+     you'd be looking while dragging it. */
+  opacity: var(--preview-idle-opacity, 0.15);
+}
 
 /* Top drag-handle row (style.css's .header) — wordmark + status dot +
    decorative window-icon dots, just enough to read as "the app's title
@@ -602,7 +616,7 @@ label.check input { accent-color: var(--accent); }
   border: 1px solid var(--preview-border, rgba(255,255,255,0.12));
   border-radius: 6px;
   padding: calc(4px * var(--preview-barheight, 1)) 8px;
-  font-size: calc(0.78em * var(--preview-textscale, 1));
+  font-size: calc(11.5px * var(--preview-textscale, 1));
   color: var(--preview-text, #f2ede1);
   font-family: var(--preview-font, inherit);
   overflow: hidden;
@@ -617,7 +631,7 @@ label.check input { accent-color: var(--accent); }
   border-radius: 5px;
   transition: width 0.3s ease;
 }
-#preview-fill-you { background: color-mix(in srgb, var(--preview-my-color, #b3423a) 38%, transparent); }
+#preview-fill-you { background: color-mix(in srgb, var(--preview-my-color, #b3423a) 34%, transparent); }
 #preview-fill-pet { background: color-mix(in srgb, var(--preview-pet-color, #4fa8c9) 38%, transparent); }
 .preview-rank, .preview-dot, .preview-name, .preview-amount { position: relative; z-index: 1; }
 .preview-rank { color: var(--preview-secondary-color, #a89f8d); font-size: 0.78em; text-align: right; }
@@ -655,13 +669,13 @@ label.check input { accent-color: var(--accent); }
 .preview-mini-main-row .preview-status-dot { align-self: center; }
 #preview-mini-name {
   flex: 1; min-width: 0; font-weight: 700;
-  font-size: calc(0.8em * var(--preview-textscale, 1));
+  font-size: calc(11.875px * var(--preview-textscale, 1));
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .preview-mini-dps {
   flex: none; display: flex; align-items: baseline; gap: 2px;
   color: var(--preview-accent, #6f9bff); font-weight: 700;
-  font-size: calc(0.85em * var(--preview-secondaryscale, 1));
+  font-size: calc(13.125px * var(--preview-textscale, 1));
   font-variant-numeric: tabular-nums;
 }
 .preview-mini-dps .preview-dpsunit { color: var(--preview-secondary-color, #a89f8d); }
@@ -704,7 +718,7 @@ label.check input { accent-color: var(--accent); }
      use, falling back to those same three (then these hardcoded literals)
      only until circleBgColor/circleBorderColor/circleTextColor are
      actually picked. */
-  background: var(--preview-circle-bg, var(--preview-bg-color, #14120f));
+  background: color-mix(in srgb, var(--preview-circle-bg, var(--preview-bg-color, #14120f)) calc(100% * var(--preview-bg-alpha, 1) * var(--preview-fade, 1)), transparent);
   border: 3px solid var(--preview-circle-border, var(--preview-accent, #6f9bff));
   box-shadow: 0 6px 16px rgba(0,0,0,0.45);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -722,16 +736,16 @@ label.check input { accent-color: var(--accent); }
 .preview-circle-dps { display: flex; align-items: baseline; gap: 2px; }
 #preview-circle-dps-num {
   color: var(--preview-circle-text, var(--preview-accent, #6f9bff)); font-weight: 700;
-  font-size: calc(1.1em * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
+  font-size: calc(21.25px * var(--preview-textscale, 1) * var(--preview-circlescale, 1));
   font-variant-numeric: tabular-nums;
 }
 .preview-circle-unit {
   color: var(--preview-circle-text, var(--preview-secondary-color, #a89f8d));
-  font-size: calc(0.6em * var(--preview-secondaryscale, 1) * var(--preview-circlescale, 1));
+  font-size: calc(9px * var(--preview-textscale, 1) * var(--preview-circlescale, 1));
 }
 .preview-circle-timer {
   color: var(--preview-circle-text, var(--preview-secondary-color, #a89f8d));
-  font-size: calc(0.66em * var(--preview-timerscale, 1) * var(--preview-circlescale, 1));
+  font-size: calc(10.25px * var(--preview-timerscale, 1) * var(--preview-circlescale, 1));
   font-variant-numeric: tabular-nums;
 }
 
@@ -811,3 +825,20 @@ label.check input { accent-color: var(--accent); }
   font-size: 0.85rem; color: var(--ink-3);
 }
 .app-footer .github-link { font-size: 0.85rem; }
+
+.preview-idle { --preview-fade: var(--preview-idle-opacity, .15); }
+.preview-mini-info { display:grid; grid-template-columns:auto auto minmax(0,1fr); align-items:center; gap:6px; color:var(--preview-secondary-color); }
+.preview-mini-total { font-size:calc(.72em * var(--preview-secondaryscale, 1)); }
+.preview-mini-timer { font-size:calc(.72em * var(--preview-timerscale, 1)); }
+.preview-circle-pet { color:var(--preview-circle-text); font-size:calc(8.5px * var(--preview-minipetscale, 1)); }
+.preview-idle .preview-mini-timer, .preview-idle .preview-mini-total, .preview-idle .preview-mini-actions, .preview-idle .preview-circle-icon, .preview-idle .preview-circle-timer { opacity:var(--preview-idle-opacity, .15); }
+.preview-icons, .preview-circle-menu { transform:scale(var(--preview-iconscale, 1)); }
+.preview-mini-main-row, .preview-mini-pet-row { padding-block:calc(2px * var(--preview-barheight, 1)); }
+
+.preview-frame-mini { width: 100%; box-sizing: border-box; }
+.preview-mini-actions { display: flex; align-items: center; gap: 4px; }
+.preview-mode-icon, .preview-circle-icon { display:flex; align-items:center; justify-content:center; width:calc(20px * var(--preview-iconscale, 1)); height:calc(20px * var(--preview-iconscale, 1)); flex:none; padding:0; border:1px solid var(--preview-border); border-radius:6px; background:color-mix(in srgb, var(--preview-bg-color) 80%, transparent); color:var(--preview-icon-color, var(--preview-secondary-color)); font-size:calc(11px * var(--preview-iconscale, 1)); pointer-events:none; }
+.preview-btn-svg { width:calc(13px * var(--preview-iconscale, 1)); height:calc(13px * var(--preview-iconscale, 1)); }
+.preview-mini-total { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right; color:var(--preview-total-color); }
+.preview-mini-main-row, .preview-mini-pet-row { border:1px solid color-mix(in srgb, var(--preview-border) 55%, transparent); border-radius:6px; padding-inline:6px; }
+.preview-circle-icon { position:absolute; border-radius:50%; left:calc(50% + (132px * var(--preview-circlescale,1) / 2) * sin(var(--btn-angle))); top:calc(50% - (132px * var(--preview-circlescale,1) / 2) * cos(var(--btn-angle))); transform:translate(-50%,-50%); }

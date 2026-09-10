@@ -12,7 +12,10 @@
       <h1>Leaderboards</h1>
       <p class="muted">Live from dyrelog.pages.dev</p>
     </div>
-    <button class="btn secondary" id="btn-open-site">Open full website &#8599;</button>
+    <div class="header-actions">
+      <button class="btn secondary" id="btn-submission-settings">Submission settings</button>
+      <button class="btn secondary" id="btn-open-site">Open full website &#8599;</button>
+    </div>
   </header>
   <!-- Item 6 — "I want there to be a section or title that shows 'Public
        Leaderboards' versus your personal leaderboards... I want the player
@@ -22,8 +25,10 @@
        (see .detail-tabs in analysis.css) so it reads as "which whole view
        am I looking at." "My Kills" is built entirely from fights already
        saved on this machine (see loadHistory() in main.js) — it works
-       whether or not you've ever submitted anything to the server, which
-       today nothing does yet (Discord login isn't wired up — see app.js). -->
+       whether or not you've ever submitted anything to the server. Once a
+       kill IS submitted (Discord login + auto/ask submit, see app.js/
+       main.js), its real server status/visibility rides along too (see
+       recordSubmission()), which is what "View log" below is gated on. -->
   <div class="detail-tabs" id="lb-tabs">
     <button class="detail-tab active" type="button" data-view="public">Public Leaderboards</button>
     <button class="detail-tab" type="button" data-view="personal">My Kills</button>
@@ -35,7 +40,7 @@
          same API (GET /api/leaderboard/highlights) as the website's
          index.html — see loadHighlights() in leaderboard.js. -->
     <section class="lb-panel lb-panel-gold" id="highlights-panel">
-      <h2>Top D4 parses</h2>
+      <h2>Top 10 of the week</h2>
       <div id="highlights-list"><p class="muted">Loading&hellip;</p></div>
     </section>
 
@@ -54,12 +59,19 @@
     <section class="lb-panel lb-panel-gold">
       <h2>Your best per boss</h2>
       <p class="muted" style="margin-top:-6px;">Your single best DPS parse
-        against each boss you've killed on this machine — private, never
-        sent anywhere. Kills only, same as the public boards.</p>
+        against each boss you've killed on this machine, tracked locally
+        whether or not it was ever submitted. Kills only, same as the
+        public boards.</p>
       <div id="personal-list"><p class="muted">Loading&hellip;</p></div>
     </section>
   </div>
+  <div id="fight-body" hidden>
+    <button id="fight-back" class="detail-tab" type="button">Back</button>
+    <section class="lb-panel lb-panel-gold" id="fight-detail"></section>
+  </div>
+  <script src="boss-browser.js"></script>
   <script src="eqp-core.js"></script>
+  <script src="submission-view.js"></script>
   <script src="leaderboard.js"></script>
 </body>
 </html>

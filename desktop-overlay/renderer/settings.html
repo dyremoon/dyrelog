@@ -45,58 +45,112 @@
         <div class="row">
           <label class="check"><input type="checkbox" id="set-showpets"> Show pets as separate bars</label>
         </div>
-        <p class="hint">Off folds your pet's damage back into your own single
-          bar (the combined dps number at top is the same either way), try it
-          above, the preview's Pet row disappears and You's number absorbs it.</p>
+
       </div>
 
-      <div class="settings-section" data-searchable="sizing background opacity bar height text size icon timer mini pet dps">
-        <p class="section-label">Sizing</p>
+      <div class="settings-section" data-searchable="Standard Bar Settings">
+        <p class="section-label">Standard Bar Settings</p>
+        <div class="row">
+          <label for="set-barheight">Bar Height</label>
+          <input type="range" id="set-barheight" data-appearance-mode="bars" data-appearance-field="barHeight" min="0.3" max="3.5" step="0.1">
+          <output class="range-val" for="set-barheight"></output>
+        </div>
         <div class="row">
           <label for="set-opacity">Background Opacity</label>
-          <input type="range" id="set-opacity" min="0" max="1" step="0.05">
+          <input type="range" id="set-opacity" data-appearance-mode="bars" data-appearance-field="opacity" min="0" max="1" step="0.05">
+          <output class="range-val" for="set-opacity"></output>
         </div>
-        <p class="hint">Fades only the panel's background, text, bars and
-          icons stay fully readable all the way down to 0, so the overlay can
-          float over the game with no visible panel at all.</p>
-        <div class="row">
-          <label for="set-barheight">Bar height</label>
-          <input type="range" id="set-barheight" min="0.3" max="3.5" step="0.1">
-        </div>
-        <p class="hint">There's no "Size" slider anymore, drag the overlay's
-          right/bottom edge or corner instead, and it'll reopen at that size
-          from now on.</p>
         <div class="row">
           <label for="set-textscale">Bar Text Size</label>
-          <input type="range" id="set-textscale" min="0.85" max="2" step="0.05">
+          <input type="range" id="set-textscale" data-appearance-mode="bars" data-appearance-field="textScale" min="0.85" max="2" step="0.05">
+          <output class="range-val" for="set-textscale"></output>
         </div>
-        <p class="hint">Only resizes the name/dps text itself now, not the
-          overlay's window or its icons.</p>
         <div class="row">
           <label for="set-iconscale">Icon Size</label>
-          <input type="range" id="set-iconscale" min="0.7" max="1.6" step="0.05">
+          <input type="range" id="set-iconscale" data-appearance-mode="bars" data-appearance-field="iconScale" min="0.7" max="1.6" step="0.05">
+          <output class="range-val" for="set-iconscale"></output>
         </div>
-        <p class="hint">The header/menu icon buttons, on their own — separate
-          from Bar Text Size above.</p>
-        <div class="row">
-          <label for="set-minipetscale">Mini-bar pet text</label>
-          <input type="range" id="set-minipetscale" min="0.7" max="2.2" step="0.1">
-        </div>
-        <p class="hint">Only affects the small pet sub-line under your name in
-          mini mode, everything else uses Bar Text Size above.</p>
         <div class="row">
           <label for="set-secondarytextscale">Info Text Size</label>
-          <input type="range" id="set-secondarytextscale" min="0.7" max="2" step="0.1">
+          <input type="range" id="set-secondarytextscale" data-appearance-mode="bars" data-appearance-field="secondaryTextScale" min="0.7" max="2" step="0.1">
+          <output class="range-val" for="set-secondarytextscale"></output>
         </div>
-        <p class="hint">Sizes the "(defeated)"/"(live)" state and the "dps"
-          unit label on their own, separate from Bar Text Size above.</p>
         <div class="row">
-          <label for="set-timertextscale">Timer Text Size</label>
-          <input type="range" id="set-timertextscale" min="0.7" max="2" step="0.1">
+          <label for="set-timertextscale">Timer Size</label>
+          <input type="range" id="set-timertextscale" data-appearance-mode="bars" data-appearance-field="timerTextScale" min="0.7" max="2" step="0.1">
+          <output class="range-val" for="set-timertextscale"></output>
         </div>
-        <p class="hint">The fight timer (Bars mode) and the timer inside the
-          Circle badge — its own slider now, separate from Info Text Size
-          above.</p>
+      </div>
+      <div class="settings-section" data-searchable="Minimal Mode Settings">
+        <p class="section-label">Minimal Mode Settings</p>
+        <div class="row">
+          <label for="set-mini-barheight">Bar Height</label>
+          <input type="range" id="set-mini-barheight" data-appearance-mode="mini" data-appearance-field="barHeight" min="0.3" max="3.5" step="0.1">
+          <output class="range-val" for="set-mini-barheight"></output>
+        </div>
+        <div class="row">
+          <label for="set-mini-opacity">Background Opacity</label>
+          <input type="range" id="set-mini-opacity" data-appearance-mode="mini" data-appearance-field="opacity" min="0" max="1" step="0.05">
+          <output class="range-val" for="set-mini-opacity"></output>
+        </div>
+        <div class="row">
+          <label for="set-mini-textscale">Bar Text Size</label>
+          <input type="range" id="set-mini-textscale" data-appearance-mode="mini" data-appearance-field="textScale" min="0.85" max="2" step="0.05">
+          <output class="range-val" for="set-mini-textscale"></output>
+        </div>
+        <div class="row">
+          <label for="set-mini-iconscale">Icon Size</label>
+          <input type="range" id="set-mini-iconscale" data-appearance-mode="mini" data-appearance-field="iconScale" min="0.7" max="1.6" step="0.05">
+          <output class="range-val" for="set-mini-iconscale"></output>
+        </div>
+        <div class="row">
+          <label for="set-mini-secondarytextscale">Info Text Size</label>
+          <input type="range" id="set-mini-secondarytextscale" data-appearance-mode="mini" data-appearance-field="secondaryTextScale" min="0.7" max="2" step="0.1">
+          <output class="range-val" for="set-mini-secondarytextscale"></output>
+        </div>
+        <div class="row">
+          <label for="set-mini-timertextscale">Timer Size</label>
+          <input type="range" id="set-mini-timertextscale" data-appearance-mode="mini" data-appearance-field="timerTextScale" min="0.7" max="2" step="0.1">
+          <output class="range-val" for="set-mini-timertextscale"></output>
+        </div>
+        <div class="row">
+          <label for="set-minipetscale">Pet DPS size</label>
+          <input type="range" id="set-minipetscale" data-appearance-mode="mini" data-appearance-field="miniPetTextScale" min="0.7" max="2.2" step="0.1">
+          <output class="range-val" for="set-minipetscale"></output>
+        </div>
+      </div>
+      <div class="settings-section" data-searchable="Circle Mode Settings">
+        <p class="section-label">Circle Mode Settings</p>
+        <div class="row">
+          <label for="set-circlescale">Circle Size</label>
+          <input type="range" id="set-circlescale" data-appearance-mode="circle" data-appearance-field="circleScale" min="0.6" max="1.8" step="0.1">
+          <output class="range-val" for="set-circlescale"></output>
+        </div>
+        <div class="row">
+          <label for="set-circle-opacity">Background Opacity</label>
+          <input type="range" id="set-circle-opacity" data-appearance-mode="circle" data-appearance-field="opacity" min="0" max="1" step="0.05">
+          <output class="range-val" for="set-circle-opacity"></output>
+        </div>
+        <div class="row">
+          <label for="set-circle-iconscale">Icon Size</label>
+          <input type="range" id="set-circle-iconscale" data-appearance-mode="circle" data-appearance-field="iconScale" min="0.7" max="1.6" step="0.05">
+          <output class="range-val" for="set-circle-iconscale"></output>
+        </div>
+        <div class="row">
+          <label for="set-circle-textscale">DPS Text Size</label>
+          <input type="range" id="set-circle-textscale" data-appearance-mode="circle" data-appearance-field="textScale" min="0.85" max="2" step="0.05">
+          <output class="range-val" for="set-circle-textscale"></output>
+        </div>
+        <div class="row">
+          <label for="set-circle-minipetscale">Pet DPS size</label>
+          <input type="range" id="set-circle-minipetscale" data-appearance-mode="circle" data-appearance-field="miniPetTextScale" min="0.7" max="2.2" step="0.1">
+          <output class="range-val" for="set-circle-minipetscale"></output>
+        </div>
+        <div class="row">
+          <label for="set-circle-timertextscale">Timer Size</label>
+          <input type="range" id="set-circle-timertextscale" data-appearance-mode="circle" data-appearance-field="timerTextScale" min="0.7" max="2" step="0.1">
+          <output class="range-val" for="set-circle-timertextscale"></output>
+        </div>
       </div>
 
       <div class="settings-section" data-searchable="layout fade idle display style bars circle">
@@ -108,9 +162,12 @@
             <input type="range" id="set-fadeidle-secs" min="3" max="30" step="1">
             <span class="range-val" id="fadeidle-secs-val"></span>
           </div>
-          <p class="hint">Leaves just each row's name and dps on screen,
-            header, icons, the timer and rank numbers fade out until you move
-            your mouse back over the overlay.</p>
+          <div class="row" id="fadeidle-opacity-row">
+            <label for="set-fadeidle-opacity">Fade UI opacity</label>
+            <input type="range" id="set-fadeidle-opacity" min="0" max="1" step="0.05">
+            <span class="range-val" id="fadeidle-opacity-val"></span>
+          </div>
+
         </div>
         <div class="row row-stack">
           <label>Display style</label>
@@ -118,18 +175,10 @@
             <button class="segment" type="button" data-style="bars">Bars</button>
             <button class="segment" type="button" data-style="circle">Circle</button>
           </div>
-          <p class="hint">Circle replaces the whole overlay with a small round
-            badge showing just your dps and the fight timer, Mini mode doesn't
-            apply while it's on. Click the badge, right-click it, or use its
-            gear button any time to jump to a menu with Analysis, Leaderboards,
-            this Settings window, and Switch to Bars.</p>
+
         </div>
-        <div class="row">
-          <label for="set-circlescale">Circle size</label>
-          <input type="range" id="set-circlescale" min="0.6" max="1.8" step="0.1">
-        </div>
-        <p class="hint">Only matters in Circle display style above, resizes
-          the round badge (and the window around it) up or down.</p>
+
+
       </div>
 
       <div class="settings-section" data-searchable="color theme colors background text border font">
@@ -145,9 +194,7 @@
             <button class="theme-swatch theme-hardcore" type="button" data-theme="hardcore" title="Hardcore"></button>
             <button class="theme-swatch theme-metal" type="button" data-theme="metal" title="Metal"></button>
           </div>
-          <p class="hint">Also recolors this Settings window's own accent
-            (and the Leaderboards/Analysis windows), so the whole app matches
-            the theme you pick here, not just the in-game overlay.</p>
+
         </div>
         <div class="row-stack">
           <label>Colors</label>
@@ -158,9 +205,7 @@
             <label class="color-field">Pet bar <input type="color" id="set-petbarcolor"></label>
             <label class="color-field">Border <input type="color" id="set-bordercolor"></label>
           </div>
-          <p class="hint">Border is the lightweight outline around each row,
-            it no longer fades out along with Background opacity above, so
-            there's still visible structure between rows even at low opacity.</p>
+
           <button class="link-btn" id="btn-reset-colors" type="button">Reset to default colors</button>
         </div>
         <div class="row-stack">
@@ -173,13 +218,7 @@
             <label class="color-field">Total DPS text <input type="color" id="set-totaldpscolor"></label>
             <label class="color-field">Icons <input type="color" id="set-iconcolor"></label>
           </div>
-          <p class="hint">Separate from "Text" above, that's every row's main
-            text; these recolor the fight timer/status/rank numbers, your own
-            or your pet's name, each row's own "DPS" number (bars and mini
-            mode), the single total-damage figure (mob-line and mini mode),
-            and the gear/circle/mini/bars mode-switch icon buttons (not the
-            Analysis/Leaderboards icons — those are real emoji and don't
-            take a color) — wherever each shows up.</p>
+
           <button class="link-btn" id="btn-reset-textcolors" type="button">Reset to default text colors</button>
         </div>
         <div class="row-stack">
@@ -189,9 +228,7 @@
             <label class="color-field">Border <input type="color" id="set-circlebordercolor"></label>
             <label class="color-field">Text <input type="color" id="set-circletextcolor"></label>
           </div>
-          <p class="hint">Only used by Circle display style (Layout above) —
-            Bars/Mini-bar keep their own separate colors above, this is what
-            actually recolors the round badge itself.</p>
+
           <button class="link-btn" id="btn-reset-circlecolors" type="button">Reset to default circle colors</button>
         </div>
         <div class="row">
@@ -214,15 +251,11 @@
         <div class="row row-stack">
           <label for="set-myclass">Your class</label>
           <select id="set-myclass"></select>
-          <p class="hint">Used for the class color options below. Pick "None"
-            if you'd rather not say, or if you play more than one character.</p>
+
         </div>
         <div class="row row-stack">
           <label class="check"><input type="checkbox" id="set-classcolors"> Color my bar by class</label>
-          <p class="hint">Colors your bar with your class's color instead of
-            "My bar" in Color above. Customize any class's color below,
-            classes you haven't touched use EverQuest's own established
-            colors.</p>
+
           <div class="class-color-grid" id="class-color-grid"></div>
           <button class="link-btn" id="btn-reset-classcolors" type="button">Reset class colors to defaults</button>
         </div>
@@ -239,7 +272,7 @@
     <aside class="appearance-preview-col">
       <div class="settings-section preview-live" data-searchable="preview live example test visuals bars mini-bar circle meter idle fade">
         <p class="section-label">Live preview</p>
-        <p class="hint" style="margin-top:0;">Preview size, layout, color, and text changes to your meter using this preview.</p>
+
 
         <!-- Markup mirrors the real overlay's own structure (see style.css's
              .header/.subhead/.bar-row/.mini-bar/.watch-badge) rather than a
@@ -282,9 +315,14 @@
         </div>
 
         <div class="preview-group">
-          <p class="preview-group-label">Mini-bar</p>
+          <p class="preview-group-label">Minimal-Mode</p>
           <div class="preview-frame preview-frame-mini" id="preview-frame-mini">
-            <div class="preview-mini-main-row">
+            <div class="preview-mini-info"><span class="preview-mini-timer">2:14</span>      <div class="preview-mini-actions">
+        <button class="preview-mode-icon" tabindex="-1"  title="Settings"><svg class="preview-btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.02 5.98l-2.12 2.12M8.1 15.9l-2.12 2.12M18.02 18.02l-2.12-2.12M8.1 8.1L5.98 5.98"/></svg></button>
+        <button class="preview-mode-icon" tabindex="-1"  title="Toggle separate pets">♙</button>
+        <button class="preview-mode-icon" tabindex="-1"  title="Circle mode">&#9711;</button>
+        <button class="preview-mode-icon" tabindex="-1"  title="Expand"><svg class="preview-btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="15" y2="12"/><line x1="4" y1="17" x2="18" y2="17"/></svg></button>
+      </div><span class="preview-mini-total">141,102 total dmg</span></div><div class="preview-mini-main-row">
               <span class="preview-status-dot"></span>
               <span class="preview-name" id="preview-mini-name"><span class="preview-name-label">You</span></span>
               <span class="preview-dps preview-mini-dps"><span id="preview-mini-dps">842</span><span class="preview-dpsunit">dps</span></span>
@@ -300,12 +338,15 @@
           <p class="preview-group-label">Circle</p>
           <div class="preview-circle-wrap">
             <div class="preview-circle" id="preview-circle">
-              <span class="preview-circle-menu">&#8942;</span>
+                    <button class="preview-circle-icon" data-angle-key="menu" tabindex="-1" title="Menu (drag to move)"><svg class="preview-btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.02 5.98l-2.12 2.12M8.1 15.9l-2.12 2.12M18.02 18.02l-2.12-2.12M8.1 8.1L5.98 5.98"/></svg></button>
+      <button class="preview-circle-icon" data-angle-key="mini" tabindex="-1" title="Minimal-Mode (drag to move)">&#8212;</button>
+      <button class="preview-circle-icon" data-angle-key="bars" tabindex="-1" title="Standard mode (drag to move)"><svg class="preview-btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="15" y2="12"/><line x1="4" y1="17" x2="18" y2="17"/></svg></button>
+      <button class="preview-circle-icon" data-angle-key="pets" tabindex="-1" title="Toggle separate pets">♙</button>
               <div class="preview-circle-dps"><span id="preview-circle-dps-num">842</span><span class="preview-circle-unit">dps</span></div>
-              <div class="preview-circle-timer">2:14</div>
+              <div class="preview-circle-pet" id="preview-circle-pet">211</div><div class="preview-circle-timer">2:14</div>
             </div>
           </div>
-          <p class="hint" style="margin-top:8px;">Only reflects Circle size below &mdash; Bars/Mini-bar's own sizing and color settings above don't apply to Circle.</p>
+
         </div>
       </div>
     </aside>
@@ -313,6 +354,13 @@
 
     <!-- ==================== Options ==================== -->
     <section class="tab-panel" data-tab-panel="options" hidden>
+      <div class="settings-section" data-searchable="submission sound audio mp3 volume mute">
+        <p class="section-label">Submission Sound</p>
+        <div class="row"><label for="submission-sound">Sound</label><select id="submission-sound"><option value="none">No sound</option></select></div>
+        <div class="row"><button type="button" class="btn-link" id="upload-submission-sound">Upload MP3</button><button type="button" class="btn-link" id="test-submission-sound">Test sound</button></div>
+        <div class="row"><label for="submission-volume">Volume</label><input id="submission-volume" type="range" min="0" max="100" step="1"><output id="submission-volume-value" class="range-val"></output></div>
+        <p id="submission-sound-status" role="status"></p>
+      </div>
       <!-- Moved here from a header icon on the mini-mode card (Sept 6) —
            picking a new file/folder just re-saves the source, no separate
            "forget" step needed; the mini-mode window updates live. -->
@@ -369,7 +417,7 @@
         <div class="row" style="margin-top:10px;">
           <label class="check"><input type="checkbox" id="set-launchatstartup"> Launch Dyrelog when Windows starts</label>
         </div>
-        <p class="hint">Combine this with "Keep in tray" so Dyrelog is already running before you open EverQuest.</p>
+
       </div>
     </section>
 
@@ -399,18 +447,13 @@
 
       <div class="settings-section" data-searchable="feedback bug report feature request issue github">
         <p class="section-label">Feedback</p>
-        <p class="hint" style="margin-top:0;">Found a bug, or want to see
-          something added? Open an issue on GitHub and it comes straight to
-          me.</p>
+
         <a class="btn-link" id="feedback-link" href="#" target="_blank" rel="noopener">Report a bug or submit feedback &#8599;</a>
       </div>
 
       <div class="settings-section" data-searchable="credits thanks sources wiki data">
         <p class="section-label">Credits</p>
-        <p class="hint" style="margin-top:0;">Boss and zone data in the
-          curated leaderboard list draws on research from these community
-          sites, run by people who've spent years documenting this game.
-          Neither is affiliated with Dyrelog.</p>
+
         <ul class="credits-list">
           <li><a href="#" class="credit-link" data-url="https://eqlwiki.com">eqlwiki.com</a></li>
           <li><a href="#" class="credit-link" data-url="https://eqlegends.com/wiki">eqlegends.com/wiki</a></li>
@@ -455,6 +498,8 @@
     <a class="github-link" id="footer-github" href="#">GitHub &#8599;</a>
   </footer>
 
-  <script src="settings.js"></script>
+  <script src="appearance.js"></script>
+<script src="submission-audio.js"></script>
+<script src="settings.js"></script>
 </body>
 </html>

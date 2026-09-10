@@ -304,6 +304,21 @@ body {
    --icon-color anyway since CSS color never affects emoji presentation. */
 .btn-svg { width: calc(13px * var(--icon-scale, 1)); height: calc(13px * var(--icon-scale, 1)); display: block; }
 
+/* Shared [data-tooltip] label — see wireIconTooltips() in app.js. */
+.icon-tooltip {
+  position: fixed;
+  z-index: 60;
+  background: var(--bg-card);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 0.72rem;
+  color: var(--ink);
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  pointer-events: none;
+}
+
 .empty-copy { color: var(--ink-2); font-size: calc(0.92rem * var(--text-scale, 1)); line-height: 1.4; margin-bottom: 10px; }
 .empty-actions { display: flex; flex-direction: column; gap: 6px; }
 
@@ -389,7 +404,7 @@ body {
   z-index: 50;
   min-width: 150px;
   max-width: 260px;
-  max-height: 220px;
+  max-height: min(600px, calc(100vh - 16px));
   overflow-y: auto;
   background: var(--bg-card);
   border: 1px solid var(--hair);
@@ -429,9 +444,9 @@ body {
    .fill's width is set inline per-row (see buildDisplayRows()/
    renderBarList() in app.js) relative to the top row's dps, and re-renders
    every second as dps changes, so the transition here is what makes that
-   read as a bar growing/shrinking instead of jumping. The transition
-   happens to also fade in and out smoothly with the panel opacity slider,
-   since --panel-alpha multiplies its tint below. */
+   read as a bar growing/shrinking instead of jumping. The fill's tint is
+   deliberately NOT scaled by --panel-alpha any more — see the note on
+   .bar-row .fill below. */
 .bar-row {
   position: relative;
   display: grid;
@@ -440,7 +455,13 @@ body {
   gap: 6px;
   padding: calc(4px * var(--bar-height-mult, 1)) 7px;
   border-radius: 8px;
-  overflow: hidden;
+  /* NOT overflow:hidden here any more ("the bar text looks fuzzy") — this
+     row's own rounded corners used to be enforced by clipping the row
+     itself, which forced Chromium to composite the whole row (text
+     included) onto a separate masked layer to round off .fill sitting
+     behind it. The clip now lives on .fill alone below, which has no text
+     of its own, so the row's real text paints straight onto the normal
+     surface instead of through that mask. */
   /* Settings > Colors > Border — its own override (--row-border-color),
      separate from --hair (icon buttons, dividers, etc. elsewhere). Fixed
      at a flat 55% instead of scaling with --panel-alpha the way it used
@@ -462,7 +483,16 @@ body {
   inset: 0;
   z-index: 0;
   width: var(--pct, 0%);
-  background: color-mix(in srgb, var(--swatch, var(--rank1)) calc(34% * var(--panel-alpha)), transparent);
+  border-radius: 8px; /* clipped on itself now, not via the row's overflow:hidden — see the note on .bar-row */
+  overflow: hidden;
+  /* Flat 34%, NOT scaled by --panel-alpha. Background opacity is supposed to
+     fade the panel behind the bars, not the bars themselves — Settings' own
+     copy promises "text, bars and icons stay fully readable all the way down
+     to 0." It used to be calc(34% * var(--panel-alpha)), which dropped the
+     fill to ~5% alpha at a 0.15 Background opacity and washed every row's
+     color out to grey ("background opacity should not be removing the colors
+     of the dps bars"). Same fix the row border above already got. */
+  background: color-mix(in srgb, var(--swatch, var(--rank1)) 34%, transparent);
   transition: width 0.6s ease;
 }
 .bar-row .rank { position: relative; z-index: 1; color: var(--ink-3); font-size: calc(0.8rem * var(--text-scale, 1)); text-align: right; }
@@ -575,25 +605,23 @@ body.mini .auto-submit-toggles { display: none; }
 body.mini .mini-bar { display: flex; order: -1; }
 body.mini .card { padding: 8px 9px; }
 .mini-bar .status-dot { flex: none; margin-top: 3px; }
+.mini-party-list { display: none; max-height: 90px; overflow-y: auto; margin-top: 3px; }
+.mini-party-bar { position: relative; isolation: isolate; display: flex; justify-content: space-between; gap: 8px; padding: calc(4px * var(--bar-height-mult, 1)) 7px; margin-top: 2px; border: 1px solid color-mix(in srgb, var(--swatch) 42%, var(--hair)); border-radius: 5px; background: color-mix(in srgb, var(--swatch) 18%, var(--bg-card)); color: var(--ink); font-size: calc(.78rem * var(--text-scale, 1)); overflow: hidden; }
+.mini-party-bar::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--fill, 0%); background: color-mix(in srgb, var(--swatch) 38%, transparent); z-index: -1; }
+.mini-party-bar span, .mini-party-bar b, .mini-party-bar small { position: relative; z-index: 1; }
+.mini-party-bar b { color: var(--dps-text-color, var(--ink)); }
+.mini-party-bar small { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+body.mini .mini-party-list { display: block; }
 /* Reworked Sept 7 (item 1/2/9 of the mini-bar rework) — total damage done
    on its own line above both dps rows, and each name+dps row (yours,
    then your pet's) is its own bordered strip so they read as two
    distinct rows at a glance instead of a name row not aligning with the
    number row under it. */
-/* Reworked again Sept 7 (DJ's mock-up): the icon column no longer sits in
-   this flex row at all (see .mini-actions below), so .mini-info now owns
-   the full card width — padding-right just clears the floating icon
-   column so the total-damage line's right edge never runs under it. */
-.mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding-right: calc(24px * var(--icon-scale, 1) + 4px); }
-/* Right-aligned (item 8 of the newest list — "total damage should be top
-   right not top left") and bumped up a size from before (item 7 — "too
-   small to see"), flat-formatted (fmtNum(), see updateMiniBar() in
-   app.js) instead of abbreviated. Sits above the bordered name/dps row
-   with no border/background of its own — "above/outside the hud" per
-   DJ's mock-up, small and muted rather than boxed in like the row below.
-   Own color picker, same --total-dps-color the mob-line's #fight-total
-   uses. */
-.mini-total { color: var(--total-dps-color, var(--ink-2)); font-size: calc(0.72rem * var(--text-scale, 1)); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; text-transform: uppercase; padding: 0 2px; text-align: right; }
+/* Timer, mode controls and total damage share one top row. */
+.mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+.mini-info-line { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 6px; min-width: 0; }
+.mini-timer { flex: none; color: var(--ink-2); font-size: calc(.72rem * var(--timer-text-scale, 1)); font-variant-numeric: tabular-nums; }
+.mini-total { min-width: 0; color: var(--total-dps-color, var(--ink-2)); font-size: calc(.72rem * var(--secondary-text-scale, 1)); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
 .mini-main, .mini-pet-row {
   display: flex;
   align-items: baseline;
@@ -601,8 +629,9 @@ body.mini .card { padding: 8px 9px; }
   min-width: 0;
   border: 1px solid color-mix(in srgb, var(--row-border-color, var(--hair)) 55%, transparent);
   border-radius: 6px;
-  padding: 2px 6px;
+  padding: calc(2px * var(--bar-height-mult, 1)) 6px;
 }
+/* Names and DPS use the full row width below the toolbar. */
 .mini-name { font-weight: 700; font-size: calc(0.95rem * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 /* min-width (not just text-align) is what actually lines the player and
    pet dps numbers up in one column regardless of how long either name
@@ -617,16 +646,9 @@ body.mini .card { padding: 8px 9px; }
    app.js's applySettings(); 1 = the original fixed sizes below. */
 .mini-pet-name { color: var(--ink-3); font-size: calc(0.66rem * var(--mini-pet-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .mini-pet-dps { color: var(--ink-2); font-size: calc(0.68rem * var(--mini-pet-scale, 1)); font-variant-numeric: tabular-nums; flex: none; text-align: right; min-width: 3.6em; }
-/* Settings gear added to mini mode (item 6) alongside the existing expand
-   button, both no-drag, stacked in their own small column. Reworked Sept 7
-   ("position the icons over top of the mini bar like how the circle is, so
-   that they don't affect the size... since they're inside the bar") —
-   this is no longer a flex sibling of .mini-info at all; it's an absolute
-   overlay pinned to the card's own top-right corner, same idea as the
-   Circle badge's own corner buttons below, so nothing about the icon
-   column's width/height ever pushes the name/dps row around. */
-.mini-actions { position: absolute; top: 0; right: 0; display: flex; flex-direction: column; gap: 4px; z-index: 2; }
-.mini-settings, .mini-circle, .mini-restore { -webkit-app-region: no-drag; flex: none; }
+/* Keep the whole controls group clickable inside the mini drag region. */
+.mini-actions { display: flex; align-items: center; gap: 4px; -webkit-app-region: no-drag; pointer-events: auto; }
+.mini-settings, .mini-pets-toggle, .mini-circle, .mini-restore { -webkit-app-region: no-drag; pointer-events: auto; position: relative; z-index: 11; flex: none; }
 
 /* ---- Circle display style (Settings > Display style) ----
    Item 8 — "a theme that is a circle and it just has a dps number in it...
@@ -703,8 +725,9 @@ body.watch .watch-badge { display: flex; }
    --btn-angle per button (from Settings > iconAngles, or a built-in
    default matching the old fixed-corner look) and updates it live while
    dragging. The trig here just walks the badge's own radius. */
-.watch-menu-btn, .watch-mini-btn, .watch-bars-btn {
+.watch-menu-btn, .watch-mini-btn, .watch-bars-btn, .watch-pets-btn {
   position: absolute;
+  z-index: 3;
   --btn-angle: 45deg;
   left: calc(50% + (132px * var(--circle-scale, 1) / 2) * sin(var(--btn-angle)));
   top: calc(50% - (132px * var(--circle-scale, 1) / 2) * cos(var(--btn-angle)));
@@ -726,9 +749,10 @@ body.watch .watch-badge { display: flex; }
      of the surrounding badge's drag-swallowing quirk (see .watch-badge's
      comment above). */
   -webkit-app-region: no-drag;
+  pointer-events: auto;
 }
-.watch-menu-btn:hover, .watch-mini-btn:hover, .watch-bars-btn:hover { color: var(--icon-color, var(--ink)); border-color: var(--accent); }
-.watch-menu-btn:active, .watch-mini-btn:active, .watch-bars-btn:active { cursor: grabbing; }
+.watch-menu-btn:hover, .watch-mini-btn:hover, .watch-bars-btn:hover, .watch-pets-btn:hover { color: var(--icon-color, var(--ink)); border-color: var(--accent); }
+.watch-menu-btn:active, .watch-mini-btn:active, .watch-bars-btn:active, .watch-pets-btn:active { cursor: grabbing; }
 /* Built-in default angles — only used until DJ actually drags an icon
    (wireBadgeIcon() then sets --btn-angle inline per button, which wins
    over these); chosen to land right where the old fixed top-right/
@@ -736,13 +760,15 @@ body.watch .watch-badge { display: flex; }
 .watch-menu-btn { --btn-angle: 45deg; }
 .watch-mini-btn { --btn-angle: 315deg; }
 .watch-bars-btn { --btn-angle: 135deg; }
+.watch-pets-btn { --btn-angle: 180deg; }
 .watch-dps { display: flex; align-items: baseline; gap: 3px; }
+.watch-pet { color: var(--circle-text-color, var(--ink-2)); font-size: calc(0.68rem * var(--mini-pet-scale, 1)); max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* --circle-text-color, when set, overrides all three of dps-num/unit/timer
    to the SAME one color (mirrors how the main overlay's own "Text" picker
    overrides --ink everywhere at once) — falls back to each element's
    previous distinct default (--accent/--ink-3/--ink-2) when unset. */
-.watch-dps #watch-dps-num { color: var(--circle-text-color, var(--accent)); font-weight: 700; font-size: calc(1.7rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
-.watch-unit { color: var(--circle-text-color, var(--ink-3)); font-size: calc(0.72rem * var(--secondary-text-scale, 1) * var(--circle-scale, 1)); }
+.watch-dps #watch-dps-num { color: var(--circle-text-color, var(--accent)); font-weight: 700; font-size: calc(1.7rem * var(--text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
+.watch-unit { color: var(--circle-text-color, var(--ink-3)); font-size: calc(0.72rem * var(--text-scale, 1) * var(--circle-scale, 1)); }
 /* Settings > "Timer Text Size" (item 10) — same independent slider the
    Bars-mode fight timer now uses, not bundled into Info Text Size. */
 .watch-timer { color: var(--circle-text-color, var(--ink-2)); font-size: calc(0.82rem * var(--timer-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
@@ -757,21 +783,42 @@ body.watch .watch-badge { display: flex; }
    anywhere over the window (see the mousemove/mousedown listeners in
    app.js) removes body.idle-faded immediately, before a follow-up click
    would land. */
+/* Every one of these fades TO --idle-ui-opacity (Settings > "Fade UI
+   opacity"), not to a hardcoded 0. They all used to be `opacity: 0`, which
+   meant the slider was wired up (app.js sets --idle-ui-opacity from
+   fadeIdleOpacity) but drove nothing except the panel background below —
+   set it to 50% and the header, icons, timer and rank numbers still went
+   fully invisible ("fade opacity isn't working properly", in both mini and
+   standard mode). 0 on the slider still means fully invisible, which is
+   what the old behavior was really pinned to. */
 body.idle-faded .header,
 body.idle-faded .mob-line,
 body.idle-faded .fight-timer,
 body.idle-faded .fight-total,
 body.idle-faded .bar-row .rank,
 body.idle-faded .bar-row .pet-tag {
-  opacity: 0;
+  opacity: var(--idle-ui-opacity, .15);
   pointer-events: none;
 }
+body.idle-faded .mini-actions,
+body.idle-faded .watch-menu-btn,
+body.idle-faded .watch-mini-btn,
+body.idle-faded .watch-bars-btn,
+body.idle-faded .watch-pets-btn { opacity: var(--idle-ui-opacity, .15); pointer-events: none; }
+/* Multiplied, not replaced. This element's resting opacity is --panel-alpha
+   (Settings > Background opacity); assigning --idle-ui-opacity straight to it
+   meant a panel sitting at 0.15 Background opacity got MORE opaque (0.5) the
+   moment it went idle. Multiplying keeps "idle is never more visible than
+   active" true for every combination of the two sliders. */
+body.idle-faded .card::before { opacity: calc(var(--panel-alpha, 1) * var(--idle-ui-opacity, .15)); }
+body.idle-faded .empty-state { opacity: var(--idle-ui-opacity, .15); pointer-events: none; }
 /* The submit prompt is excluded from the fade above (Sept 7) — it used to
    fade out with everything else, so a kill finishing while idle could go
    completely unseen until the mouse moved again. */
 .header, .mob-line, .fight-timer, .fight-total,
 .bar-row .rank, .bar-row .pet-tag,
-.submit-row, .auto-submit-line, .auto-submit-toggles {
+.submit-row, .auto-submit-line, .auto-submit-toggles,
+.mini-actions, .watch-menu-btn, .watch-mini-btn, .watch-bars-btn, .watch-pets-btn, .card::before, .empty-state {
   transition: opacity 0.8s ease;
 }
 
@@ -785,3 +832,11 @@ body.idle-faded .bar-row .pet-tag {
    doesn't (see toggleMini() in app.js), so the handles stay available here
    too; item 6 explicitly wants mini mode to keep behaving like a real,
    resizable window rather than snapping to one fixed footprint. */
+
+/* Fade decorative UI independently of the damage bars. */
+body.idle-faded .mini-timer, body.idle-faded .mini-total, body.idle-faded .watch-timer { opacity: var(--idle-ui-opacity, .15); }
+body.idle-faded .watch-badge { background: color-mix(in srgb, var(--circle-bg-color, var(--bg-card)) calc(100% * var(--panel-alpha) * var(--idle-ui-opacity, .15)), transparent); }
+
+/* Explicit pointer dragging works consistently on transparent Windows overlays. */
+.header, .mini-bar, .watch-badge { -webkit-app-region: no-drag; touch-action: none; cursor: grab; }
+body.idle-faded .header { pointer-events: auto; }

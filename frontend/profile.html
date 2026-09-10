@@ -26,66 +26,104 @@
       </nav>
     </header>
 
-    <main>
-      <!-- Log out lives here now instead of the header — "remove the log
-           out button from the headers completely and just embed that into
-           the My Profile section." -->
-      <div class="plate plate-gold" style="margin-bottom:24px;">
-        <div class="analyze-detail-head">
-          <h2 style="margin:0;">My Profile</h2>
-          <button class="btn" id="logout-btn" type="button" hidden>Log out</button>
-        </div>
-        <p class="muted" id="profile-username" style="margin-top:6px; margin-bottom:0;"></p>
+<main style="padding-top:12px;">
 
-        <!-- "Under my profile, add a short section to add a small bio for
-             people who make accounts to fill in." Hidden until we know
-             the user is logged in (loadProfile() below un-hides it). -->
-        <div id="bio-section" hidden style="margin-top:16px;">
-          <label for="bio-input" class="muted" style="display:block; margin-bottom:6px;">Bio</label>
-          <textarea id="bio-input" class="bio-textarea" rows="3" maxlength="200" placeholder="Say a little about yourself…"></textarea>
-          <div class="bio-row">
-            <span class="muted bio-count" id="bio-count">0/200</span>
-            <button class="btn" id="bio-save-btn" type="button">Save bio</button>
-          </div>
-        </div>
-      </div>
+  <!-- Admin -->
+  <div
+    class="plate plate-highlight"
+    id="admin-section"
+    hidden
+    style="margin-top:0; margin-bottom:20px; padding:14px 18px !important; min-height:0 !important; height:auto !important;"
+  >
+    <h3 style="margin:0 0 6px 0;">Moderation</h3>
 
-      <div class="plate plate-highlight">
-        <h2>Your characters</h2>
-        <div id="char-list"><p class="muted">Loading…</p></div>
-      </div>
+    <p
+      class="muted"
+      style="margin:0 0 10px 0; font-size:0.9rem;"
+    >
+      Visible only to you as an admin.
+    </p>
 
-      <div class="plate plate-gold">
-        <h2>Personal history</h2>
-        <p class="muted" style="margin-top:-6px;">
-          Every boss kill the overlay sees will be tracked here automatically, privately.
-          Only your best attempts per boss/tier shows. <strong>Publish</strong> shares that
-          run on the public leaderboard. <strong>Nothing here is public until you decide.</strong>
-        </p>
-        <div id="personal-list"><p class="muted">Loading…</p></div>
-      </div>
-
-      <!-- Admin-only, and tucked down here instead of the main nav so it
-           doesn't congest the header for the one account that sees it —
-           "I know it only shows up for me, but it would be nice if it
-           looked better for me." Hidden entirely for everyone else. -->
-      <div class="plate plate-highlight" id="admin-section" hidden style="margin-top:24px;">
-        <h3 style="margin-bottom:8px;">Moderation</h3>
-        <p class="muted" style="margin-top:0; margin-bottom:12px; font-size:0.9rem;">
-          Visible only to you as an admin.
-        </p>
-        <a class="btn" href="./admin.html">Open review queue</a>
-      </div>
-    </main>
-
-    <footer class="site-footer">
-      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by 
-      Daybreak Game Company or EverQuest Legends.
-    </footer>
+    <a class="btn" href="./admin.html">Open review queue</a>
   </div>
+
+  <!-- Profile -->
+  <div class="plate plate-gold" style="margin-top:24px; margin-bottom:20px;">
+    <div class="analyze-detail-head">
+      <h2 style="margin:0;">My Profile</h2>
+      <button class="btn" id="logout-btn" type="button" hidden>Log out</button>
+    </div>
+
+    <p
+      class="muted"
+      id="profile-username"
+      style="margin-top:6px; margin-bottom:0;"
+    ></p>
+
+    <div id="bio-section" hidden style="margin-top:16px;">
+      <label
+        for="bio-input"
+        class="muted"
+        style="display:block; margin-bottom:6px;"
+      >
+        Bio
+      </label>
+
+      <textarea
+        id="bio-input"
+        class="bio-textarea"
+        rows="3"
+        maxlength="200"
+        placeholder="Say a little about yourself…"
+      ></textarea>
+
+      <div class="bio-row">
+        <span class="muted bio-count" id="bio-count">0/200</span>
+        <button class="btn" id="bio-save-btn" type="button">
+          Save bio
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Characters -->
+  <div class="plate" style="margin-top:24px; margin-bottom:20px;">
+    <h2>Your characters</h2>
+    <div id="char-list">
+      <p class="muted">Loading…</p>
+    </div>
+  </div>
+
+
+  <!-- Personal History -->
+  <div class="plate plate-gold" style="margin-top:24px; margin-bottom:20px;">
+    <h2>Personal history</h2>
+
+    <p class="muted" style="margin-top:-6px;">
+      Every boss kill the overlay sees will be tracked here automatically, privately.
+      Only your best attempts per boss/tier shows.
+      <strong>Publish</strong> shares that run on the public leaderboard.
+      <strong>Nothing here is public until you decide.</strong>
+    </p>
+
+    <div id="personal-list">
+      <p class="muted">Loading…</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="site-footer">
+  Dyrelog is an unofficial fan-made project and is not affiliated with,
+  endorsed by, or sponsored by Daybreak Game Company or EverQuest Legends.
+</footer>
+
+</div>
 
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
+  <script src="./js/leaderboard-sort.js"></script>
   <script>
     // Class picker — three dropdowns (Primary/Secondary/Tertiary) instead of
     // free text, so a character's class_combo can only ever be built out of
@@ -262,6 +300,8 @@
       return '<span class="badge badge-bad">Flagged</span>';
     }
 
+    const personalSort = { key: 'dps', dir: -1 };
+    function personalHeader(label, key) { return LeaderboardSort.header(label, key, personalSort); }
     async function loadPersonalHistory() {
       const listEl = document.getElementById('personal-list');
       try {
@@ -275,81 +315,91 @@
           listEl.innerHTML = `<p class="empty-state">No boss kills tracked yet — this fills in automatically the next time the overlay sees you fight one, streaming on.</p>`;
           return;
         }
-        listEl.innerHTML = `
-          <table>
-            <thead>
-              <tr><th>Boss</th><th class="num">DPS</th><th class="num">Damage</th><th>Killed</th><th>Date</th><th>Status</th><th></th></tr>
-            </thead>
-            <tbody>
-              ${bests
-                .map(
-                  (b) => `
-                <tr data-submission-id="${b.submission_id}">
-                  <td>${b.boss_name || 'Unknown'} <span class="muted">(${fmtDifficulty(b.difficulty)})</span></td>
-                  <td class="num tabular">${fmtNumber(b.dps)}</td>
-                  <td class="num tabular">${fmtNumber(b.damage)}</td>
-                  <td class="muted">${b.killed ? 'Yes' : 'No'}</td>
-                  <td class="muted">${fmtDateOnly(b.start_time)}</td>
-                  <td>
-                    <a class="btn" href="./analyze.html?submissionId=${b.submission_id}&name=${encodeURIComponent(b.character_name || '')}">Analyze</a>
-                  </td>
-                  <td class="publish-cell">
-                    ${
-                      b.visibility === 'public'
-                        ? statusBadge(b.status, b.visibility)
-                        : `
+        const render = () => {
+          listEl.innerHTML = `
+            <table>
+              <thead>
+                <tr><th>${personalHeader('Boss','boss')}</th><th>${personalHeader('Difficulty','difficulty')}</th><th class="num">${personalHeader('DPS','dps')}</th><th class="num">${personalHeader('Damage','damage')}</th><th>${personalHeader('Killed','killed')}</th><th>${personalHeader('Date','date')}</th><th>${personalHeader('Visibility','visibility')}</th><th>${personalHeader('Review','status')}</th><th>Analyze</th><th>Publish</th></tr>
+              </thead>
+              <tbody>
+                ${LeaderboardSort.sort(bests, personalSort)
+                  .map(
+                    (b) => `
+                  <tr data-submission-id="${b.submission_id}">
+                    <td>${
+                      b.boss_id
+                        ? `<a href="./boss.html?id=${b.boss_id}">${b.boss_name || 'Unknown'}</a>`
+                        : b.boss_name || 'Unknown'
+                    }</td>
+                    <td class="muted">${fmtDifficulty(b.difficulty)}</td>
+                    <td class="num tabular">${fmtNumber(b.dps)}</td>
+                    <td class="num tabular">${fmtNumber(b.damage)}</td>
+                    <td class="muted">${b.killed ? 'Yes' : 'No'}</td>
+                    <td class="muted">${fmtDateOnly(b.start_time)}</td><td>${b.visibility === 'public' ? 'Public' : 'Private'}</td><td>${({verified:'Verified',pending_review:'Pending review',flagged:'Flagged',removed:'Removed'})[b.status] || 'Unknown'}</td>
+                    <td>
+                      <a class="btn" href="./analyze.html?submissionId=${b.submission_id}&name=${encodeURIComponent(b.character_name || '')}">Analyze</a>
+                    </td>
+                    <td class="publish-cell">
                       ${
-                        b.difficulty
-                          ? ''
-                          : `<select class="difficulty-input">
-                               <option value="" selected disabled>Difficulty…</option>
-                               <option value="base">Base</option>
-                               <option value="D1">D1 · Awakened</option>
-                               <option value="D2">D2 · Adaptive</option>
-                               <option value="D3">D3 · Fused</option>
-                               <option value="D4">D4 · Refined</option>
-                             </select>`
+                        b.visibility === 'public'
+                          ? statusBadge(b.status, b.visibility)
+                          : `
+                        ${
+                          b.difficulty
+                            ? ''
+                            : `<select class="difficulty-input">
+                                 <option value="" selected disabled>Difficulty…</option>
+                                 <option value="base">Base</option>
+                                 <option value="D1">D1 · Awakened</option>
+                                 <option value="D2">D2 · Adaptive</option>
+                                 <option value="D3">D3 · Fused</option>
+                                 <option value="D4">D4 · Refined</option>
+                               </select>`
+                        }
+                        <button class="btn publish-btn" type="button" ${b.difficulty ? '' : 'disabled'}>Publish</button>
+                      `
                       }
-                      <button class="btn publish-btn" type="button" ${b.difficulty ? '' : 'disabled'}>Publish</button>
-                    `
-                    }
-                  </td>
-                </tr>`
-                )
-                .join('')}
-            </tbody>
-          </table>
-        `;
+                    </td>
+                  </tr>`
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          `;
 
-        listEl.querySelectorAll('.difficulty-input').forEach((sel) => {
-          sel.addEventListener('change', () => {
-            sel.closest('tr').querySelector('.publish-btn').disabled = !sel.value;
+          listEl.querySelectorAll('.difficulty-input').forEach((sel) => {
+            sel.addEventListener('change', () => {
+              sel.closest('tr').querySelector('.publish-btn').disabled = !sel.value;
+            });
           });
-        });
-        listEl.querySelectorAll('.publish-btn').forEach((btn) => {
-          btn.addEventListener('click', async () => {
-            const row = btn.closest('tr');
-            const submissionId = row.dataset.submissionId;
-            const sel = row.querySelector('.difficulty-input');
-            // The select's own "Base" option maps to null, not the string
-            // "base" — mirrors the overlay's own dropdown (see
-            // renderSubmitCell() in dyrelog-overlay.html).
-            const difficulty = sel ? (sel.value === 'base' ? null : sel.value) : null;
-            btn.disabled = true;
-            btn.textContent = 'Publishing…';
-            try {
-              const result = await api(`/api/submissions/${submissionId}/publish`, {
-                method: 'POST',
-                body: JSON.stringify({ difficulty }),
-              });
-              row.querySelector('.publish-cell').innerHTML = statusBadge(result.status, result.visibility);
-            } catch (err) {
-              btn.disabled = false;
-              btn.textContent = 'Publish';
-              alert("Couldn't publish that — try again.");
-            }
+          listEl.querySelectorAll('.publish-btn').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+              const row = btn.closest('tr');
+              const submissionId = row.dataset.submissionId;
+              const sel = row.querySelector('.difficulty-input');
+              // The select's own "Base" option maps to null, not the string
+              // "base" — mirrors the overlay's own dropdown (see
+              // renderSubmitCell() in dyrelog-overlay.html).
+              const difficulty = sel ? (sel.value === 'base' ? null : sel.value) : null;
+              btn.disabled = true;
+              btn.textContent = 'Publishing…';
+              try {
+                const result = await api(`/api/submissions/${submissionId}/publish`, {
+                  method: 'POST',
+                  body: JSON.stringify({ difficulty }),
+                });
+                bests.filter(b => String(b.submission_id) === String(submissionId)).forEach(b => Object.assign(b, { status: result.status, visibility: result.visibility, difficulty: result.difficulty ?? b.difficulty }));
+                render();
+              } catch (err) {
+                btn.disabled = false;
+                btn.textContent = 'Publish';
+                alert("Couldn't publish that — try again.");
+              }
+            });
           });
-        });
+          LeaderboardSort.wire(listEl, personalSort, render);
+        };
+        render();
       } catch (err) {
         listEl.innerHTML = `<p class="empty-state">Can't reach the API right now.</p>`;
       }
@@ -363,6 +413,5 @@
     document.addEventListener('DOMContentLoaded', loadProfile);
     document.addEventListener('DOMContentLoaded', loadPersonalHistory);
   </script>
-  <footer class="site-footer"></footer>
 </body>
 </html>
