@@ -14,9 +14,13 @@
   var personalSort = { key: 'dps', dir: -1 };
   var boardSort = { key: 'dps', dir: -1 };
   var boardDifficulty = '';
-  function difficultyColumnFilter() {
+  var personalDifficulty = '';
+  var highlightsDifficulty = '';
+  var highlightsRequest = 0;
+  function difficultyColumnFilter(selected) {
+    if (selected === undefined) selected = boardDifficulty;
     return '<select class="column-difficulty" aria-label="Filter by difficulty">' + ['', 'D0', 'D1', 'D2', 'D3', 'D4'].map(function (value) {
-      return '<option value="' + value + '"' + (value === boardDifficulty ? ' selected' : '') + '>' + (value || 'All difficulties') + '</option>';
+      return '<option value="' + value + '"' + (value === selected ? ' selected' : '') + '>' + (value || 'All') + '</option>';
     }).join('') + '</select>';
   }
   function sortRows(rows, key, dir) { return rows.slice().sort(function (a, b) { var av = key === 'difficulty' ? Number((a.difficulty || 'D0').slice(1)) : key === 'character' ? String(a.character_name || a.name).toLowerCase() : key === 'name' ? String(a.name || '').toLowerCase() : key === 'date' ? Number(a.startTime || a.start_time || 0) : key === 'visibility' ? String(a.sortVisibility || a.visibility || '').toLowerCase() : key === 'review' ? String(a.sortReview || a.status || '').toLowerCase() : Number(a[key] || 0); var bv = key === 'difficulty' ? Number((b.difficulty || 'D0').slice(1)) : key === 'character' ? String(b.character_name || b.name).toLowerCase() : key === 'name' ? String(b.name || '').toLowerCase() : key === 'date' ? Number(b.startTime || b.start_time || 0) : key === 'visibility' ? String(b.sortVisibility || b.visibility || '').toLowerCase() : key === 'review' ? String(b.sortReview || b.status || '').toLowerCase() : Number(b[key] || 0); return typeof av === 'string' ? av.localeCompare(bv) * dir : (av - bv) * dir; }); }
@@ -47,12 +51,27 @@
     window.dyrelog.openSettings("options");
   });
 
+  document.getElementById('highlights-difficulty').addEventListener('change', loadHighlights);
+  document.getElementById('highlights-list').addEventListener('click', function (event) {
+    var button = event.target.closest('[data-highlight-boss]');
+    if (!button) return;
+    var boss = bosses.find(function (b) { return b.tiers.some(function (tier) { return String(tier.id) === button.dataset.highlightBoss; }); });
+    if (!boss) return;
+    boardDifficulty = button.dataset.difficulty;
+    viewBossOnPublicLeaderboard(boss.id);
+    document.getElementById('boss-detail').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+
   async function loadHighlights() {
     var el = document.getElementById("highlights-list");
+    var request = ++highlightsRequest;
+    var filter = document.getElementById('highlights-difficulty');
+    highlightsDifficulty = filter.value;
     try {
-      var res = await fetch(API_BASE + "/api/leaderboard/highlights");
+      var res = await fetch(API_BASE + "/api/leaderboard/highlights" + (highlightsDifficulty ? "?difficulty=" + encodeURIComponent(highlightsDifficulty) : ""));
       if (!res.ok) throw new Error("HTTP " + res.status);
       var data = await res.json();
+      if (request !== highlightsRequest) return;
       var highlights = data.highlights || [];
       if (!highlights.length) {
         el.innerHTML = '<p class="muted">No public verified parses this week yet.</p>';
@@ -66,7 +85,7 @@
               '<td class="num">' + (i + 1) + "</td>" +
               "<td>" + esc(h.character_name) + ' <span class="muted">(' + esc(h.realm) + ")</span></td>" +
               '<td class="muted">' + esc(h.class_combo || "—") + "</td>" +
-              "<td>" + esc(h.boss_name) + "</td><td>" + esc(h.difficulty || "D0") + "</td>" +
+              '<td><button class="boss-name-link" data-highlight-boss="' + Number(h.boss_id) + '" data-difficulty="' + esc(h.difficulty || 'D0') + '">' + esc(h.boss_name) + '</button></td><td>' + esc(h.difficulty || "D0") + "</td>" +
               '<td class="num">' + fmtNum(h.dps) + "</td>" +
             "</tr>"
           );
@@ -118,7 +137,10 @@
         return (data.parses || []).map(function (row) { return Object.assign({}, row, { difficulty: tier.difficulty || 'D0' }); });
       }));
       if (generation !== bossRequest) return;
-      currentBoard = { boss: boss, rows: results.flat() };
+      currentBoard = { boss: boss, rows: BossBrowser.uniqueRows(results.flat()) };
+      boss.entrant_count = currentBoard.rows.length;
+      renderBossPicker();
+      document.getElementById('boss-picker').value = selectedId;
       renderBossDetail(boss, currentBoard.rows, 0);
     } catch (err) {
       if (generation === bossRequest) detailEl.innerHTML = '<p class="muted">Can’t reach the leaderboard API right now.</p>';
@@ -132,13 +154,17 @@
 
   function renderBossDetail(boss, parses) {
     var detail = document.getElementById('boss-detail');
-    detail.innerHTML = '<h3>' + esc(boss.name) + '</h3>' +
+    detail.innerHTML = '<h3>' + esc(boss.name) + ' <button class="view-lb-link" id="boss-wiki">Wiki ↗</button></h3>' +
       '<div class="lb-picker-row">' +
       '<label for="board-sort">Sort</label><select id="board-sort"><option value="dps">Highest DPS</option><option value="difficulty">Difficulty: D4 to D0</option></select></div>' +
       '<p class="muted">Best parses per character and difficulty; up to 50 entries per boss tier.</p><div id="board-rows"></div>';
+    document.getElementById('boss-wiki').addEventListener('click', function () { window.dyrelog.openExternal(BossBrowser.wikiUrl(boss.name)); });
     function update() {
       var difficulties = boardDifficulty ? [boardDifficulty] : ['D0', 'D1', 'D2', 'D3', 'D4'];
       var rows = BossBrowser.rankRows(parses, difficulties, document.getElementById('board-sort').value || 'dps');
+      var picker = document.getElementById('boss-picker');
+      var option = Array.from(picker.options || []).find(function (entry) { return entry.value === selectedId; });
+      if (option) option.textContent = boss.name + ' (' + rows.length + ')';
       document.getElementById('board-rows').innerHTML = renderFightRows(rows, true);
       document.querySelector('#board-rows .column-difficulty').addEventListener('change', function (event) { boardDifficulty = event.target.value; update(); });
       document.getElementById('board-rows').querySelectorAll('[data-sort-key]').forEach(function (button) { button.addEventListener('click', function () { var key = button.dataset.sortKey; if (boardSort.key === key) boardSort.dir *= -1; else { boardSort.key = key; boardSort.dir = 1; } update(); }); });
@@ -153,7 +179,7 @@
     if (!rows.length && !showDifficulty) return '<p class="muted">No public verified parses for this selection.</p>';
     var state = boardSort;
     rows = sortRows(rows, state.key, state.dir);
-    return '<table><thead><tr><th>#</th><th>' + sortHeader('Character', 'character', state) + '</th><th>Class</th>' + (showDifficulty ? '<th>' + sortHeader('Difficulty', 'difficulty', state) + difficultyColumnFilter() + '</th>' : '') +
+    return '<table><thead><tr><th>#</th><th>' + sortHeader('Character', 'character', state) + '</th><th>Class</th>' + (showDifficulty ? '<th>' + '<span class="difficulty-control">Difficulty ' + difficultyColumnFilter() + '</span>' + '</th>' : '') +
       '<th>' + sortHeader('DPS', 'dps', state) + '</th><th>' + sortHeader('Damage', 'damage', state) + '</th><th></th></tr></thead><tbody>' + rows.map(function (p, i) {
         return '<tr><td>' + (i + 1) + '</td><td>' + esc(p.character_name) + ' <span class="muted">(' + esc(p.realm) + ')</span></td><td>' + esc(p.class_combo || '—') + '</td>' +
           (showDifficulty ? '<td>' + esc(p.difficulty || 'D0') + '</td>' : '') + '<td>' + fmtNum(p.dps) + '</td><td>' + fmtNum(p.damage) + '</td><td>' +
@@ -276,7 +302,7 @@
       var stats = EQP.computeStats(enc);
       var youRow = (stats.rows || []).find(function (r) { return r.name === "You"; });
       if (!youRow) return;
-      var difficulty = enc.difficultyKnown ? enc.difficulty : 'D0';
+      var difficulty = enc.difficultyKnown ? (enc.difficulty || 'D0') : 'D0';
       var bestKey = name + '|' + difficulty;
       var existing = bestByBoss[bestKey];
       if (!existing || youRow.dps > existing.dps) {
@@ -312,6 +338,7 @@
     personalBody.hidden = true;
     var picker = document.getElementById("boss-picker");
     picker.value = bossId;
+    document.getElementById('fight-body').hidden = true;
     selectBoss(bossId);
   }
 
@@ -322,11 +349,9 @@
       el.innerHTML = '<p class="muted">No boss kills saved yet — kill something in the mini-mode overlay and your best parse against it will show up here.</p>';
       return;
     }
-    var selectedDifficulties = (el.dataset.difficulties || 'D0,D1,D2,D3,D4').split(',').filter(Boolean);
-    var visibleBests = bests.filter(function (b) { return selectedDifficulties.indexOf(b.difficulty) !== -1; });
-    el.innerHTML = '<fieldset id="personal-difficulty" class="difficulty-checks"><legend>Difficulty</legend><label><input id="personal-difficulty-all" type="checkbox"> All</label>' +
-      ['D0', 'D1', 'D2', 'D3', 'D4'].map(function (d) { return '<label><input type="checkbox" value="' + d + '"> ' + d + '</label>'; }).join('') + '</fieldset>' +
-      '<table><thead><tr><th>' + sortHeader('Boss', 'name', personalSort) + '</th><th>' + sortHeader('Difficulty', 'difficulty', personalSort) + '</th><th class="num">' + sortHeader('DPS', 'dps', personalSort) + '</th><th class="num">' + sortHeader('Damage', 'damage', personalSort) + '</th><th>' + sortHeader('Date', 'date', personalSort) + '</th><th>' + sortHeader('Visibility', 'visibility', personalSort) + '</th><th>' + sortHeader('Review', 'review', personalSort) + '</th><th></th></tr></thead><tbody>' +
+    var visibleBests = bests.filter(function (b) { return !personalDifficulty || b.difficulty === personalDifficulty; });
+    el.innerHTML =
+      '<table><thead><tr><th>' + sortHeader('Boss', 'name', personalSort) + '</th><th>' + '<span class="difficulty-control">Difficulty ' + difficultyColumnFilter(personalDifficulty) + '</span>' + '</th><th class="num">' + sortHeader('DPS', 'dps', personalSort) + '</th><th class="num">' + sortHeader('Damage', 'damage', personalSort) + '</th><th>' + sortHeader('Date', 'date', personalSort) + '</th><th>' + sortHeader('Visibility', 'visibility', personalSort) + '</th><th>' + sortHeader('Review', 'review', personalSort) + '</th><th></th></tr></thead><tbody>' +
       sortRows(visibleBests.map(function (b) { var s = SubmissionView.describeSubmission(b, submissionRows); return Object.assign({}, b, { sortVisibility: s.visibility, sortReview: s.review }); }), personalSort.key, personalSort.dir).map(function (b) {
         var matchedBoss = findBossByName(b.name);
         var nameCell = matchedBoss
@@ -348,17 +373,10 @@
         );
       }).join("") +
       "</tbody></table>";
-    var personalDifficulty = document.getElementById('personal-difficulty');
+
     el.querySelectorAll('[data-sort-key]').forEach(function (button) { button.addEventListener('click', function () { var key = button.dataset.sortKey; if (personalSort.key === key) personalSort.dir *= -1; else { personalSort.key = key; personalSort.dir = 1; } renderPersonalList(); }); });
-    var personalAll = document.getElementById('personal-difficulty-all');
-    var personalBoxes = Array.from(personalDifficulty.querySelectorAll('input[value]'));
-    personalBoxes.forEach(function (box) { box.checked = selectedDifficulties.indexOf(box.value) !== -1; });
-    personalAll.checked = personalBoxes.every(function (box) { return box.checked; });
-    personalDifficulty.addEventListener('change', function (event) {
-      if (event.target === personalAll) personalBoxes.forEach(function (box) { box.checked = personalAll.checked; });
-      else personalAll.checked = personalBoxes.every(function (box) { return box.checked; });
-      el.dataset.difficulties = personalBoxes.filter(function (box) { return box.checked; }).map(function (box) { return box.value; }).join(',');
-      renderPersonalList();
+    el.querySelector('.column-difficulty').addEventListener('change', function (event) {
+      personalDifficulty = event.target.value; renderPersonalList();
     });
   }
   document.getElementById("personal-list").addEventListener("click", function (evt) {

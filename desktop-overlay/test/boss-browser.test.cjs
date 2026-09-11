@@ -1,6 +1,17 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { groupBosses, rankRows } = require('../renderer/boss-browser.js');
+
+test('group counts add each tier once and duplicate attempts keep the best character/tier row', () => {
+  assert.equal(groupBosses([{ id: 1, name: 'Yael', entrant_count: 1 }])[0].entrant_count, 1);
+  const rows = [
+    { character_name: 'A', realm: 'freeport', difficulty: 'D0', dps: 100 },
+    { character_name: 'A', realm: 'freeport', difficulty: 'D0', dps: 200 },
+    { character_name: 'A', realm: 'freeport', difficulty: 'D4', dps: 90 },
+    { character_name: 'B', realm: 'freeport', difficulty: 'D0', dps: 70 }
+  ];
+  assert.deepEqual(rankRows(rows, ['D0', 'D4'], 'dps').map(r => r.dps), [200, 90, 70]);
+});
 test('boss picker merges difficulty and spacing variants without losing tier IDs', () => {
   const groups = groupBosses([{ id: 1, name: 'Cazic Thule', difficulty: null }, { id: 2, name: 'Cazic-Thule', difficulty: 'D4' }]);
   assert.equal(groups.length, 1);

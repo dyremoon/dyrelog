@@ -72,3 +72,9 @@
 
 .header-actions { display: flex; align-items: center; gap: 8px; }
 th .column-difficulty { display: block; margin-top: 6px; max-width: 150px; font: inherit; }
+.difficulty-control { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; white-space: nowrap; color: var(--ink); font-weight: 600; }
+.difficulty-control .column-difficulty { display: inline-block; width: auto; min-width: 72px; margin: 0; padding: 6px 10px; border: 1px solid var(--accent); border-radius: 6px; background: var(--bg-card); color: var(--ink); font: inherit; cursor: pointer; color-scheme: dark; }
+.column-difficulty:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lb-panel-gold, .lb-panel-highlight { border-color: var(--accent); box-shadow: none; }
+.lb-panel-gold h2, .lb-panel-highlight h2, #lb-tabs .detail-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+button.boss-name-link { background: none; border: 0; padding: 0; font: inherit; }

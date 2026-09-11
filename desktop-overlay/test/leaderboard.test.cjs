@@ -11,6 +11,7 @@ test('My Kills renders current visibility, opens the encounter permalink, and re
     if (!elements.has(id)) elements.set(id, {
       innerHTML: '', hidden: false, listeners: {}, dataset: {},
       querySelectorAll() { return ['D0', 'D1', 'D2', 'D3', 'D4'].map(value => ({ value, addEventListener() {} })); },
+      querySelector() { return { addEventListener() {} }; },
       addEventListener(event, handler) { this.listeners[event] = handler; }
     });
     return elements.get(id);
