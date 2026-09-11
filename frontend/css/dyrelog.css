@@ -723,3 +723,15 @@ footer.site-footer {
   opacity: 0.7;
 }
 th .column-difficulty { display: block; margin-top: 6px; max-width: 150px; font: inherit; }
+.difficulty-control { display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; color: var(--ink); font-weight: 600; }
+.difficulty-control .column-difficulty, #highlights-difficulty { display: inline-block; width: auto; min-width: 72px; margin: 0; padding: 6px 10px; border: 1px solid var(--brass); border-radius: 6px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; color-scheme: dark; }
+.column-difficulty:focus-visible { outline: 2px solid var(--brass-2); outline-offset: 2px; }
+table { border-collapse: separate; border-spacing: 0; border: 1px solid var(--hair-strong); border-radius: 8px; overflow: hidden; }
+table th, table td, table th.num, table td.num { text-align: center; vertical-align: middle; border-right: 1px solid var(--hair); }
+table th:last-child, table td:last-child { border-right: 0; }
+table thead th { background: var(--surface-2); border-bottom: 2px solid var(--brass); padding: 12px 10px; }
+table tbody td { padding: 11px 10px; border-bottom: 1px solid var(--hair); }
+table tbody tr:last-child td { border-bottom: 0; }
+table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+table tbody tr:hover { background: color-mix(in srgb, var(--brass) 10%, var(--surface)); }
+#highlights-list, #boss-leaderboard, #personal-list { overflow-x: auto; }

@@ -294,7 +294,7 @@
           listEl.innerHTML = `
             <table>
               <thead>
-                <tr><th>${personalHeader('Boss','boss')}</th><th>${personalHeader('Difficulty','difficulty')}${LeaderboardSort.difficultyFilter(personalDifficulty)}</th><th class="num">${personalHeader('DPS','dps')}</th><th class="num">${personalHeader('Damage','damage')}</th><th>${personalHeader('Killed','killed')}</th><th>${personalHeader('Date','date')}</th><th>${personalHeader('Visibility','visibility')}</th><th>${personalHeader('Review','status')}</th><th>Analyze</th><th>Publish</th></tr>
+                <tr><th>${personalHeader('Boss','boss')}</th><th><span class="difficulty-control">Difficulty ${LeaderboardSort.difficultyFilter(personalDifficulty)}</span></th><th class="num">${personalHeader('DPS','dps')}</th><th class="num">${personalHeader('Damage','damage')}</th><th>${personalHeader('Killed','killed')}</th><th>${personalHeader('Date','date')}</th><th>${personalHeader('Visibility','visibility')}</th><th>${personalHeader('Review','status')}</th><th>Analyze</th><th>Publish</th></tr>
               </thead>
               <tbody>
                 ${LeaderboardSort.sort(LeaderboardSort.filterDifficulty(bests, personalDifficulty), personalSort)

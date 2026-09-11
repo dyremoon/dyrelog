@@ -143,7 +143,7 @@
         <p class="muted" style="margin-top:-6px;">The highest DPS across all difficulties this week, with one entry per character per boss and difficulty.</p>
         <div class="leaderboard-controls">
           <label for="highlights-boss">Boss</label><select id="highlights-boss"><option value="">All bosses</option></select>
-          <label for="highlights-difficulty">Difficulty</label><select id="highlights-difficulty"><option value="">All difficulties</option><option value="D0">D0 · Base</option><option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option><option value="D4">D4</option></select>
+          <label for="highlights-difficulty">Difficulty</label><select id="highlights-difficulty"><option value="">All</option><option value="D0">D0</option><option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option><option value="D4">D4</option></select>
         </div>
         <div id="highlights-list" aria-live="polite">
           <p class="muted">Loading…</p>
@@ -172,6 +172,7 @@
 
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
+  <script src="./js/boss-browser.js"></script>
   <script src="./js/leaderboard-sort.js"></script>
   <script>
     let highlightsRequest = 0;
@@ -194,7 +195,7 @@
         el.innerHTML = `
           <table>
             <thead>
-              <tr><th>#</th><th>Character</th><th>Class</th><th>Boss</th><th>Difficulty</th><th class="num">DPS</th></tr>
+              <tr><th>#</th><th>Character</th><th>Class</th><th>Boss</th><th><span class="difficulty-control">Difficulty ${LeaderboardSort.difficultyFilter(difficulty)}</span></th><th class="num">DPS</th></tr>
             </thead>
             <tbody>
               ${highlights
@@ -211,6 +212,7 @@
                 .join('')}
             </tbody>
           </table>`;
+        LeaderboardSort.wireDifficulty(el, value => { document.getElementById('highlights-difficulty').value = value; loadHighlights(); });
       } catch (err) {
         if (request !== highlightsRequest) return;
         el.innerHTML = `<p class="empty-state">Couldn't load the highlights right now — try refreshing in a moment.</p>`;
@@ -220,16 +222,7 @@
     ['highlights-boss', 'highlights-difficulty'].forEach(id => document.getElementById(id).addEventListener('change', loadHighlights));
 
     function bossKey(name) { return String(name || '').trim().toLowerCase().replace(/[-\s]+/g, ' '); }
-    function groupBosses(bosses) {
-      const groups = new Map();
-      bosses.forEach((b) => {
-        const key = bossKey(b.name);
-        if (!groups.has(key)) groups.set(key, { ...b, difficulty: null, tiers: [] });
-        groups.get(key).tiers.push(b);
-        groups.get(key).entrant_count = (groups.get(key).entrant_count || 0) + (Number(b.entrant_count) || 0);
-      });
-      return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
-    }
+    function groupBosses(bosses) { return BossBrowser.groupBosses(bosses); }
 
     function parseRow(p, i) {
       return `
@@ -261,8 +254,10 @@
           return parses.map((row) => ({ ...row, difficulty: tier.difficulty || 'D0' }));
         }));
         if (request !== bossRequest) return;
-        const parses = results.flat();
+        const parses = BossBrowser.uniqueRows(results.flat());
         const entrantCount = parses.length;
+        const option = document.querySelector('#boss-picker option:checked');
+        if (option) option.textContent = boss.name + ' (' + entrantCount + ')';
         // entrantCount can be missing on an older API response — never let
         // that render as a literal "NaN entries".
         const hasCount = Number.isFinite(entrantCount);
@@ -270,11 +265,14 @@
         const heading = `
           <h3 class="boss-picker-heading">
             <a href="./boss.html?id=${boss.tiers[0].id}">${boss.name}</a>
-            <span class="muted">${countLabel}</span>
+            <span class="muted" id="board-entry-count">${countLabel}</span> <a href="${BossBrowser.wikiUrl(boss.name)}" target="_blank" rel="noopener noreferrer">Wiki ↗</a>
           </h3>`;
         const render = () => {
           const visible = rankRows(parses);
-          el.innerHTML = heading + `<table><thead><tr><th>#</th><th>${sortHeader('Character','character')}</th><th>${sortHeader('Class','class')}</th><th>${sortHeader('Difficulty','difficulty')}${LeaderboardSort.difficultyFilter(publicDifficulty)}</th><th class="num">${sortHeader('DPS','dps')}</th><th class="num">${sortHeader('Damage','damage')}</th><th>${sortHeader('Date','date')}</th><th></th></tr></thead><tbody>${visible.map((p, i) => parseRow(p, i)).join('') || '<tr><td colspan="8" class="empty-state">No public verified parses for this difficulty.</td></tr>'}</tbody></table>`;
+          el.innerHTML = heading + `<table><thead><tr><th>#</th><th>${sortHeader('Character','character')}</th><th>${sortHeader('Class','class')}</th><th><span class="difficulty-control">Difficulty ${LeaderboardSort.difficultyFilter(publicDifficulty)}</span></th><th class="num">${sortHeader('DPS','dps')}</th><th class="num">${sortHeader('Damage','damage')}</th><th>${sortHeader('Date','date')}</th><th></th></tr></thead><tbody>${visible.map((p, i) => parseRow(p, i)).join('') || '<tr><td colspan="8" class="empty-state">No public verified parses for this difficulty.</td></tr>'}</tbody></table>`;
+          document.getElementById('board-entry-count').textContent = '(' + visible.length + (visible.length === 1 ? ' entry)' : ' entries)');
+          const selectedOption = document.querySelector('#boss-picker option:checked');
+          if (selectedOption) selectedOption.textContent = boss.name + ' (' + visible.length + ')';
           LeaderboardSort.wire(el, publicSort, render);
           LeaderboardSort.wireDifficulty(el, value => { publicDifficulty = value; render(); });
         };

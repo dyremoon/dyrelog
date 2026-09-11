@@ -49,6 +49,7 @@
 
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
+  <script src="./js/boss-browser.js"></script>
   <script>
     async function loadLeaderboard() {
       const bossId = new URLSearchParams(window.location.search).get('id');
@@ -66,10 +67,9 @@
           (boss.category ? ' · ' + boss.category : '');
 
         const wikiLink = document.getElementById('boss-wiki-link');
-        if (boss.wiki_url) {
-          wikiLink.href = boss.wiki_url;
-          wikiLink.hidden = false;
-        }
+        wikiLink.href = BossBrowser.wikiUrl(boss.name);
+        wikiLink.rel = 'noopener noreferrer';
+        wikiLink.hidden = false;
         const portrait = document.getElementById('boss-portrait');
         if (boss.image_url) {
           portrait.src = boss.image_url;
