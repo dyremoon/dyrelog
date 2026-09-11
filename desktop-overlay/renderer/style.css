@@ -1,20 +1,3 @@
-/* Mini-mode look, per the art reference saved in the project README
-   ("Overlay art direction (mini mode reference)") — near-black HUD card,
-   one accent color, six fixed rank hues. Not a restyle of the browser
-   overlay's warm/gold theme; this is its own thing on purpose (though the
-   "EQ Brass" theme below deliberately echoes it — see Settings > Theme).
-
-   Text sizing (reworked Sept 7 — see "Adjusting the bar text size
-   seemingly is just zooming in on the overlay"): <html>'s own font-size
-   is a FIXED 12.5px, never touched by JS. Settings > "Bar Text Size"
-   instead sets --text-scale below, and only the genuine name/dps TEXT
-   selectors multiply their rem value by it via calc() — padding, gaps,
-   icon boxes and the resize handles are all plain px and never move,
-   which is what actually stops the old "everything zooms together"
-   effect. Icons get their own --icon-scale (Settings > "Icon Size") and
-   the fight/circle timer its own --timer-text-scale (Settings > "Timer
-   Text Size"), both fully independent of --text-scale and of each other
-   — see applySettings() in app.js. */
 
 :root {
   --bg-card: #14120f;
@@ -26,48 +9,24 @@
   --accent-ink: #06121f;
   --ok: #4caf6e;
 
-  /* Six fixed rank hues, in order — never cycled past 6, never reassigned
-     by filtering, and NOT swapped per-theme (identity stays put even when
-     the chrome around it changes) — see the dataviz skill's categorical-
-     color rule and the README spec this mirrors. */
-  --rank1: #b3423a; /* brick / maroon red */
-  --rank2: #9c3f8f; /* magenta-purple */
-  --rank3: #6c6fd1; /* periwinkle / blue-violet */
-  --rank4: #8a8a2f; /* olive / dark yellow-green */
-  --rank5: #3f7a52; /* muted forest green */
-  --rank6: #c9932f; /* golden amber */
+  --rank1: #b3423a;
+  --rank2: #9c3f8f;
+  --rank3: #6c6fd1;
+  --rank4: #8a8a2f;
+  --rank5: #3f7a52;
+  --rank6: #c9932f;
 
-  /* Panel background opacity — Settings > Background opacity, applied ONLY
-     to .card::before (see below), never to the window itself or to any
-     text/icon. That split is deliberate: dragging this to 0 makes the
-     panel chrome disappear entirely while every number and control stays
-     fully legible, "floating" over the game — see the comment on .card
-     and .card::before. Unitless (not a %) so it plugs into calc()
-     multiplications for the bar-row fill tint below. */
   --panel-alpha: 1;
-  /* Settings > Bar height — multiplies each .bar-row's vertical padding.
-     Set from app.js's applySettings(); 1 = the original fixed 4px. */
   --bar-height-mult: 1;
   /* The three independent scale sliders (Settings > Sizing) — see the
      comment at the top of this file. Set from app.js's applySettings(). */
   --text-scale: 1;
   --icon-scale: 1;
   --timer-text-scale: 1;
-  /* Settings > Font — set from app.js's applySettings(); falls back to
-     the original stack below if JS hasn't run yet (first paint). */
   --font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
-  /* A pet's own default bar color when Settings > Pet bar isn't
-     overridden — deliberately NOT one of the six rank hues, so a pet
-     never lands on the exact same color as its owner just because of
-     where it happened to sort in the list (see colorForRow() in app.js
-     and item 3.5 of the newest feature list). */
   --pet-default: #4fa8c9;
 }
 
-/* EQ Brass — the warm gold/parchment theme already established in the
-   browser overlay and website, echoed here for anyone who wants one
-   consistent Dyrelog look everywhere. Toggled via Settings > Theme,
-   applied as data-theme="brass" on <html> (see app.js applySettings()). */
 :root[data-theme="brass"] {
   --bg-card: #1c130b;
   --hair: #3a2a1a;
@@ -79,16 +38,7 @@
   --ok: #7ba861;
 }
 
-/* Five newer presets (item 9 — "some that are druidic, magical, girly,
-   hardcore, metal, etc."). Same shape as brass above: only the 8 tokens
-   below ever change per theme, so every component built against --bg-card/
-   --hair/--ink/--ink-2/--ink-3/--accent/--accent-ink/--ok picks these up
-   automatically with no other CSS to touch. See THEME_NAMES in app.js and
-   the theme swatches in settings.html/.js. */
 
-/* Druidic — deep forest green + moss, an amber-gold accent (nature/ranger/
-   druid coded, not the same blue or gold either existing theme already
-   uses). */
 :root[data-theme="druidic"] {
   --bg-card: #10160f;
   --hair: #253a20;
@@ -100,8 +50,6 @@
   --ok: #6fae5a;
 }
 
-/* Magical — arcane violet/indigo with a bright cyan-purple accent (wizard/
-   enchanter coded). */
 :root[data-theme="magical"] {
   --bg-card: #140f22;
   --hair: #302352;
@@ -113,7 +61,6 @@
   --ok: #57c2a4;
 }
 
-/* Girly — soft blush pink on a warm plum-black ground, hot-pink accent. */
 :root[data-theme="girly"] {
   --bg-card: #1c1017;
   --hair: #3d2430;
@@ -125,7 +72,6 @@
   --ok: #6fc48f;
 }
 
-/* Hardcore — near-black with a hot blood-red accent, high contrast. */
 :root[data-theme="hardcore"] {
   --bg-card: #0d0b0b;
   --hair: #2e1414;
@@ -137,8 +83,6 @@
   --ok: #5cae5c;
 }
 
-/* Metal — cold gunmetal grays with a steel-blue accent, deliberately
-   desaturated next to "blue" (--accent there is a warmer, brighter blue). */
 :root[data-theme="metal"] {
   --bg-card: #15171a;
   --hair: #33373d;
@@ -151,19 +95,8 @@
 }
 
 * { box-sizing: border-box; }
-/* Author CSS beats the UA stylesheet's default [hidden]{display:none} the
-   moment ANY rule below sets display on that same element (e.g. the old
-   .settings-view had display:flex) — the hidden attribute then silently
-   stops hiding anything, which is exactly what made the settings panel
-   render permanently on top of the fight view. This one rule is the fix,
-   for every current and future hidden-toggled element in this file. */
 [hidden] { display: none !important; }
-html { font-size: 12.5px; } /* fixed — never scaled by JS any more, see the file-top comment */
-/* overflow:hidden here — this is a small frameless window, not a scrolling
-   page; only .fight-view scrolls internally (see below). Without this, an
-   OS zoom level change (Ctrl+/Ctrl- or a display scale change) can round
-   the layout a fraction of a pixel wider than the viewport and the window
-   sprouts a sliver scrollbar on the side. */
+html { font-size: 12.5px; }
 html, body { margin: 0; background: transparent; height: 100%; overflow: hidden; }
 body {
   font-family: var(--font-family, -apple-system, "Segoe UI", "Inter", system-ui, sans-serif);
@@ -171,32 +104,18 @@ body {
   padding: 10px 4px 4px;
   -webkit-user-select: none;
   user-select: none;
-  /* The other half of the fuzzy-text fix (see the Math.round() comment on
-     document.documentElement.style.fontSize in app.js's applySettings()).
-     Chromium's default subpixel antialiasing is what read as "fuzzy" on the
-     decorative fonts especially (Cinzel/MedievalSharp/Orbitron/Press Start
-     2P all have thin serifs/strokes that show it more than a plain sans) —
-     forcing grayscale/LCD-off antialiasing plus optimizeLegibility gives
-     every font in FONT_STACKS clean, crisp edges instead. */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-synthesis: none;
 }
 
-/* The panel's paintable chrome — background, border, shadow — lives on
-   this pseudo-element instead of directly on .card, so Settings >
-   Background opacity (applied here as plain CSS opacity) can fade it out
-   completely without touching .card's real children at all. Every child
-   (.header, .fight-view, etc.) gets position:relative + a higher z-index
-   below so it always paints above this regardless of DOM order — see
-   "z-index: 1" further down. */
 .card {
   position: relative;
   border-radius: 13px;
   padding: 11px 12px 12px;
-  height: 100%; /* fills body's content box exactly — no sibling above it
-                   anymore to leave room for (the "MINI MODE" eyebrow row
-                   used to be one; the icons already say what this is) */
+  height: 100%;
+
+
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -251,11 +170,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  -webkit-app-region: drag; /* frameless window — this row is the drag handle */
-  /* Bordered box (item 1 of the newest UI list — "player name -- icons
-     [wrapped in a border]") instead of floating text; margin/padding
-     trimmed at the same time to close up the "so much space above the
-     actual bars" gap the un-boxed header used to leave. */
+  -webkit-app-region: no-drag;
   border: 1px solid var(--hair);
   border-radius: 8px;
   padding: 4px 7px;
@@ -278,10 +193,6 @@ body {
 }
 
 .icons { display: flex; gap: 3px; -webkit-app-region: no-drag; flex: none; }
-/* Settings > "Icon Size" — its own slider, separate from Bar Text Size,
-   which used to zoom these along with everything else (item 6 — "Bar Text
-   size is also adjusting the zoom of the icons"). Scales the whole button
-   box, not just the glyph, so it stays a clean square at any size. */
 .icon-btn {
   width: calc(20px * var(--icon-scale, 1)); height: calc(20px * var(--icon-scale, 1));
   border: 1px solid var(--hair);
@@ -295,13 +206,6 @@ body {
   padding: 0;
 }
 .icon-btn:hover { border-color: var(--accent); color: var(--icon-color, var(--ink)); }
-/* Settings/Bars-mode icons are real inline SVG now, not font glyphs (Sept 7
-   — the Unicode gear "doesn't really look like a cog and its small") — a
-   hand-drawn cog and a stacked-bars icon render crisp and recognizable at
-   any size/font, and inherit color via currentColor so --icon-color (and
-   hover) just work with no extra wiring. Real color-emoji buttons (Analysis
-   📊, Leaderboards 🏆) keep their own glyphs — untouched, and immune to
-   --icon-color anyway since CSS color never affects emoji presentation. */
 .btn-svg { width: calc(13px * var(--icon-scale, 1)); height: calc(13px * var(--icon-scale, 1)); display: block; }
 
 /* Shared [data-tooltip] label — see wireIconTooltips() in app.js. */
@@ -360,12 +264,6 @@ body {
 .fight-view::-webkit-scrollbar { width: 0; height: 0; }
 .subhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; position: relative; }
 .mob-line { color: var(--ink-2); font-size: calc(0.88rem * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; min-width: 0; }
-/* "the dps meter in that companion has a dropdown to show which fight" —
-   a themed popup (see renderFightSelect()/#fight-popup in app.js), not a
-   native <select> any more (its dropdown popup couldn't be recolored off
-   the OS-default white background — "the white/white text looks bad").
-   This button IS the trigger; its own text is whatever fight is currently
-   being shown, same as the old select's chosen option used to display. */
 .fight-select {
   appearance: none;
   -webkit-appearance: none;
@@ -392,13 +290,6 @@ body {
 }
 .fight-select:hover { color: var(--accent); }
 .mob-line .diff { color: var(--ink-3); }
-/* Opens UPWARD from #fight-select (bottom-anchored, positioned in app.js's
-   positionFightPopup() via getBoundingClientRect()) with the most recent
-   fight — labeled "Current Fight" — closest to the trigger at the BOTTOM,
-   oldest fights above it (item 3 of the newest UI list — "make it expand
-   upward... most recent fight being at the bottom"). position:fixed so it
-   escapes .fight-view's scroll clipping and .card's overflow:hidden
-   regardless of where it sits in the DOM. */
 .fight-popup {
   position: fixed;
   z-index: 50;
@@ -428,25 +319,11 @@ body {
 .fight-popup-item:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .fight-popup-item.active { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); font-weight: 700; }
 .dps-side { display: flex; align-items: baseline; gap: 4px; flex: none; }
-/* Settings > "Timer Text Size" (item 10) — its own slider. */
 .fight-timer { color: var(--ink-3); font-size: calc(0.72rem * var(--timer-text-scale, 1)); font-variant-numeric: tabular-nums; }
-/* Total damage done this fight — the ONLY place total damage shows any
-   more (item 3 of the newest UI list: bar rows below are DPS-only, see
-   amountHtml() in app.js). Flat number (fmtNum(), "4,503") not abbreviated
-   — item 7. Its own color picker (Settings > Appearance > "Total DPS
-   text"), independent of --accent, so recoloring the theme doesn't drag
-   this along too. */
 .fight-total { color: var(--total-dps-color, var(--accent)); font-weight: 700; font-size: calc(0.88rem * var(--secondary-text-scale, 1)); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .fight-total:not(:empty)::before { content: "· "; color: var(--ink-3); font-weight: 400; }
 
 .barlist { display: flex; flex-direction: column; gap: 4px; }
-/* Each row is a real proportional bar now, not just a flat tinted strip —
-   .fill's width is set inline per-row (see buildDisplayRows()/
-   renderBarList() in app.js) relative to the top row's dps, and re-renders
-   every second as dps changes, so the transition here is what makes that
-   read as a bar growing/shrinking instead of jumping. The fill's tint is
-   deliberately NOT scaled by --panel-alpha any more — see the note on
-   .bar-row .fill below. */
 .bar-row {
   position: relative;
   display: grid;
@@ -455,27 +332,8 @@ body {
   gap: 6px;
   padding: calc(4px * var(--bar-height-mult, 1)) 7px;
   border-radius: 8px;
-  /* NOT overflow:hidden here any more ("the bar text looks fuzzy") — this
-     row's own rounded corners used to be enforced by clipping the row
-     itself, which forced Chromium to composite the whole row (text
-     included) onto a separate masked layer to round off .fill sitting
-     behind it. The clip now lives on .fill alone below, which has no text
-     of its own, so the row's real text paints straight onto the normal
-     surface instead of through that mask. */
-  /* Settings > Colors > Border — its own override (--row-border-color),
-     separate from --hair (icon buttons, dividers, etc. elsewhere). Fixed
-     at a flat 55% instead of scaling with --panel-alpha the way it used
-     to — a low Background opacity used to fade this out right along with
-     the panel tint, which read as almost no structure between rows at
-     all ("not much of a difference between minimal mode and bar mode").
-     Lightweight on purpose (55%, 1px) rather than a hard outline. */
   border: 1px solid color-mix(in srgb, var(--row-border-color, var(--hair)) 55%, transparent);
 }
-/* Every row — yours, a groupmate's, or a pet's — swaps the list in place
-   to that combatant's own spell/ability breakdown on click (see the
-   delegated click listener on #barlist and renderDrillDown() in app.js).
-   Used to open the separate Combat Analysis window instead; "I want ours
-   to do that instead of opening the analysis window." */
 .bar-row[data-row-key] { cursor: pointer; }
 .bar-row[data-row-key]:hover .name .label { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink) 50%, transparent); }
 .bar-row .fill {
@@ -483,15 +341,8 @@ body {
   inset: 0;
   z-index: 0;
   width: var(--pct, 0%);
-  border-radius: 8px; /* clipped on itself now, not via the row's overflow:hidden — see the note on .bar-row */
+  border-radius: 8px;
   overflow: hidden;
-  /* Flat 34%, NOT scaled by --panel-alpha. Background opacity is supposed to
-     fade the panel behind the bars, not the bars themselves — Settings' own
-     copy promises "text, bars and icons stay fully readable all the way down
-     to 0." It used to be calc(34% * var(--panel-alpha)), which dropped the
-     fill to ~5% alpha at a 0.15 Background opacity and washed every row's
-     color out to grey ("background opacity should not be removing the colors
-     of the dps bars"). Same fix the row border above already got. */
   background: color-mix(in srgb, var(--swatch, var(--rank1)) 34%, transparent);
   transition: width 0.6s ease;
 }
@@ -512,20 +363,9 @@ body {
   line-height: 1.4;
 }
 .bar-row .amount { position: relative; z-index: 1; text-align: right; font-variant-numeric: tabular-nums; }
-/* DPS only now (item 3 — the per-row total-damage sub-total moved to the
-   single top-line #fight-total instead, see amountHtml() in app.js). Its
-   own color picker (Settings > Appearance > "DPS text"), independent of
-   the general --ink text color. */
 .bar-row .amount b { font-size: calc(0.92rem * var(--text-scale, 1)); color: var(--dps-text-color, var(--ink)); }
 .bar-row .amount .unit { font-size: calc(0.72rem * var(--text-scale, 1)); color: var(--ink-3); margin-left: 2px; }
 
-/* In-place spell/ability drill-down — click any row (yours, a groupmate's,
-   or a pet's) in the main meter and the bar list itself swaps to that
-   combatant's own ability breakdown, instead of popping the separate
-   Combat Analysis window open ("I want ours to do that instead of opening
-   the analysis window"). Reuses .bar-row/.amount/.dot styling for each
-   ability row (see renderDrillDown() in app.js) so it reads as the exact
-   same list, just re-scoped. */
 .drill-header {
   display: flex;
   align-items: center;
@@ -574,22 +414,7 @@ body {
 }
 .toggle-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
-/* ---- Mini mode ----
-   Back to text-only (per the mockup: just "Dyremoon  246 dps" / "Dyremoon's
-   warder  89 dps" and the restore button, no bars) — mini mode had briefly
-   grown the full .barlist underneath this strip per an earlier item 6
-   ("can we keep the dps bars of standard mode?"), but that left mini mode
-   and standard Bars mode looking almost identical, which defeats the
-   point of a separate compact mode. .mini-bar is still the compact top
-   strip (drag handle, your own dps at a glance, the restore button); now
-   .barlist is hidden right along with the mob-name/timer subhead and the
-   submit UI, none of which earn their space in a small always-on-top
-   card. The window itself doesn't force-resize into mini mode (see
-   toggleMini() in app.js) — it's a pure CSS-class toggle, so whatever size
-   you left the window at (and the resize handles) both carry over
-   unchanged; a short card is simply mostly empty space below this strip,
-   same as before bars were ever added here. */
-.mini-bar { display: none; align-items: center; gap: 6px; -webkit-app-region: drag; flex: none; margin-bottom: 6px; position: relative; }
+.mini-bar { display: none; align-items: center; gap: 6px; -webkit-app-region: no-drag; flex: none; margin-bottom: 6px; position: relative; }
 body.mini .header,
 body.mini .update-banner,
 body.mini .empty-state,
@@ -612,12 +437,6 @@ body.mini .card { padding: 8px 9px; }
 .mini-party-bar b { color: var(--dps-text-color, var(--ink)); }
 .mini-party-bar small { color: var(--ink-3); font-variant-numeric: tabular-nums; }
 body.mini .mini-party-list { display: block; }
-/* Reworked Sept 7 (item 1/2/9 of the mini-bar rework) — total damage done
-   on its own line above both dps rows, and each name+dps row (yours,
-   then your pet's) is its own bordered strip so they read as two
-   distinct rows at a glance instead of a name row not aligning with the
-   number row under it. */
-/* Timer, mode controls and total damage share one top row. */
 .mini-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
 .mini-info-line { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 6px; min-width: 0; }
 .mini-timer { flex: none; color: var(--ink-2); font-size: calc(.72rem * var(--timer-text-scale, 1)); font-variant-numeric: tabular-nums; }
@@ -631,40 +450,14 @@ body.mini .mini-party-list { display: block; }
   border-radius: 6px;
   padding: calc(2px * var(--bar-height-mult, 1)) 6px;
 }
-/* Names and DPS use the full row width below the toolbar. */
 .mini-name { font-weight: 700; font-size: calc(0.95rem * var(--text-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-/* min-width (not just text-align) is what actually lines the player and
-   pet dps numbers up in one column regardless of how long either name
-   is — item 1 ("the DPS needs to align vertically, like the bars do").
-   Bumped up a size (item 7 — "too small to see the actual dps"). Own
-   color picker (Settings > Appearance > "DPS text"), same --dps-text-color
-   the bar-row amount uses. */
 .mini-dps { color: var(--dps-text-color, var(--accent)); font-weight: 700; font-size: calc(1.05rem * var(--text-scale, 1)); font-variant-numeric: tabular-nums; flex: none; text-align: right; min-width: 3.6em; }
-/* Settings > "Mini pet text size" — its own slider (item 5: the pet
-   sub-line was too small and rode the same textScale as everything else,
-   with no way to size it up on its own). --mini-pet-scale is set from
-   app.js's applySettings(); 1 = the original fixed sizes below. */
 .mini-pet-name { color: var(--ink-3); font-size: calc(0.66rem * var(--mini-pet-scale, 1)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .mini-pet-dps { color: var(--ink-2); font-size: calc(0.68rem * var(--mini-pet-scale, 1)); font-variant-numeric: tabular-nums; flex: none; text-align: right; min-width: 3.6em; }
 /* Keep the whole controls group clickable inside the mini drag region. */
 .mini-actions { display: flex; align-items: center; gap: 4px; -webkit-app-region: no-drag; pointer-events: auto; }
 .mini-settings, .mini-pets-toggle, .mini-circle, .mini-restore { -webkit-app-region: no-drag; pointer-events: auto; position: relative; z-index: 11; flex: none; }
 
-/* ---- Circle display style (Settings > Display style) ----
-   Item 8 — "a theme that is a circle and it just has a dps number in it...
-   almost like a watch." A small round badge instead of the rectangular
-   card: just your own dps and the current fight's duration, nothing else.
-   Only ever entered/left via Settings > Display style now (see
-   applyDisplayStyle() in app.js) — never a header icon, since there was
-   no way back to Settings once in it that way (the header, gear icon
-   included, is hidden while this is active). This DOES force the window
-   down to a small fixed square while active — a circle only reads as a
-   "watch" at a small, roughly-square size, so there's no sensible "keep
-   whatever size you left it at" here the way mini mode has; the window's
-   own size is derived from --circle-scale below (see watchWindowSizeFor()
-   in app.js) so it always exactly fits the badge. Click the badge,
-   right-click it, or use its gear button to jump to a menu with Settings/
-   Analysis/Leaderboards/back-to-Bars — see showWatchMenu() in main.js. */
 .watch-badge { display: none; }
 body.watch .header,
 body.watch .update-banner,
@@ -674,57 +467,24 @@ body.watch .fight-view,
 body.watch .mini-bar,
 body.watch .resize-handle { display: none; }
 body.watch .card { padding: 0; align-items: center; justify-content: center; }
-body.watch .card::before { display: none; } /* the circle draws its own background/border below — no rectangular panel behind it */
-body.watch { padding: 0; } /* the card's normal padding exists to frame a rectangular panel; the circle centers itself instead */
+body.watch .card::before { display: none; }
+body.watch { padding: 0; }
 body.watch .watch-badge { display: flex; }
 .watch-badge {
   position: relative;
-  /* 132px is the scale-1 diameter — Settings > Circle size multiplies it
-     via --circle-scale (applyCircleScale() in app.js sets the variable;
-     watchWindowSizeFor() there keeps the window itself sized to match). */
   width: calc(132px * var(--circle-scale, 1));
   height: calc(132px * var(--circle-scale, 1));
   border-radius: 50%;
-  /* Circle's own colors (Sept 6 — "add color options to edit the circle
-     colors: border, background, text colors") — --circle-bg-color/
-     -border-color are set (or unset) in app.js's applySettings(), falling
-     back to the theme's own --bg-card/--accent exactly like before these
-     existed. */
-  /* color-mix with transparent, driven by --panel-alpha, mirrors .card::before's
-     "opacity: var(--panel-alpha)" for the rectangular panel — Settings >
-     Background opacity used to do nothing here at all (Sept 7 bug report:
-     "Background opacity doesn't affect circle background"), since a plain
-     background color has no opacity of its own to multiply. */
   background: color-mix(in srgb, var(--circle-bg-color, var(--bg-card)) calc(100% * var(--panel-alpha)), transparent);
   border: 3px solid var(--circle-border-color, var(--accent));
   box-shadow: 0 8px 24px rgba(0,0,0,0.55);
-  /* display is NOT set here — the plain ".watch-badge { display: none; }"
-     rule above and "body.watch .watch-badge { display: flex; }" below are
-     what actually turn this on/off. Setting display:flex unconditionally
-     right here used to silently win over the "hidden by default" rule
-     (same selector, later in the file), which is exactly why the badge
-     stayed visible even with Display style set to Bars — the one bug this
-     comment exists to make sure never comes back. */
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
   cursor: pointer;
-  /* Both a drag handle AND a click target, same as .mini-bar elsewhere —
-     Chromium only treats an actual mouse-move-while-held as a drag, so a
-     stationary click usually still reaches the click listener in app.js.
-     "Usually" is exactly why this is no longer the ONLY way back to
-     Settings — see .watch-menu-btn below and the contextmenu listener in
-     app.js, both explicitly no-drag so they're never at the mercy of this. */
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
-/* Positioned around the badge's own rim via --btn-angle (degrees, clockwise
-   from straight up), not a fixed corner — Sept 7, "give the player the
-   option to click and drag the icons around the circle mode... like an
-   icon in World of Warcraft's mini map." wireBadgeIcon() in app.js sets
-   --btn-angle per button (from Settings > iconAngles, or a built-in
-   default matching the old fixed-corner look) and updates it live while
-   dragging. The trig here just walks the badge's own radius. */
 .watch-menu-btn, .watch-mini-btn, .watch-bars-btn, .watch-pets-btn {
   position: absolute;
   z-index: 3;
@@ -753,44 +513,16 @@ body.watch .watch-badge { display: flex; }
 }
 .watch-menu-btn:hover, .watch-mini-btn:hover, .watch-bars-btn:hover, .watch-pets-btn:hover { color: var(--icon-color, var(--ink)); border-color: var(--accent); }
 .watch-menu-btn:active, .watch-mini-btn:active, .watch-bars-btn:active, .watch-pets-btn:active { cursor: grabbing; }
-/* Built-in default angles — only used until DJ actually drags an icon
-   (wireBadgeIcon() then sets --btn-angle inline per button, which wins
-   over these); chosen to land right where the old fixed top-right/
-   top-left/bottom-right corners used to sit. */
 .watch-menu-btn { --btn-angle: 45deg; }
 .watch-mini-btn { --btn-angle: 315deg; }
 .watch-bars-btn { --btn-angle: 135deg; }
 .watch-pets-btn { --btn-angle: 180deg; }
 .watch-dps { display: flex; align-items: baseline; gap: 3px; }
 .watch-pet { color: var(--circle-text-color, var(--ink-2)); font-size: calc(0.68rem * var(--mini-pet-scale, 1)); max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* --circle-text-color, when set, overrides all three of dps-num/unit/timer
-   to the SAME one color (mirrors how the main overlay's own "Text" picker
-   overrides --ink everywhere at once) — falls back to each element's
-   previous distinct default (--accent/--ink-3/--ink-2) when unset. */
 .watch-dps #watch-dps-num { color: var(--circle-text-color, var(--accent)); font-weight: 700; font-size: calc(1.7rem * var(--text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
 .watch-unit { color: var(--circle-text-color, var(--ink-3)); font-size: calc(0.72rem * var(--text-scale, 1) * var(--circle-scale, 1)); }
-/* Settings > "Timer Text Size" (item 10) — same independent slider the
-   Bars-mode fight timer now uses, not bundled into Info Text Size. */
 .watch-timer { color: var(--circle-text-color, var(--ink-2)); font-size: calc(0.82rem * var(--timer-text-scale, 1) * var(--circle-scale, 1)); font-variant-numeric: tabular-nums; }
 
-/* ---- Fade UI when idle (Settings > Fade UI when idle) ----
-   Leaves the bar rows' color dot + name + dps number as the only fully
-   legible things on screen once the mouse has been off the overlay for
-   Settings > "After" seconds — see scheduleIdleFade() in app.js. Every
-   targeted element keeps its normal layout box (opacity, not display),
-   so nothing reflows when it fades; pointer-events: none means an idle
-   header/icon row can't accidentally eat a click, and moving the mouse
-   anywhere over the window (see the mousemove/mousedown listeners in
-   app.js) removes body.idle-faded immediately, before a follow-up click
-   would land. */
-/* Every one of these fades TO --idle-ui-opacity (Settings > "Fade UI
-   opacity"), not to a hardcoded 0. They all used to be `opacity: 0`, which
-   meant the slider was wired up (app.js sets --idle-ui-opacity from
-   fadeIdleOpacity) but drove nothing except the panel background below —
-   set it to 50% and the header, icons, timer and rank numbers still went
-   fully invisible ("fade opacity isn't working properly", in both mini and
-   standard mode). 0 on the slider still means fully invisible, which is
-   what the old behavior was really pinned to. */
 body.idle-faded .header,
 body.idle-faded .mob-line,
 body.idle-faded .fight-timer,
@@ -805,16 +537,8 @@ body.idle-faded .watch-menu-btn,
 body.idle-faded .watch-mini-btn,
 body.idle-faded .watch-bars-btn,
 body.idle-faded .watch-pets-btn { opacity: var(--idle-ui-opacity, .15); pointer-events: none; }
-/* Multiplied, not replaced. This element's resting opacity is --panel-alpha
-   (Settings > Background opacity); assigning --idle-ui-opacity straight to it
-   meant a panel sitting at 0.15 Background opacity got MORE opaque (0.5) the
-   moment it went idle. Multiplying keeps "idle is never more visible than
-   active" true for every combination of the two sliders. */
 body.idle-faded .card::before { opacity: calc(var(--panel-alpha, 1) * var(--idle-ui-opacity, .15)); }
 body.idle-faded .empty-state { opacity: var(--idle-ui-opacity, .15); pointer-events: none; }
-/* The submit prompt is excluded from the fade above (Sept 7) — it used to
-   fade out with everything else, so a kill finishing while idle could go
-   completely unseen until the mouse moved again. */
 .header, .mob-line, .fight-timer, .fight-total,
 .bar-row .rank, .bar-row .pet-tag,
 .submit-row, .auto-submit-line, .auto-submit-toggles,
@@ -828,15 +552,11 @@ body.idle-faded .empty-state { opacity: var(--idle-ui-opacity, .15); pointer-eve
 .resize-right { top: 0; right: -5px; width: 9px; height: 100%; cursor: ew-resize; }
 .resize-bottom { left: 0; bottom: -5px; width: 100%; height: 9px; cursor: ns-resize; }
 .resize-corner { right: -5px; bottom: -5px; width: 14px; height: 14px; cursor: nwse-resize; }
-/* Mini mode used to force a fixed window size and disable resizing — now it
-   doesn't (see toggleMini() in app.js), so the handles stay available here
-   too; item 6 explicitly wants mini mode to keep behaving like a real,
-   resizable window rather than snapping to one fixed footprint. */
 
-/* Fade decorative UI independently of the damage bars. */
 body.idle-faded .mini-timer, body.idle-faded .mini-total, body.idle-faded .watch-timer { opacity: var(--idle-ui-opacity, .15); }
 body.idle-faded .watch-badge { background: color-mix(in srgb, var(--circle-bg-color, var(--bg-card)) calc(100% * var(--panel-alpha) * var(--idle-ui-opacity, .15)), transparent); }
 
-/* Explicit pointer dragging works consistently on transparent Windows overlays. */
 .header, .mini-bar, .watch-badge { -webkit-app-region: no-drag; touch-action: none; cursor: grab; }
 body.idle-faded .header { pointer-events: auto; }
+
+body, .card, .resize-handle { touch-action: none; }

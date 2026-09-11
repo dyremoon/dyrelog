@@ -17,36 +17,17 @@
       <button class="btn secondary" id="btn-open-site">Open full website &#8599;</button>
     </div>
   </header>
-  <!-- Item 6 — "I want there to be a section or title that shows 'Public
-       Leaderboards' versus your personal leaderboards... I want the player
-       to be able to show all their private boss kills and the dps from
-       those if they are opting out of publishing." Reusing the same
-       underline-tab look as the Analysis window's Outgoing/Incoming toggle
-       (see .detail-tabs in analysis.css) so it reads as "which whole view
-       am I looking at." "My Kills" is built entirely from fights already
-       saved on this machine (see loadHistory() in main.js) — it works
-       whether or not you've ever submitted anything to the server. Once a
-       kill IS submitted (Discord login + auto/ask submit, see app.js/
-       main.js), its real server status/visibility rides along too (see
-       recordSubmission()), which is what "View log" below is gated on. -->
   <div class="detail-tabs" id="lb-tabs">
     <button class="detail-tab active" type="button" data-view="public">Public Leaderboards</button>
     <button class="detail-tab" type="button" data-view="personal">My Kills</button>
   </div>
   <div class="empty" id="empty" hidden>Can't reach the leaderboard API right now.</div>
   <div id="lb-body">
-    <!-- "The top ui shows the top 10 dps across all fights that are +4
-         only... this is like the highlights of the week." Same panel and
-         same API (GET /api/leaderboard/highlights) as the website's
-         index.html — see loadHighlights() in leaderboard.js. -->
     <section class="lb-panel lb-panel-gold" id="highlights-panel">
       <h2>Top 10 of the week</h2>
       <div id="highlights-list"><p class="muted">Loading&hellip;</p></div>
     </section>
 
-    <!-- A top dropdown replaces the old left-side boss tab list — "A row
-         across the top that allows us to dropdown menu select the boss we
-         want, instead of a long list tab on the left." -->
     <section class="lb-panel lb-panel-highlight">
       <div class="lb-picker-row">
         <label for="boss-picker">Boss</label>

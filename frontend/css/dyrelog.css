@@ -1,23 +1,3 @@
-/* Dyrelog shared styles. "Something more everquest-like" than the old
-   leather/brass parchment palette — this is a frostbound arcane-steel
-   theme instead: near-black icy blue, steel and cyan accents, tying the
-   site to the new bear-head logo's own ice/lightning look. Variable NAMES
-   are unchanged from the old palette (--brass/--oxblood/etc. still exist)
-   so nothing downstream had to be rewired, only their values changed.
-   Contrast re-checked against these new colors, same bar as before: --ink
-   and --muted both clear 4.5:1 against --bg AND --surface at actual
-   on-screen sizes, not just against the darkest background. Dark-only by
-   design, same as the original mockup.
-
-   Warmth pass: "very cold with the icy blue and metal themes... some gold
-   for EverQuest Legends, some purple, some other colors too, but im okay
-   with the background being themed blue." So the ground stays exactly the
-   icy palette above — --gold/--gold-2 and --arcane/--arcane-2 are new,
-   separate tokens layered on top at specific spots (primary CTA buttons,
-   the weekly-highlights panel, a couple of badges), not a repaint of the
-   base theme. Contrast for both re-checked the same way: gold clears
-   ~7-13:1 against bg/surface/surface-2, arcane clears ~5-10.5:1, gold-ink
-   clears 7.8:1+ as button text on either gold step. */
 :root {
   color-scheme: dark;
   --bg: #0a0e15;
@@ -40,17 +20,6 @@
   --gold-ink: #241703;
   --arcane: #9b7fe0;
   --arcane-2: #c9b6f2;
-  /* "Dusk" warm accent — a burnt-orange counterpart to the existing gold
-     and purple, so the site reads as a gold/orange/purple dusk-sky palette
-     sitting on the icy-blue ground, not just one warm color (gold) plus
-     one cool one (blue). Contrast-checked the same way as everything else
-     here: --ember clears ~7.3:1 against bg and ~5.9:1 against surface,
-     --ember-2 clears ~10.7:1 against bg — both safe as text/icon color,
-     not just decoration. Orange sits between gold and purple on the color
-     wheel the same way it does at an actual dusk horizon (warm gold near
-     the light source fading through orange into the sky's cool purple/
-     blue), which is the actual reasoning for using it as the bridge color
-     between the two rather than introducing a third unrelated hue. */
   --ember: #e08a3f;
   --ember-2: #f5b378;
   --c1: #3987e5;
@@ -91,13 +60,6 @@ a { color: var(--brass-2); }
 a:hover { color: var(--brass); }
 
 .container {
-  /* Was 960px, then 1200px — "it's still kind of narrow," a second pass
-     after the first widening wasn't enough. Every child layout here
-     (tables, the auto-fit card grids, the plates) already flexes to 100%
-     of this, so widening it is still a one-line change, not a redesign.
-     Bumped the side-banner offsets/breakpoint below by the same amount
-     so the decorative rails still clear the wider column instead of
-     overlapping it. */
   max-width: 1440px;
   margin: 0 auto;
   padding: 0 20px;
@@ -105,17 +67,7 @@ a:hover { color: var(--brass); }
   z-index: 1;
 }
 
-/* Side banners (index.html only) — decorative art in the empty gutters on
-   a wide viewport. Fixed, non-interactive, and hidden once the viewport
-   isn't wide enough to show them without crowding the real (1440px)
-   content column — see the comment on the markup itself for what they
-   are and aren't. */
 .side-banner {
-  /* Anchored a fixed distance below the header and a fixed height, not
-     stretched to the full viewport — pinning it to the viewport's actual
-     height (which varies with content and window size) was what made the
-     nodes line up with nothing on shorter pages. This way the same rail
-     appears in the same place relative to the page top on every screen. */
   position: fixed;
   top: 150px;
   width: 140px;
@@ -127,20 +79,12 @@ a:hover { color: var(--brass); }
   z-index: 0;
 }
 .side-banner svg { width: 100%; height: 100%; }
-/* 900 = new 720px container half-width + 140px banner width + a 40px
-   gap, same gap every prior width kept against its own half-width. */
 .side-banner-left { left: max(0px, calc(50% - 900px)); }
 .side-banner-right { right: max(0px, calc(50% - 900px)); }
 @media (max-width: 1900px) {
   .side-banner { display: none; }
 }
 
-/* A soft dusk-sky wash behind the header only — two low-opacity radial
-   glows (purple upper-left, orange upper-right) fading into the page's
-   normal icy background within a couple hundred pixels, not a full
-   repaint. Layered as extra background-images on the header itself
-   (rather than a separate positioned pseudo-element) so there's no
-   z-index/stacking-context bookkeeping to get wrong. */
 header.site-header {
   display: flex;
   align-items: center;
@@ -161,11 +105,6 @@ header.site-header .wordmark {
   display: flex;
   align-items: center;
   gap: 10px;
-  /* Warm gold->ember gradient text, echoing the gold game-badge that sits
-     right next to it — was flat icy --brass-2 before, which visually
-     fought the badge instead of pairing with it. `color` is the fallback
-     for a browser that ignores background-clip:text (renders solid gold
-     instead of losing the wordmark entirely). */
   color: var(--gold-2);
   background: linear-gradient(120deg, var(--gold-2), var(--ember));
   -webkit-background-clip: text;
@@ -174,12 +113,6 @@ header.site-header .wordmark {
 }
 .wordmark .logo-mark { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 
-/* "We need something that screams this is for EverQuest so people know
-   its an everquest dps meter... or people wont trust it as much." A text
-   badge rather than any Daybreak/EverQuest Legends artwork — this is a
-   fan project with no license to reuse their actual logo, so the trust
-   signal is typographic: gold (the site's one warm brand color), on
-   every page, right next to the Dyrelog name itself. */
 .game-badge {
   display: inline-flex;
   align-items: center;
@@ -196,12 +129,6 @@ header.site-header .wordmark {
   background: rgba(217, 164, 65, 0.1);
 }
 
-/* Nav links read as buttons now — a bordered pill each, per "add some
-   sort of borders around the text so people know its a button" — and
-   `flex-wrap` on both the header and the nav itself, plus `white-space:
-   nowrap` on each link, means a narrow window wraps whole pills onto a
-   second row instead of breaking "Analyze Log"/"Download Dyrelog" apart
-   mid-phrase the way plain text did. */
 nav.site-nav { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; row-gap: 8px; }
 nav.site-nav a {
   display: inline-flex;
@@ -216,14 +143,6 @@ nav.site-nav a {
   border-radius: 999px;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-/* Nav pills — was an icy-blue active state (same hue as the body links and
-   most buttons), which was a big part of "very one-note colored." Gold
-   now, matching the game-badge and wordmark so the whole header reads as
-   one warm identity band above the cooler icy content below it — a
-   gold->ember gradient rather than flat gold so it still ties to the new
-   ember accent, not just gold in isolation. Hover uses a gold border only
-   (not the full fill) so it reads as "about to select," distinct from the
-   solid-filled active state. */
 nav.site-nav a:hover { color: var(--ink); border-color: var(--gold); background: var(--surface-2); }
 nav.site-nav a.active {
   color: var(--gold-ink);
@@ -234,7 +153,6 @@ nav.site-nav a.active {
 
 main { padding: 32px 0 64px; }
 
-/* Card component — no corner ornaments, per the mockup's final revision */
 .plate {
   background: radial-gradient(120% 140% at 20% 0%, rgba(169, 194, 221, 0.06), transparent 60%),
     var(--surface);
@@ -259,14 +177,7 @@ main { padding: 32px 0 64px; }
   font-size: 0.95rem;
 }
 .btn:hover { background: var(--surface-3); }
-/* Primary call-to-action — gold, not the site's blue accent. This is the
-   one warm spot every visitor's eye lands on first (download, log in,
-   report a bug), so it's where the "some gold for EverQuest Legends"
-   warmth actually reads instead of getting lost against the icy ground. */
 .btn-brass {
-  /* Same gold->ember dusk gradient as the nav/wordmark, tying every warm
-     "identity" element on the site (brand mark, active nav, primary CTA)
-     to one consistent gradient language instead of flat gold alone. */
   background: linear-gradient(160deg, var(--gold-2), var(--ember));
   color: var(--gold-ink);
   border-color: var(--gold);
@@ -306,9 +217,6 @@ table tbody tr:hover { background: var(--surface-2); }
 .muted { color: var(--muted); }
 .brand-highlight { color: var(--gold-2); }
 
-/* Weekly highlights panel (index.html) — the purple accent, kept separate
-   from the gold CTA color and the site's own blue, so "Top 10 of the
-   week" reads as its own featured moment rather than just another plate. */
 .plate-highlight {
   border-color: var(--arcane);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(155, 127, 224, 0.18);
@@ -316,11 +224,6 @@ table tbody tr:hover { background: var(--surface-2); }
 .plate-highlight h2, .plate-highlight h3 { color: var(--arcane-2); }
 .plate-highlight td.mono { color: var(--arcane-2); }
 
-/* Gold counterpart to .plate-highlight above — "we need to add more
-   colors and flare to the other parts of the website too." Same
-   treatment, warm instead of purple, used on the panels that already
-   carry a gold CTA button so the accent border and the button read as
-   one deliberate color choice rather than two unrelated ones. */
 .plate-gold {
   border-color: var(--gold);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(217, 164, 65, 0.18);
@@ -345,9 +248,6 @@ table tbody tr:hover { background: var(--surface-2); }
   flex: none;
 }
 
-/* Boss picker (index.html) — a dropdown replacing the old always-visible
-   grouped table list; selecting a boss loads its leaderboard inline below,
-   see loadBossLeaderboard() in index.html's own script. */
 .leaderboard-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 .leaderboard-controls label { font-weight: 600; color: var(--ink-2); }
 .leaderboard-controls select {
@@ -367,10 +267,6 @@ table tbody tr:hover { background: var(--surface-2); }
 .table-sort { border: 0; background: transparent; color: inherit; font: inherit; padding: 0; cursor: pointer; }
 .table-sort:hover { color: var(--gold-2); }
 .boss-picker-heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; }
-/* Boss/kill picker row — got dropped from this file at some point (dead
-   class names, no rule at all), which is why the two selects rendered as
-   unstyled native dropdowns and the row didn't lay out as a row. Restored,
-   same dark-select look as .class-picker-slot select above. */
 .boss-picker-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin: 4px 0 12px; }
 .boss-picker-col { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 200px; }
 .boss-picker-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
@@ -397,8 +293,6 @@ table tbody tr:hover { background: var(--surface-2); }
 .page-btn:hover { border-color: var(--gold-2); color: var(--ink); }
 .page-btn.active { background: var(--gold-2); color: var(--gold-ink); border-color: var(--gold-2); font-weight: 700; }
 
-/* Boss page header (boss.html) — wiki link + optional portrait, "where/who
-   this boss is" per DJ's ask, shown above the leaderboard table itself. */
 .boss-header-row { display: flex; gap: 16px; align-items: flex-start; }
 .boss-portrait {
   width: 96px;
@@ -417,8 +311,6 @@ table tbody tr:hover { background: var(--surface-2); }
   font-weight: 600;
 }
 
-/* Class picker (profile.html) — three dropdowns replacing free-text class
-   entry, "we dont want manually typing". */
 .class-picker { display: inline-flex; gap: 10px; align-items: flex-end; vertical-align: middle; }
 .class-picker-slot { display: flex; flex-direction: column; gap: 2px; font-size: 0.7rem; }
 .class-picker-slot select {
@@ -436,10 +328,6 @@ table tbody tr:hover { background: var(--surface-2); }
   color: var(--muted);
 }
 
-/* Profile bio (profile.html) — "a short section to add a small bio for
-   people who make accounts to fill in." Reuses the same dark input
-   language as the class-picker selects above (surface-2 fill, hairline
-   border) rather than the browser-default white textarea. */
 .bio-textarea {
   display: block;
   width: 100%;
@@ -464,19 +352,11 @@ table tbody tr:hover { background: var(--surface-2); }
 }
 .bio-count { font-size: 0.78rem; }
 
-/* About page — same copy/structure as the desktop overlay's own About &
-   Feedback tab, so the story reads the same wherever someone finds it. */
 .about-copy { color: var(--ink-2); line-height: 1.65; }
 .about-copy + .about-copy { margin-top: 14px; }
 .credits-list { margin: 0; padding-left: 20px; }
 .credits-list li { margin: 4px 0; }
 
-/* Screenshot gallery (about.html, download.html) — real captures of the
-   actual overlay/analysis windows, not mockups, framed to a consistent
-   height since Bars/Circle are small square-ish windows and Combat
-   Analysis is a wide one. "images of what the analytics look like, the
-   ui of the bar, the ui of circle mode... what the addon actually looks
-   like." */
 .screenshot-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -496,9 +376,6 @@ table tbody tr:hover { background: var(--surface-2); }
   padding: 10px;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
-/* Small hover lift, backlog item "hover wobble/lift effect on
-   screenshots/images" — a subtle cue that these are real captures worth a
-   closer look, not just decoration. */
 .screenshot-card .frame:hover {
   transform: translateY(-4px);
   border-color: var(--brass);
@@ -507,10 +384,6 @@ table tbody tr:hover { background: var(--surface-2); }
 .screenshot-card .frame img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; }
 .screenshot-card .cap { font-size: 0.85rem; color: var(--muted); text-align: center; }
 
-/* Per-mode "what it looks like" banners (about.html) — replaces the old
-   3-up small grid with one full-width plate per display mode, so each
-   screenshot is actually big enough to read and has room for a real pitch
-   on why that mode is worth using, not just a caption. */
 .mode-banner + .mode-banner { margin-top: 20px; }
 .mode-banner h3 { margin-bottom: 6px; }
 .mode-banner .pitch { color: var(--ink-2); line-height: 1.6; margin: 0 0 16px; }
@@ -531,9 +404,6 @@ table tbody tr:hover { background: var(--surface-2); }
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
 }
 .mode-shot img { max-width: 100%; max-height: 460px; object-fit: contain; border-radius: 4px; display: block; }
-/* Placeholder state for a mode we don't have a real capture of yet
-   (Mini mode, as of this writing) — same frame, no hover lift since
-   there's nothing to look closer at. */
 .mode-shot.mode-shot-missing {
   min-height: 140px;
   color: var(--muted);
@@ -545,18 +415,10 @@ table tbody tr:hover { background: var(--surface-2); }
 .mode-shot-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
 .mode-shot-row .mode-shot-item .cap { margin-top: 8px; font-size: 0.85rem; color: var(--muted); text-align: center; }
 
-/* Download page — a short numbered setup flow, plus a system-requirements
-   note. Numbering is real here (an ordered install sequence), unlike a
-   decorative 01/02/03 — see step. */
 .download-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; }
 .download-steps li { color: var(--ink-2); line-height: 1.55; }
 .download-steps li::marker { color: var(--brass-2); font-weight: 700; }
 
-/* Analyze Log page — a drop zone plus an encounter list/detail view, all
-   client-side (eqp-core.js, same engine the overlay and worker share).
-   "It should have the same functionality as the overlay or more" — v1
-   scope is the encounter list and per-combatant breakdown; the graph and
-   Incoming tab are noted as a fast-follow rather than silently missing. */
 .dropzone {
   border: 2px dashed var(--hair-strong);
   border-radius: 10px;
@@ -576,16 +438,6 @@ table tbody tr:hover { background: var(--surface-2); }
 
 .analyze-detail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
 
-/* Analyze Log — search + capped/scrollable fight list. "It shows 650
-   fights, maybe we should just show the last 50, with an option to show
-   more... in a drop down window to select from instead of scrolling the
-   whole page." A literal <select> can't carry per-fight columns (result,
-   duration, top parser), so the compromise is a bounded, self-scrolling
-   panel: the list scrolls inside its own short box instead of stretching
-   the whole page down further with every fight. Newest-first by default
-   (see handleFile()/loadFromSubmission() reversing the parsed array), 50
-   rows at a time via #show-more-btn, filterable by mob name via
-   #fight-search. */
 .fight-search {
   display: block;
   width: 100%;
@@ -615,16 +467,6 @@ table tbody tr:hover { background: var(--surface-2); }
 }
 .show-more-row:not([hidden]) { display: flex; justify-content: center; margin-top: 12px; }
 
-/* Analyze Log — deep-dive breakdown, ported from the desktop overlay's own
-   Combat Analysis window (analysis.js/analysis.css) so the website tool
-   has the same dps chart, procs, ability breakdown, healing, and Incoming
-   tab, scoped to one encounter at a time (no session-merging here — see
-   DYRELOG_GUIDE.md for why that's out of scope for the site). Token
-   mapping from the overlay's analysis.css: --accent -> --brass, --accent-2
-   -> --gold, --bg-card (hover fill) -> --surface-2, --ink-3 -> --muted,
-   --line-in (incoming-dps line, a fixed semantic color, never themed) ->
-   --oxblood-2, and the overlay's 6 --rank swatches -> the site's own 8
-   --c1..--c8 categorical set. */
 .stat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
 .stat-chip {
   display: inline-flex;
@@ -695,24 +537,10 @@ table tbody tr:hover { background: var(--surface-2); }
   vertical-align: middle;
 }
 
-/* "DPS over time" graph — a plain inline SVG built from already-computed
-   numbers (EQP.computeStats(enc).timeline), same as the overlay's own
-   chart. viewBox + preserveAspectRatio="none" lets .dps-chart's own
-   width:100%/height stretch to fit with no JS resize wiring. */
 .dps-chart-wrap { margin: 2px 0 4px; }
-/* This, not .dps-chart-wrap, is what the axis/peak-label/hover-tip percentage
-   positions below are computed against — it has to be exactly the svg's own
-   box, with nothing else (like .dps-chart-legend) sharing it, or "97% down"
-   stops meaning the svg's own bottom edge (Sept 7 bug — see buildDpsChart()
-   in analyze.html for the full story). */
 .dps-chart-plot { position: relative; }
 .dps-chart { display: block; width: 100%; height: 160px; }
 .dps-grid { stroke: var(--hair); stroke-width: 1; }
-/* Axis numbers and the Peak label are plain HTML, positioned in % so they
-   still track the SVG's own coordinate space underneath — see the big
-   comment on buildDpsChart() in analyze.html for why (its viewBox
-   stretches non-uniformly to fill its real on-screen width, which used to
-   stretch glyph shapes right along with it when these were SVG <text>). */
 .dps-axis-label {
   position: absolute;
   color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums;
@@ -729,17 +557,12 @@ table tbody tr:hover { background: var(--surface-2); }
   fill: none; stroke: var(--oxblood-2); stroke-width: 1.5; opacity: 0.85;
   stroke-linecap: round; stroke-linejoin: round;
 }
-/* The Incoming tab's own chart (buildDpsChart(..., 'in')) draws just this
-   one line as the PRIMARY line, not a faint secondary next to a brass
-   outgoing one — full opacity and a hair thicker than .dps-line-in above
-   so it reads as "the" line here, the same way .dps-line-out does on
-   Outgoing. */
 .dps-line-in-solo {
   fill: none; stroke: var(--oxblood-2); stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round;
 }
 .dps-peak-dot { fill: var(--brass); stroke: var(--surface); stroke-width: 1.5; }
-.dps-peak-dot-in { fill: var(--oxblood-2); } /* Incoming tab's own chart — matches .dps-line-in-solo instead of the brass outgoing color */
+.dps-peak-dot-in { fill: var(--oxblood-2); }
 .dps-peak-label {
   position: absolute;
   color: var(--ink); font-size: 12px; font-weight: 700;
@@ -751,11 +574,6 @@ table tbody tr:hover { background: var(--surface-2); }
   border-radius: 4px;
   padding: 1px 6px;
 }
-/* Mouse-hover readout (item 6) — a dashed guide line down to the exact
-   hovered point, plus a small bordered box with the timestamp and dps at
-   that point. wireDpsChartHover-equivalent wire() in buildDpsChart()
-   shows/positions both on mousemove. */
-/* Bumped from --muted/1px (Sept 7 — too faint to notice) to --ink-2/1.5px. */
 .dps-hover-line { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 3 3; }
 .dps-hover-tip {
   position: absolute;
@@ -784,9 +602,6 @@ table tbody tr:hover { background: var(--surface-2); }
 .legend-swatch.out { background: var(--brass); }
 .legend-swatch.in { background: var(--oxblood-2); }
 
-/* Procs panel — a Companion-style list of passive/triggered abilities,
-   procs-per-minute instead of damage/dps. See MELEE_BUCKET_NAMES in
-   analyze.html for how "proc" is told apart from an actively-cast spell. */
 .procs-list { display: flex; flex-direction: column; gap: 2px; }
 .proc-row {
   display: grid;
@@ -803,10 +618,6 @@ table tbody tr:hover { background: var(--surface-2); }
 .proc-ppm { font-size: 0.87rem; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
 .proc-count { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; min-width: 26px; }
 
-/* Per-combatant deep dive — an expandable card per combatant (you, your
-   pet, anyone else's pet), opening into its own per-ability breakdown.
-   Only shown when the encounter has one confirmed target (byMob.length
-   <= 1) — see renderDetail() in analyze.html for why. */
 .combatants { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .combatant-card {
   border: 1px solid var(--hair);
@@ -822,9 +633,6 @@ table tbody tr:hover { background: var(--surface-2); }
 .combatant-head .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .combatant-head .disclosure { color: var(--muted); font-size: 10px; transition: transform 0.15s ease; flex: none; }
 .combatant-card.open .combatant-head .disclosure { transform: rotate(90deg); }
-/* Text sizes bumped slightly throughout this deep-dive area (Sept 6 —
-   "increase the text size slightly") — cname/stats/ability-table were the
-   smallest text on the whole page, easy to misread at a glance. */
 .combatant-head .cname { font-weight: 600; font-size: 0.97rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combatant-head .stats { display: flex; gap: 12px; font-size: 0.85rem; color: var(--ink-2); font-variant-numeric: tabular-nums; flex: none; }
 .combatant-head .stats b { color: var(--ink); font-weight: 600; }
@@ -835,9 +643,6 @@ table tbody tr:hover { background: var(--surface-2); }
 .ability-table th, .ability-table td { text-align: left; padding: 7px 9px; font-size: 0.85rem; border-bottom: 1px solid var(--hair); }
 .ability-table th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.03em; }
 .ability-table th.num, .ability-table td.num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* The team-wide breakdown's extra leading "Who" column (Sept 6 — separate
-   per-combatant lines instead of one merged-by-name-only table) — kept
-   narrow and non-wrapping so a long roster doesn't blow the table out. */
 .team-ability-table td:first-child { white-space: nowrap; font-weight: 600; }
 .ability-bar { position: relative; height: 4px; margin-top: 5px; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--hair); overflow: hidden; }
 .ability-bar .fill {
@@ -858,15 +663,6 @@ table tbody tr:hover { background: var(--surface-2); }
   vertical-align: middle;
 }
 
-/* Sept 6 redesign — "the layout of the analysis screen is very colored
-   one-note... add borders around new sections, make it more presentable
-   and clean... I'm okay with you adding everquest color themes to new
-   sections." Each analysis section (DPS chart, mobs fought, combatants,
-   healing, procs, team breakdown, both Incoming sections) now sits in its
-   own bordered card with a themed accent border, reusing the site's
-   existing --c1..--c8/gold/arcane/ember palette rather than inventing new
-   colors — see wrapSection() in analyze.html for where these class names
-   get applied. */
 .analysis-section {
   border: 1px solid var(--hair-strong);
   border-radius: 10px;
@@ -885,10 +681,6 @@ table tbody tr:hover { background: var(--surface-2); }
   border-color: var(--oxblood-2); box-shadow: inset 0 0 0 1px rgba(224, 121, 138, 0.14);
 }
 
-/* "Create a toggle button to combine pets+pet owners into one analysis" —
-   a small pill button sitting in the Combatants section's own header row
-   (reuses .section-label-row, already used by Procs), not a full-size .btn
-   — this lives inline next to a label, not as its own call-to-action. */
 .btn-toggle-sm {
   display: inline-flex; align-items: center; gap: 5px; flex: none;
   padding: 4px 11px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
@@ -898,9 +690,6 @@ table tbody tr:hover { background: var(--surface-2); }
 .btn-toggle-sm:hover { background: var(--surface-3); color: var(--ink); }
 .btn-toggle-sm.active { border-color: var(--gold); color: var(--gold-2); background: rgba(217, 164, 65, 0.12); }
 
-/* Scoped .stat-chip size bump (Sept 6, "increase the text size slightly")
-   — only inside the analysis panel, not the leaderboard/profile pages,
-   which never asked for this and share the plain .stat-chip rule above. */
 #detail-body .stat-chip { font-size: 0.78rem; }
 
 footer.site-footer {
@@ -933,3 +722,4 @@ footer.site-footer {
 .footer-disclaimer {
   opacity: 0.7;
 }
+th .column-difficulty { display: block; margin-top: 6px; max-width: 150px; font: inherit; }

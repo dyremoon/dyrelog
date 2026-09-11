@@ -1,9 +1,3 @@
-// Small always-on-top popup — the one place a leaderboard submit prompt
-// appears, in every display mode (bars/mini/circle), see request-submit in
-// main.js and updateSubmitUI()/requestSubmitFor() in app.js. This window
-// only ever shows one of a few fixed states at a time; main.js is what
-// decides which state to send (submit-popup:show) and what the actual
-// submit result was (submit-popup:result).
 (function () {
   "use strict";
 
@@ -58,9 +52,6 @@
     clearActions();
     addButton("Dismiss", "btn-secondary", function () { window.dyrelog.discardSubmit(); });
     addButton("Log In", "btn-primary", function () {
-      // The kill itself is held in main.js (pendingLoginSubmitPayload), not
-      // in this window, so closing here doesn't lose it — a successful
-      // Discord login re-opens this popup with the real Submit/Discard ask.
       window.dyrelog.loginWithDiscord();
       window.close();
     });

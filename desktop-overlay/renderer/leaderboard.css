@@ -1,8 +1,3 @@
-/* Leaderboards window — the top-dropdown redesign. Loaded alongside
-   analysis.css (shared header/table/scrollbar styles, :root color tokens),
-   this file only adds what's new here: the scrolling body wrapper, the
-   highlights panel, and the boss-picker row that replaced the old
-   left-side #boss-list tab column. */
 
 #lb-body {
   flex: 1;
@@ -39,21 +34,11 @@
 }
 .lb-panel h2 { font-size: 15px; margin: 0 0 12px; }
 
-/* Same gold/purple alternation as the website's .plate-gold/.plate-highlight
-   (frontend/css/dyrelog.css) — "apply similar color scheming to the overlay
-   settings/leaderboards/options etc." Fixed dusk colors rather than
-   THEME_ACCENT/data-theme tokens on purpose: these two read as a matched
-   pair regardless of which in-game theme is picked, same as the site's
-   plates don't change with light/dark. */
 .lb-panel-gold { border-color: #d9a441; box-shadow: inset 0 0 0 1px rgba(217, 164, 65, 0.16); }
 .lb-panel-gold h2 { color: #f3d17e; }
 .lb-panel-highlight { border-color: #9b7fe0; box-shadow: inset 0 0 0 1px rgba(155, 127, 224, 0.18); }
 .lb-panel-highlight h2 { color: #c9b6f2; }
 
-/* Same reasoning as above, scoped to #lb-tabs specifically so it doesn't
-   also repaint the Combat Analysis window's Outgoing/Incoming tabs, which
-   share this same .detail-tab.active rule from analysis.css and weren't
-   part of this ask. */
 #lb-tabs .detail-tab.active { color: #f3d17e; border-bottom-color: #f3d17e; }
 
 .lb-picker-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
@@ -72,9 +57,6 @@
 .boss-detail-heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 4px; font-size: 15px; }
 .boss-detail-meta { color: var(--ink-2); font-size: 12px; margin-bottom: 12px; }
 
-/* "My Kills" row action — jumps to that boss on the Public Leaderboards
-   tab. Plain text-link styling, no button chrome, to stay small in a
-   dense table row. */
 .view-lb-link {
   background: none; border: none; padding: 0; cursor: pointer;
   color: var(--accent); font-size: 12px; text-decoration: underline;
@@ -88,7 +70,5 @@
 .boss-name-link { color: var(--ink); text-decoration: underline; cursor: pointer; }
 .boss-name-link:hover { color: var(--accent); }
 
-/* Item 5 — "inside of the Leaderboards overlay, I want a link to
-   'submission settings'." Groups it with the existing "Open full website"
-   button so the header keeps its one flex row instead of wrapping. */
 .header-actions { display: flex; align-items: center; gap: 8px; }
+th .column-difficulty { display: block; margin-top: 6px; max-width: 150px; font: inherit; }

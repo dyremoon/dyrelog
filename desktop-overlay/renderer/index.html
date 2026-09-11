@@ -12,10 +12,6 @@
 </head>
 <body>
   <div class="card" id="card">
-    <!-- Hidden until main.js's update check actually finds a newer GitHub
-         release than this build — see onUpdateAvailable()/getUpdateInfo()
-         in app.js. Never shows in mini mode or Circle mode (see style.css);
-         Settings > About also shows the same version/link at any time. -->
     <div class="update-banner" id="update-banner" hidden title="Click to open the download page">
       <span id="update-banner-text">Update available</span>
       <button class="update-banner-dismiss" id="update-banner-dismiss" title="Dismiss for this session">&times;</button>
@@ -32,16 +28,8 @@
         <button class="icon-btn" id="btn-close" data-tooltip="Close">&times;</button>
       </div>
     </div>
-    <!-- Shared floating label for every [data-tooltip] icon button (Sept 8 —
-         "when hovering over an icon, i would like a small text saying what
-         the icon represents"). Native title="" tooltips already existed on
-         these buttons but Chromium's own delay/placement is unreliable on a
-         frameless/transparent window, same class of problem the fight-picker
-         popup was rebuilt to work around — so this shows instantly instead,
-         positioned by wireIconTooltips() in app.js. -->
     <div class="icon-tooltip" id="icon-tooltip" hidden></div>
 
-    <!-- No log source yet — first-run state, replaces the fight subheader/list -->
     <div class="empty-state" id="empty-state">
       <div class="empty-copy">Point Dyrelog at your log once. It remembers it from here on &mdash; no browser permission dance, this is a real desktop app.</div>
       <div class="empty-actions">
@@ -50,14 +38,12 @@
       </div>
     </div>
 
-    <!-- More than one eqlog_*.txt found in a picked folder -->
     <div class="folder-pick" id="folder-pick" hidden>
       <div class="empty-copy">Found more than one log in that folder &mdash; which one's yours?</div>
       <select id="folder-select"></select>
       <button class="pill-btn" id="btn-folder-use">Use this one</button>
     </div>
 
-    <!-- Live/fight view -->
     <div class="fight-view" id="fight-view" hidden>
       <div class="subhead">
         <span class="mob-line" id="mob-line">
@@ -69,12 +55,6 @@
           <span class="fight-total" id="fight-total"></span>
         </span>
       </div>
-      <!-- Themed fight-history popup (replaces a native <select> — its
-           dropdown popup can't be recolored away from the OS default white,
-           see the old .fight-select option rule this superseded) — opens
-           UPWARD from #fight-select, most-recent entry closest to the
-           trigger. position:fixed (JS-positioned in app.js) so it escapes
-           .fight-view's own scroll clipping. -->
       <div class="fight-popup" id="fight-popup" hidden></div>
       <div class="barlist" id="barlist"></div>
       <div class="submit-row" id="submit-row" hidden>
@@ -91,13 +71,9 @@
       </div>
     </div>
 
-    <!-- Mini mode — everything else on the card is hidden while this shows -->
     <div class="mini-bar" id="mini-bar">
       <span class="status-dot" id="mini-dot"></span>
       <div class="mini-info">
-        <!-- Total damage done, above both dps rows, flat-formatted (see
-             fmtNum() — "4,503" not "4.5k") and right-aligned (item 8 of the
-             newest mini-bar list). -->
         <div class="mini-info-line">
           <span class="mini-timer" id="mini-timer">0:00</span>
       <div class="mini-actions">
@@ -122,25 +98,6 @@
       </div>
     </div>
 
-    <!-- Circle display style (Settings > Display style — item 8) — a small
-         circular badge with just your dps and the current fight's
-         duration, mockup-inspired. Only ever entered/left via Settings >
-         Display style, never a header icon (the header itself is hidden
-         while this is active). Three ways back out, since a click on the
-         badge alone turned out to be unreliable (the badge is also a drag
-         handle — see -webkit-app-region:drag on .watch-badge in style.css —
-         and Chromium can swallow a plain left-click on a large drag
-         region): click the badge itself, click the small gear button (a
-         genuine no-drag button), or right-click anywhere on the badge.
-         All three open the same menu — see showWatchMenu() in main.js and
-         its wiring in app.js. Circle's on-screen SIZE is a separate
-         Settings > Circle size slider — see --circle-scale in style.css
-         and applyCircleScale() in app.js. -->
-    <!-- The three buttons below are drag-to-reposition (Sept 7 — "like an
-         icon in World of Warcraft's mini map"): drag one and it slides
-         around the badge's rim; a plain click (no real movement) still
-         does its normal action. See wireBadgeIcon() in app.js and
-         --btn-angle in style.css for the actual positioning math. -->
     <div class="watch-badge" id="watch-badge" title="Click, right-click, or use the gear for Settings / Analysis / back to Bars">
       <button class="watch-menu-btn" id="watch-menu-btn" title="Menu (drag to move)"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.02 5.98l-2.12 2.12M8.1 15.9l-2.12 2.12M18.02 18.02l-2.12-2.12M8.1 8.1L5.98 5.98"/></svg></button>
       <button class="watch-mini-btn" id="watch-mini-btn" title="Minimal-Mode (drag to move)">&#8212;</button>

@@ -27,7 +27,17 @@
       button.addEventListener('click', () => { toggle(state, button.dataset.sortKey); render(); });
     });
   }
-  const api = { sort, toggle, header, wire };
+  function difficultyFilter(selected) {
+    return '<select class="column-difficulty" aria-label="Filter by difficulty">' +
+      ['', 'D0', 'D1', 'D2', 'D3', 'D4'].map(value => `<option value="${value}"${value === selected ? ' selected' : ''}>${value || 'All difficulties'}</option>`).join('') + '</select>';
+  }
+  function filterDifficulty(rows, selected) {
+    return selected ? rows.filter(row => (row.difficulty || 'D0') === selected) : rows.slice();
+  }
+  function wireDifficulty(container, change) {
+    container.querySelector('.column-difficulty').addEventListener('change', event => change(event.target.value));
+  }
+  const api = { sort, toggle, header, wire, difficultyFilter, filterDifficulty, wireDifficulty };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LeaderboardSort = api;
 })(typeof window !== 'undefined' ? window : globalThis);

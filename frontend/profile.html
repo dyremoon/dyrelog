@@ -3,9 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Tells the Dark Reader browser extension to leave this page alone
-       entirely instead of repainting an already-dark site — Dark Reader
-       muddying the gold header text/logo (Sept 6) traced back to this. -->
   <meta name="darkreader-lock" />
   <title>Dyrelog — Character Profile</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
@@ -28,7 +25,6 @@
 
 <main style="padding-top:12px;">
 
-  <!-- Admin -->
   <div
     class="plate plate-highlight"
     id="admin-section"
@@ -47,7 +43,6 @@
     <a class="btn" href="./admin.html">Open review queue</a>
   </div>
 
-  <!-- Profile -->
   <div class="plate plate-gold" style="margin-top:24px; margin-bottom:20px;">
     <div class="analyze-detail-head">
       <h2 style="margin:0;">My Profile</h2>
@@ -87,7 +82,6 @@
   </div>
 
 
-  <!-- Characters -->
   <div class="plate" style="margin-top:24px; margin-bottom:20px;">
     <h2>Your characters</h2>
     <div id="char-list">
@@ -96,7 +90,6 @@
   </div>
 
 
-  <!-- Personal History -->
   <div class="plate plate-gold" style="margin-top:24px; margin-bottom:20px;">
     <h2>Personal history</h2>
 
@@ -125,15 +118,6 @@
   <script src="./js/app.js"></script>
   <script src="./js/leaderboard-sort.js"></script>
   <script>
-    // Class picker — three dropdowns (Primary/Secondary/Tertiary) instead of
-    // free text, so a character's class_combo can only ever be built out of
-    // real EQ classes. "on the website you can manually edit your classes,
-    // but i want it to not be 'typed' because that can cause degen
-    // behavior... You can select 3 classes from a drop down menu, or
-    // primary/secondary/tertiary. we dont want manually typing." Still
-    // stored/sent as the same "Warrior/Cleric/Wizard"-style slash-joined
-    // string the API already expects (updateCharacterClassCombo in the
-    // worker's db.js) — only how it's edited changes, not the data shape.
     function classSelect(slot, existingCombo) {
       // A combo saved before this change (free text) only pre-fills a slot
       // when its part happens to exactly match a real class name — anything
@@ -240,11 +224,6 @@
           </table>
         `;
 
-        // Self-declared, like difficulty — nothing in the combat log can
-        // tell us a character's class, so this is still a manual field, just
-        // a constrained one now: three dropdowns instead of free text. See
-        // updateCharacterClassCombo in the worker's db.js for the trust
-        // model (owner-only, capped length) — that part is unchanged.
         listEl.querySelectorAll('.class-edit-btn').forEach((btn) => {
           btn.addEventListener('click', () => {
             const row = btn.closest('tr');
@@ -288,11 +267,6 @@
       }
     }
 
-    // "Personal history for bosses" — every row here is the caller's own
-    // best parse per boss/tier (see getPersonalBests() in the worker's
-    // db.js), public or still-private. A row is private until Publish is
-    // clicked (or the overlay's own Publish button was used instead) —
-    // see 0005_submission_visibility.sql for why that's the default.
     function statusBadge(status, visibility) {
       if (visibility !== 'public') return '<span class="badge">Private</span>';
       if (status === 'verified') return '<span class="badge badge-good">✓ On leaderboard</span>';
@@ -301,6 +275,7 @@
     }
 
     const personalSort = { key: 'dps', dir: -1 };
+    let personalDifficulty = '';
     function personalHeader(label, key) { return LeaderboardSort.header(label, key, personalSort); }
     async function loadPersonalHistory() {
       const listEl = document.getElementById('personal-list');
@@ -319,10 +294,10 @@
           listEl.innerHTML = `
             <table>
               <thead>
-                <tr><th>${personalHeader('Boss','boss')}</th><th>${personalHeader('Difficulty','difficulty')}</th><th class="num">${personalHeader('DPS','dps')}</th><th class="num">${personalHeader('Damage','damage')}</th><th>${personalHeader('Killed','killed')}</th><th>${personalHeader('Date','date')}</th><th>${personalHeader('Visibility','visibility')}</th><th>${personalHeader('Review','status')}</th><th>Analyze</th><th>Publish</th></tr>
+                <tr><th>${personalHeader('Boss','boss')}</th><th>${personalHeader('Difficulty','difficulty')}${LeaderboardSort.difficultyFilter(personalDifficulty)}</th><th class="num">${personalHeader('DPS','dps')}</th><th class="num">${personalHeader('Damage','damage')}</th><th>${personalHeader('Killed','killed')}</th><th>${personalHeader('Date','date')}</th><th>${personalHeader('Visibility','visibility')}</th><th>${personalHeader('Review','status')}</th><th>Analyze</th><th>Publish</th></tr>
               </thead>
               <tbody>
-                ${LeaderboardSort.sort(bests, personalSort)
+                ${LeaderboardSort.sort(LeaderboardSort.filterDifficulty(bests, personalDifficulty), personalSort)
                   .map(
                     (b) => `
                   <tr data-submission-id="${b.submission_id}">
@@ -362,7 +337,7 @@
                     </td>
                   </tr>`
                   )
-                  .join('')}
+                  .join('') || '<tr><td colspan="10" class="empty-state">No personal records for this difficulty.</td></tr>'}
               </tbody>
             </table>
           `;
@@ -377,9 +352,6 @@
               const row = btn.closest('tr');
               const submissionId = row.dataset.submissionId;
               const sel = row.querySelector('.difficulty-input');
-              // The select's own "Base" option maps to null, not the string
-              // "base" — mirrors the overlay's own dropdown (see
-              // renderSubmitCell() in dyrelog-overlay.html).
               const difficulty = sel ? (sel.value === 'base' ? null : sel.value) : null;
               btn.disabled = true;
               btn.textContent = 'Publishing…';
@@ -398,6 +370,7 @@
             });
           });
           LeaderboardSort.wire(listEl, personalSort, render);
+          LeaderboardSort.wireDifficulty(listEl, value => { personalDifficulty = value; render(); });
         };
         render();
       } catch (err) {

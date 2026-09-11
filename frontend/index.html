@@ -3,17 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Tells the Dark Reader browser extension to leave this page alone
-       entirely instead of repainting an already-dark site — Dark Reader
-       muddying the gold header text/logo (Sept 6) traced back to this. -->
   <meta name="darkreader-lock" />
 
-  <!--
-    Title/description here are what actually shows up in a Google result
-    snippet — this is the real lever for "people searching EQL dps meter
-    find this," not the product name. See DYRELOG-PLAN.md's
-    Discoverability section for why the name itself stays as Dyrelog.
-  -->
   <title>Dyrelog — EverQuest Legends DPS Meter &amp; Leaderboard</title>
   <meta name="description" content="Dyrelog is a free EverQuest Legends DPS meter and combat-log leaderboard. Track your damage live with the overlay, submit a fight, and compare parses by boss." />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
@@ -159,18 +150,12 @@
         </div>
       </div>
 
-      <!-- Main leaderboard — a boss picker instead of the old always-visible
-           grouped table list, per "a boss drop down menu for the person to
-           select" replacing the category tab list. Selecting a boss shows
-           how many people are actually on it, e.g. "Master Yael (4,330)" —
-           see entrantCount on GET /api/bosses/:id/leaderboard. -->
       <div class="plate plate-gold">
         <div class="leaderboard-controls">
           <label for="boss-picker">Boss</label>
           <select id="boss-picker">
             <option value="">Loading…</option>
           </select>
-          <fieldset id="difficulty-filter" class="difficulty-checks"><legend>Difficulty</legend><label><input id="difficulty-all" type="checkbox" checked> All</label><label><input type="checkbox" value="D0" checked> D0</label><label><input type="checkbox" value="D1" checked> D1</label><label><input type="checkbox" value="D2" checked> D2</label><label><input type="checkbox" value="D3" checked> D3</label><label><input type="checkbox" value="D4" checked> D4</label></fieldset>
           <label for="board-sort">Sort</label><select id="board-sort"><option value="dps">Highest DPS</option><option value="difficulty">Difficulty: D4 to D0</option></select>
         </div>
         <div id="boss-leaderboard">
@@ -180,20 +165,15 @@
     </main>
 
     <footer class="site-footer">
-      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by 
+      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by
       Daybreak Game Company or EverQuest Legends.
     </footer>
   </div>
 
-  <!-- Production API origin — the deployed frontend (dyrelog.pages.dev) and
-       the deployed worker (dyrelog-api.dyremoon.workers.dev) are on two
-       different domains, so app.js's fetch() calls need this set or they
-       fall back to the http://127.0.0.1:8787 local-dev default. -->
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
   <script src="./js/leaderboard-sort.js"></script>
   <script>
-    // ---- Weekly highlights, filtered before selecting the top ten ----
     let highlightsRequest = 0;
     async function loadHighlights() {
       const el = document.getElementById('highlights-list');
@@ -239,7 +219,6 @@
 
     ['highlights-boss', 'highlights-difficulty'].forEach(id => document.getElementById(id).addEventListener('change', loadHighlights));
 
-    // ---- Main leaderboard: a boss picker instead of a static list -------
     function bossKey(name) { return String(name || '').trim().toLowerCase().replace(/[-\s]+/g, ' '); }
     function groupBosses(bosses) {
       const groups = new Map();
@@ -266,10 +245,10 @@
         </tr>`;
     }
     let publicSort = { key: 'dps', dir: -1 };
+    let publicDifficulty = '';
     function sortHeader(label, key) { return LeaderboardSort.header(label, key, publicSort); }
     function rankRows(rows) {
-      const selected = [...document.querySelectorAll('#difficulty-filter input[value]:checked')].map(box => box.value);
-      return LeaderboardSort.sort(rows.filter(row => selected.includes(row.difficulty || 'D0')), publicSort);
+      return LeaderboardSort.sort(LeaderboardSort.filterDifficulty(rows, publicDifficulty), publicSort);
     }
     let bossRequest = 0;
     async function loadBossLeaderboard(boss) {
@@ -295,21 +274,15 @@
           </h3>`;
         const render = () => {
           const visible = rankRows(parses);
-          if (visible.length === 0) { el.innerHTML = heading + '<p class="empty-state">Select at least one difficulty with public verified parses.</p>'; return; }
-          el.innerHTML = heading + `<table><thead><tr><th>#</th><th>${sortHeader('Character','character')}</th><th>${sortHeader('Class','class')}</th><th>${sortHeader('Difficulty','difficulty')}</th><th class="num">${sortHeader('DPS','dps')}</th><th class="num">${sortHeader('Damage','damage')}</th><th>${sortHeader('Date','date')}</th><th></th></tr></thead><tbody>${visible.map((p, i) => parseRow(p, i)).join('')}</tbody></table>`;
+          el.innerHTML = heading + `<table><thead><tr><th>#</th><th>${sortHeader('Character','character')}</th><th>${sortHeader('Class','class')}</th><th>${sortHeader('Difficulty','difficulty')}${LeaderboardSort.difficultyFilter(publicDifficulty)}</th><th class="num">${sortHeader('DPS','dps')}</th><th class="num">${sortHeader('Damage','damage')}</th><th>${sortHeader('Date','date')}</th><th></th></tr></thead><tbody>${visible.map((p, i) => parseRow(p, i)).join('') || '<tr><td colspan="8" class="empty-state">No public verified parses for this difficulty.</td></tr>'}</tbody></table>`;
           LeaderboardSort.wire(el, publicSort, render);
+          LeaderboardSort.wireDifficulty(el, value => { publicDifficulty = value; render(); });
         };
         if (parses.length === 0) {
           el.innerHTML = heading + '<p class="empty-state">No verified parses for this boss yet — be the first to submit one.</p>';
           return;
         }
         render();
-        document.getElementById('difficulty-filter').onchange = (event) => {
-          const boxes = [...document.querySelectorAll('#difficulty-filter input[value]')];
-          if (event.target.id === 'difficulty-all') boxes.forEach((box) => { box.checked = event.target.checked; });
-          else document.getElementById('difficulty-all').checked = boxes.every((box) => box.checked);
-          render();
-        };
         document.getElementById('board-sort').onchange = (event) => { publicSort = { key: event.target.value, dir: -1 }; render(); };
       } catch (err) {
         if (request !== bossRequest) return;
@@ -329,8 +302,6 @@
           document.getElementById('boss-leaderboard').innerHTML = '<p class="empty-state">No bosses in the curated list yet.</p>';
           return;
         }
-        // Grouped the same way the old list was (category, "Dungeons" last) —
-        // <optgroup> keeps a raid's tiers together in the dropdown too.
         const groups = new Map();
         bosses.forEach((b) => {
           const key = b.category || 'Dungeons';
@@ -351,12 +322,6 @@
           if (picker.value) loadBossLeaderboard(bosses.find((b) => b.name === picker.value));
         });
 
-        // Open on the boss with the most tracked parses (entrant_count,
-        // from /api/bosses — same number the per-boss page already shows
-        // as "(N entries)"), not just whichever boss sorts first
-        // alphabetically. Falls back to the first boss if the API hasn't
-        // been redeployed with entrant_count yet, or every boss is tied
-        // at zero.
         const defaultBoss = bosses.reduce((best, b) => {
           const count = Number(b.entrant_count) || 0;
           const bestCount = best ? (Number(best.entrant_count) || 0) : -1;

@@ -9,11 +9,8 @@
   --ink-2: #a89f8d;
   --ink-3: #6f6858;
   --accent: #4c8bf5;
-  --accent-2: #e8a13c; /* warm second accent — item 7.5, "more visual flare and color" */
+  --accent-2: #e8a13c;
   --accent-ink: #06121f;
-  /* Same six rank hues the mini-mode bar list uses (style.css's --rank1..
-     --rank6) — ties a combatant's accent color here to the same one
-     they'd show as a bar in the overlay itself. */
   --rank1: #b3423a;
   --rank2: #9c3f8f;
   --rank3: #6c6fd1;
@@ -26,20 +23,6 @@
   --line-in: #c1554c;
 }
 
-/* Settings > Theme swatches — same 6 presets as the mini-mode card
-   (style.css's :root[data-theme="X"] blocks), applied here too so the
-   Analysis and Leaderboards windows actually follow the selected theme
-   instead of always showing this default palette. --bg is this window's
-   own token (mini-mode has no separate page background, just --bg-card),
-   scaled down from each theme's --bg-card by the same ratio the default
-   palette uses; --hair/--ink/--ink-2/--ink-3/--accent/--accent-ink are
-   copied straight from style.css's palettes. --accent-2 and --line-in
-   don't exist over there — accent-2 is a bespoke complementary shade
-   chosen per theme (it drives the header/badge gradients below), and
-   --line-in (the "damage taken" chart line) stays constant across every
-   theme on purpose, same as style.css's --ok: it's a semantic color, not
-   a themed one. See THEME_NAMES in app.js for the full list of theme
-   names this must stay in sync with. */
 :root[data-theme="brass"] {
   --bg: #150e09;
   --bg-card: #1c130b;
@@ -108,13 +91,6 @@
 }
 
 * { box-sizing: border-box; }
-/* Author CSS beats the UA stylesheet's default [hidden]{display:none} the
-   moment ANY rule sets display on that same element (#layout below is
-   display:flex; leaderboard.css's #lb-body is too) — the hidden attribute
-   then silently stops hiding anything, which is what let the Public and
-   My Kills panels show at the same time. Same fix as style.css's own copy
-   of this same rule, for every current and future hidden-toggled element
-   in both windows. */
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body {
@@ -173,9 +149,6 @@ header h1 { font-size: 17px; margin: 0 0 2px; }
   border-left: 3px solid var(--accent-2);
 }
 #enc-detail .meta { color: var(--ink-2); font-size: 12.5px; margin-bottom: 16px; }
-/* Item 7.5 — small colored pills instead of a flat "a · b · c" text line,
-   so the encounter's headline numbers (total damage, raid dps) actually
-   stand out rather than reading the same as the difficulty/duration meta. */
 .stat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
 .stat-chip {
   display: inline-flex;
@@ -195,12 +168,6 @@ header h1 { font-size: 17px; margin: 0 0 2px; }
   font-weight: 700;
 }
 
-/* Boss list / boss detail — the Leaderboards window's own two-pane split,
-   same layout pattern as #enc-list/#enc-detail above (reused via #layout)
-   so a boss's leaderboard renders right here instead of jumping out to
-   the website; "View on website" in the detail pane, and "Open full
-   website" in the header, are the optional escape hatch, not the only
-   way to see it. */
 #boss-list { width: 230px; border-right: 1px solid var(--hair); overflow-y: auto; flex: none; }
 .boss-row { padding: 10px 14px; border-bottom: 1px solid var(--hair); cursor: pointer; }
 .boss-row:hover { background: var(--bg-card); }
@@ -214,18 +181,9 @@ header h1 { font-size: 17px; margin: 0 0 2px; }
 table { width: 100%; border-collapse: collapse; }
 table th, table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--hair); font-size: 13.5px; }
 table th { color: var(--ink-2); font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.04em; }
-/* Centered, not right-aligned (item 6), and a faint vertical rule between
-   columns so it's actually clear where one column ends and the next
-   starts (item 6.1: "I can't really tell where the graph's borders are") —
-   there was no divider of any kind before, just whitespace, which let a
-   number read as belonging to the wrong header entirely (item 6.2). */
 table th.num, table td.num { text-align: center; font-variant-numeric: tabular-nums; }
 table th:not(:first-child), table td:not(:first-child) { border-left: 1px solid var(--hair); }
 table tbody tr:hover { background: var(--bg-card); }
-/* A pet now gets its own top-level row/card (see buildAnalysisRows() in
-   analysis.js) instead of a nested footnote under its owner's — this small
-   badge is the only thing marking it as a pet rather than a player,
-   mirroring the mini-mode overlay's own .pet-tag look. */
 .pet-tag-mini {
   display: inline-block;
   font-size: 10px;
@@ -238,9 +196,6 @@ table tbody tr:hover { background: var(--bg-card); }
   padding: 0 4px;
   vertical-align: middle;
 }
-/* Ranked color dot on the main combatant table — same --swatch each row
-   carries for its accent elsewhere (see analysis.js), so a name here reads
-   as the same color it'd show as a bar in the overlay. */
 .rank-dot {
   display: inline-block;
   width: 7px; height: 7px;
@@ -250,11 +205,6 @@ table tbody tr:hover { background: var(--bg-card); }
   vertical-align: middle;
 }
 
-/* Per-combatant deep dive (Combat Analysis window) — a stack of expandable
-   cards under the top combatant table, one per combatant, each opening
-   into its own spell/ability breakdown (and a nested card per pet with
-   its OWN breakdown) instead of a single flat total. See renderDetail()/
-   renderCombatantCards() in analysis.js. */
 /* Shared by the "Healing" table above the deep dive and the deep dive's
    own heading — see renderHealingSection()/renderCombatantCard() in
    analysis.js. */
@@ -271,28 +221,10 @@ table tbody tr:hover { background: var(--bg-card); }
 .combatants { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
 .combatants > .section-label { margin: 0 0 -2px; }
 
-/* "DPS over time" graph — see buildDpsChart()/renderDpsChartSection() in
-   analysis.js. A plain inline SVG (no charting library) built the same
-   way everything else here is: a string of markup from already-computed
-   numbers. viewBox + preserveAspectRatio="none" is what lets .dps-chart's
-   own width:100%/height:150px stretch the drawing to fit without any JS
-   resize-observer wiring. */
 .dps-chart-wrap { margin: 2px 0 4px; }
-/* This, not .dps-chart-wrap, is what the axis/peak-label/hover-tip percentage
-   positions below are computed against (see the big comment on it in
-   buildDpsChart()) — it has to be exactly the svg's own box, with nothing
-   else (like .dps-chart-legend) sharing it, or "97% down" stops meaning
-   the svg's own bottom edge. */
 .dps-chart-plot { position: relative; }
 .dps-chart { display: block; width: 100%; height: 150px; }
 .dps-grid { stroke: var(--hair); stroke-width: 1; }
-/* Axis numbers and the Peak label are plain HTML, positioned in % so they
-   still track the SVG's own coordinate space underneath them (see the big
-   comment in buildDpsChart() on why this moved off SVG <text> — the short
-   version: this chart's viewBox stretches non-uniformly to fill its real
-   on-screen width, which stretched glyph shapes right along with it and
-   is exactly what read as a "strange font" on the Peak label). HTML text
-   always renders at true screen pixels regardless of that stretch. */
 .dps-axis-label {
   position: absolute;
   color: var(--ink-3); font-size: 9px; font-variant-numeric: tabular-nums;
@@ -310,11 +242,6 @@ table tbody tr:hover { background: var(--bg-card); }
   stroke-linecap: round; stroke-linejoin: round;
 }
 .dps-peak-dot { fill: var(--accent); stroke: var(--bg-card); stroke-width: 1.5; }
-/* Incoming tab's own solo chart (buildDpsChart(..., 'in')) — a single
-   damage-taken line drawn full-strength instead of the faded secondary
-   line .dps-line-in above draws alongside the Outgoing tab's own-damage
-   line. Uses the same semantic --line-in token so it still reads as
-   "damage taken" at a glance. */
 .dps-line-in-solo {
   fill: none; stroke: var(--line-in); stroke-width: 2; opacity: 1;
   stroke-linecap: round; stroke-linejoin: round;
@@ -331,15 +258,6 @@ table tbody tr:hover { background: var(--bg-card); }
   border-radius: 4px;
   padding: 1px 6px;
 }
-/* Hover readout (item 6 — "while hovering over the graph of our dps, we
-   should be able to see current stats") — a vertical guide line down to
-   the exact hovered point, plus a small bordered box with the timestamp
-   and dps at that point. Both start hidden ([hidden] wins via the
-   stylesheet's own top-of-file rule) and are shown/positioned by
-   wireDpsChartHover's mousemove listener in analysis.js. */
-/* Bumped from --ink-3/1px (Sept 7 — too faint to notice, "have a vertical
-   line indicating where we're currently observing") to --ink-2/1.5px, a
-   real step up in contrast against the chart background. */
 .dps-hover-line { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 3 3; }
 .dps-hover-tip {
   position: absolute;
@@ -368,18 +286,9 @@ table tbody tr:hover { background: var(--bg-card); }
 .legend-swatch.out { background: var(--accent); }
 .legend-swatch.in { background: var(--line-in); }
 
-/* Procs panel (Companion-inspired) — see renderProcsSection() in
-   analysis.js. .section-label-row pairs a normal .section-label on the
-   left with a right-aligned running total, without changing .section-
-   label itself everywhere else it's used (Healing, Damage by ability,
-   Mobs fought, Deep dive all reuse the plain version above). */
 .section-label-row { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 0 8px; }
 .section-label-row .section-label { margin: 0; }
 .section-stat { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
-/* "Combine pets with owner" toggle (Combatants section header) — a small
-   pill button, off by default, filled/active once toggled. Reused as-is
-   wherever a section needs its own small on/off control alongside a
-   .section-label, not just this one spot. */
 .btn-toggle-sm {
   background: var(--bg-card);
   color: var(--ink-2);
@@ -412,9 +321,6 @@ table tbody tr:hover { background: var(--bg-card); }
 .proc-stat { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; min-width: 44px; }
 .proc-ppm { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
 .proc-count { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; min-width: 26px; }
-/* Left accent stripe per card, colored by the same rank swatch as the main
-   table and the mini-mode bars themselves (item 7.5) — a quick "who's
-   who" visual thread across the whole window, not just a plain grey list. */
 .combatant-card {
   border: 1px solid var(--hair);
   border-left: 3px solid var(--swatch, var(--hair));
@@ -438,33 +344,15 @@ table tbody tr:hover { background: var(--bg-card); }
 .ability-table { width: 100%; border-collapse: collapse; }
 .ability-table th, .ability-table td { text-align: left; padding: 6px 8px; font-size: 12.5px; border-bottom: 1px solid color-mix(in srgb, var(--hair) 70%, transparent); }
 .ability-table th { color: var(--ink-3); font-weight: 600; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.03em; }
-/* Same centering + column-divider treatment as the main combatant table
-   above, and for the same reason (items 6/6.1). */
 .ability-table th.num, .ability-table td.num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ability-table th:not(:first-child), .ability-table td:not(:first-child) { border-left: 1px solid color-mix(in srgb, var(--hair) 70%, transparent); }
-/* The relative bar chart now lives INSIDE the Ability cell, under the
-   name, instead of its own dedicated column — item 11 asks for an exact
-   six-column set (Ability/Hits/Damage done/DPS/Crits/Misses) with no room
-   left over for a bar column, but the bar itself is still worth keeping
-   for the at-a-glance read it gives (item 7.5's "flare"). */
-/* A visible border on the track itself (not just the fill) — the old
-   version was just a faint tinted background with nothing bounding it, so
-   a low-damage ability's tiny fill was easy to miss entirely against the
-   page background (item 6.1). */
 .ability-bar { position: relative; height: 4px; margin-top: 4px; border-radius: 999px; background: color-mix(in srgb, var(--hair) 85%, var(--ink) 6%); border: 1px solid var(--hair); overflow: hidden; }
 .ability-bar .fill {
   position: absolute; inset: 0; width: var(--pct, 0%);
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   border-radius: 999px;
 }
-/* Full-team ability breakdown (renderTeamAbilityTable() in analysis.js)
-   reuses .ability-table wholesale but adds a leading "Who" column — this
-   keeps that name from wrapping or shrinking to fit like the rest. */
 .team-ability-table td:first-child { white-space: nowrap; font-weight: 600; }
-/* How many times this ability was actually CAST (item 10) — only ever
-   populated for your own spells (see RE_CAST's comment in eqp-core.js),
-   so most rows never show one at all; a small inline badge next to the
-   name reads better than a mostly-empty seventh column would. */
 .cast-badge {
   display: inline-block;
   margin-left: 5px;
@@ -490,16 +378,6 @@ table tbody tr:hover { background: var(--bg-card); }
 }
 .badge-good { color: #7ba861; border-color: #7ba861; }
 
-/* Target selector — only shown for a multi-target session (item 12's
-   follow-up: "I can click into it to break it down... or I can click each
-   target to see what I did to each one"). "All targets combined" is
-   always first and starts active; see renderDetail()/wireTargetPills() in
-   analysis.js. */
-/* Outgoing/Incoming toggle at the top of a session's detail view — "it
-   also has an incoming tab, i like that." Real tabs (an underline on the
-   active one), not pill buttons like .target-pills below, so they read as
-   "which whole view am I looking at" rather than another filter chip row.
-   See renderDetail()/renderIncomingTab() in analysis.js. */
 .detail-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hair); margin-bottom: 16px; }
 .detail-tab {
   background: none;
@@ -528,11 +406,6 @@ table tbody tr:hover { background: var(--bg-card); }
 .target-pill:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--hair)); }
 .target-pill.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
-/* Themed scrollbar instead of the flat native OS one (item 1 — "I still
-   see html scroll bars on settings windows... its still there in analysis
-   too"). A visible but styled thin thumb, not fully hidden — several of
-   these panes can genuinely run long (a big encounter list, a deep
-   ability breakdown). */
 #enc-list, #enc-detail, #boss-list, #boss-detail {
   scrollbar-width: thin;
   scrollbar-color: var(--hair) transparent;
@@ -550,15 +423,6 @@ table tbody tr:hover { background: var(--bg-card); }
 #enc-list::-webkit-scrollbar-thumb:hover, #enc-detail::-webkit-scrollbar-thumb:hover,
 #boss-list::-webkit-scrollbar-thumb:hover, #boss-detail::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
 
-/* Bordered/colored section cards (mirrors the website's own
-   .analysis-section system in dyrelog.css) — each of the six Outgoing
-   sections and both Incoming sections gets its own card with a themed
-   border, instead of one long unbroken scroll of tables. Deliberately
-   built on --rank1..--rank6/--line-in (static across every theme, see the
-   :root comment up top) rather than --accent/--accent-2 (which DO shift
-   per theme) for every section except DPS itself, which intentionally
-   tracks --accent since the chart line above it already does. See
-   wrapSection() in analysis.js for where these class names get applied. */
 .analysis-section {
   border: 1px solid var(--hair);
   border-radius: 10px;

@@ -1,27 +1,3 @@
-/* Settings window — its own popup (see main.js's createSettingsWindow()),
-   not an in-card panel. Self-contained (a separate HTML document can't
-   share CSS with style.css/analysis.css) rather than a fragment of them.
-
-   Its own cool-graphite NEUTRALS (bg/card/elevated/hair below), distinct
-   from the overlay's own warm near-black default (style.css's
-   --bg: #14120f et al, still selectable in Appearance > Theme below) —
-   "I like how his settings page is very clean... change our color
-   schemes too to not be that brown color you're doing." The overlay's
-   own in-game theme system is untouched; this is just the chrome OF the
-   settings window itself.
-
-   The ACCENT colors, though, were later moved onto the website's "dusk"
-   gold/orange/purple pass — "apply similar color scheming to the overlay
-   settings/leaderboards/options etc" — so --accent/--accent-2 below are
-   the same --gold-2/--arcane-2 the site uses for on-dark-background text
-   and gold-bg+dark-text combos (frontend/css/dyrelog.css), not a generic
-   blue/teal anymore. The graphite neutrals stay: swapping those too would
-   put this right back on the "brown" look DJ moved away from above.
-
-   --ink-2/--ink-3 were bumped lighter than the first pass (was #99a2b5 /
-   #626b80) after "the text is hard to read with the current color
-   format" — both now clear 4.5:1 contrast against --bg-card at their
-   actual on-screen sizes, not just against pure --bg. */
 :root {
   --bg: #0e1015;
   --bg-card: #151922;
@@ -31,18 +7,14 @@
   --ink: #f3f5f9;
   --ink-2: #b3bcce;
   --ink-3: #8992a6;
-  --accent: #f3d17e; /* gold-2 from the site's dusk palette */
-  --accent-2: #c9b6f2; /* arcane-2 (purple) — tab underline, badges, the "live" note */
-  --accent-ink: #241703; /* dark ink for text sitting on a gold-filled control */
+  --accent: #f3d17e;
+  --accent-2: #c9b6f2;
+  --accent-ink: #241703;
 }
 * { box-sizing: border-box; }
 html {
   margin: 0;
   height: 100%;
-  /* Base size for every rem in this file — "Settings text size" (below)
-     just changes this one number via JS, and every font-size, being in
-     rem, scales together. Nothing else (padding, control widths) scales
-     with it, on purpose — this is a *readability* control, not a zoom. */
   font-size: 13.5px;
 }
 body { margin: 0; height: 100%; }
@@ -64,19 +36,9 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
 }
 
 .header-links-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-/* "change dyrelog.pages.dev to say 'Dyrelog Website' and make it bigger
-   font and a good golden color" (Sept 6) — was --accent-2 (the purple
-   arcane-2 accent, same one the tab underline/"live" note use), swapped to
-   --accent, which IS this window's own gold token (gold-2 from the site's
-   dusk palette — see this file's :root comment above) rather than a new
-   color. */
 .site-link { font-size: 1.05rem; font-weight: 700; color: var(--accent); text-decoration: none; cursor: pointer; }
 .site-link:hover { text-decoration: underline; }
 
-/* "Have a text size option for the settings menu too" — scoped to THIS
-   window only (see set-uiscale in settings.js), separate from the main
-   overlay's own Text size slider in Appearance below, which sizes the
-   in-game overlay itself, not this settings UI. */
 .textsize-row { display: flex; align-items: center; gap: 8px; }
 .textsize-row label { font-size: 0.78rem; color: var(--ink-3); }
 .textsize-row select {
@@ -84,11 +46,6 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
   border-radius: 6px; padding: 3px 6px; font-size: 0.78rem;
 }
 
-/* "I want a search bar at the top for people to find an option they're
-   looking for by searching" — see filterSettings() in settings.js, which
-   toggles .search-hidden on any .settings-section whose data-searchable
-   text (or visible label/hint text) doesn't match, across every tab at
-   once, then jumps to the first tab that still has a visible match. */
 .search-row { margin-bottom: 10px; }
 #settings-search {
   width: 100%;
@@ -99,10 +56,6 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
 #settings-search::placeholder { color: var(--ink-3); }
 .search-hidden { display: none !important; }
 
-/* Real tabs — "We should have a section like that in our settings, with
-   proper tabs, whats new, etc." Same underline-on-active convention
-   analysis.css's .detail-tab already uses, for a little visual continuity
-   between this window and Combat Analysis. */
 .tabs { display: flex; gap: 4px; }
 .tab {
   background: transparent; border: none; border-bottom: 2px solid transparent;
@@ -128,66 +81,14 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
 .panel::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
 
 .tab-panel { display: flex; flex-direction: column; gap: 14px; }
-/* THE actual "tabs aren't working" bug: [hidden] and .tab-panel{display:flex}
-   have equal specificity, and this author rule loads after the browser's
-   own [hidden]{display:none} default — so without this override, EVERY
-   panel stayed visibly stacked (Appearance's content always on top,
-   scroll down to reach the others) no matter which tab looked active.
-   This wins on specificity (two classes/attrs beats one) so hidden panels
-   actually disappear now. */
 .tab-panel[hidden] { display: none; }
-/* Same [hidden]-vs-plain-display bug as above — .row{display:flex} was
-   winning over [hidden] for the folder-disambiguation row (Sept 6), so it
-   showed even with nothing picked yet. */
 #settings-folder-pick[hidden] { display: none; }
 
-/* Log source status — a red/green dot plus matching text color, same idea
-   as the mini-mode card's own .status-dot, so it's obvious at a glance
-   whether a source is actively being read or still needs picking. */
 .source-hint { display: flex; align-items: center; gap: 7px; }
 .source-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #d9695f; box-shadow: 0 0 6px rgba(217,105,95,0.5); }
 .source-hint.ok .source-dot { background: #4caf6e; box-shadow: 0 0 6px rgba(76,175,110,0.5); }
 .source-hint.ok { color: #4caf6e; }
 
-/* Two-column Appearance layout — "the sizing bars are so far down that as
-   you go down to test them, you have to scroll up to see the test bar."
-   The live preview is now a sticky sidebar next to the settings controls
-   instead of sitting inline above them, so it stays in view (position:
-   sticky, relative to .panel above, the actual scroll container) no
-   matter how far down the left column you've scrolled.
-
-   The settings column is capped (not flex:1) and the preview column is
-   what grows — "if you compact the settings... this should be fixed" —
-   on a window DJ had manually stretched very wide, a flex:1 settings
-   column stretched every card to that same width (dead space next to
-   every label, a "Your class" dropdown and the Display style toggle both
-   ballooning into giant controls) while the preview stayed pinned at a
-   small fixed width. Flipping which side is allowed to grow means a wider
-   window makes the PREVIEW bigger (which is actually useful) instead of
-   the settings cards wider (which just wastes space), and the settings
-   column itself stays a sane, readable width no matter how the window is
-   resized.
-
-   DJ also asked to be able to resize these two columns himself — see
-   ".appearance-split-handle" and its drag-resize wiring in settings.js,
-   which overrides .appearance-main's max-width via inline style and
-   remembers the choice in localStorage (this is a real per-machine
-   desktop window, not the in-chat preview sandbox, so localStorage is the
-   right durable place for it). Collapses to the original single stacked
-   column (handle hidden) under 560px so nothing overlaps at the smallest
-   usable window size. */
-/* Grid, not flex, for this row — Blink has a long-standing quirk where
-   position:sticky on a flex item silently does nothing once that item is
-   height-stretched by align-items:stretch (confirmed while building this:
-   switching this same layout to flex made the preview column scroll away
-   like a normal block instead of sticking). Grid's own default row-stretch
-   behavior doesn't have that problem, so the exact same "make both columns
-   as tall as the taller one, then let the shorter one's content stick
-   inside that tall box" trick works here unmodified. */
-/* 460px is only the STARTING width of the first track — settings.js's drag
-   handler rewrites this element's own grid-template-columns (first number
-   only) as the handle moves, since that's the one place the split width
-   actually lives now; nothing below needs its own width/flex-basis. */
 .tab-panel-appearance { display: grid; grid-template-columns: 460px 11px minmax(190px, 1fr); gap: 0; }
 .appearance-main {
   min-width: 0;
@@ -213,16 +114,6 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
   min-width: 0;
   padding-left: 14px;
 }
-/* Sticky lives on the CARD, not on .appearance-preview-col itself — a real
-   Chromium quirk hit while building this: position:sticky silently does
-   nothing on a grid/flex item that is ALSO being height-stretched to match
-   its tall sibling (which is exactly what .appearance-preview-col needs,
-   so it has room to stay "stuck" while .appearance-main scrolls past it).
-   Moving sticky one level down, onto a plain non-stretched block that
-   just happens to sit inside that tall stretched box, sidesteps the bug
-   entirely and was confirmed working with a minimal repro before landing
-   here — do not move position:sticky back up onto .appearance-preview-col
-   itself even though it looks like the "obvious" place for it. */
 .preview-live {
   position: sticky;
   top: 0;
@@ -234,10 +125,6 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
   .appearance-preview-col { padding-left: 0; position: static; }
 }
 
-/* Bordered section cards — "we need more formatting/borders inside of the
-   settings to differentiate the different sections" — each Sizing/Layout/
-   Color/Classes/Pets/Submission group from here on lives in one of these
-   instead of floating directly in .panel. */
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -269,21 +156,7 @@ header h1 { font-size: 1.185rem; margin: 0; font-weight: 700; letter-spacing: -0
 .hint { margin: -6px 0 0; font-size: 0.85rem; color: var(--ink-3); line-height: 1.45; }
 .row-stack > .hint { margin-top: 0; }
 .row-stack { flex-direction: column; align-items: stretch; gap: 7px; }
-/* Fixed label column for a plain slider row (e.g. "Timer / DPS") — widened
-   from the original 96px, which was clipping/wrapping the longer labels
-   ("fix text wrapping on the appearance screen to not wrap like it
-   currently is"). */
 .row > label:not(.check) { flex: none; width: 116px; font-size: 0.963rem; color: var(--ink-2); }
-/* A label inside a STACKED row (e.g. "When you kill a leaderboard boss")
-   needs to win over the fixed-width rule above — its parent carries BOTH
-   .row and .row-stack, so ".row > label:not(.check)" also matches it, and
-   that selector has higher specificity (an extra :not() class) than a
-   plain ".row-stack > label", regardless of which is declared later. THIS
-   was the real "leaderboard settings submission shows weird formatting"
-   bug: the label was silently pinned to 96px and wrapped one word per
-   line instead of stretching to the row's actual width. Matching the
-   compound ".row.row-stack" parent brings the specificity back to a tie,
-   which this rule then wins by coming later in the file. */
 .row.row-stack > label:not(.check) { width: auto; flex: 1 1 auto; }
 .range-val { flex: none; width: 28px; text-align: right; font-size: 0.889rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 
@@ -325,12 +198,6 @@ input[type="range"]::-webkit-slider-thumb {
   padding: 6px 8px;
   font-size: 0.963rem;
 }
-/* A select inside a STACKED row (e.g. "Your class") gets its own, more
-   generous cap rather than the plain-row width above — .row-stack rows
-   aren't as cramped as inline label+control rows — but still a real cap,
-   not 100% of the row: "the same issue with the classes section, its just
-   too wide" was this select stretching to match however wide the settings
-   column happened to be. */
 .row-stack select { max-width: 280px; }
 .row select:disabled { opacity: 0.6; }
 label.check { display: flex; align-items: center; gap: 6px; font-size: 0.963rem; color: var(--ink-2); }
@@ -409,12 +276,6 @@ label.check input { accent-color: var(--accent); }
 .class-color-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
 .class-color-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
 
-/* Segmented control — a single pill-shaped group with a solid active
-   segment, closer to a native macOS/iOS segmented control than a row of
-   separate buttons. Used two ways: horizontal (Display style — Bars/
-   Circle, both short) and vertical (below — Submission's three labels are
-   too long to sit side by side in a ~330px-wide window without wrapping
-   unevenly, "text wrapping is off and formated wrong"). */
 .segmented { display: flex; gap: 2px; background: var(--bg-elevated); border: 1px solid var(--hair-strong); border-radius: 9px; padding: 2px; }
 .segment {
   flex: 1;
@@ -430,11 +291,6 @@ label.check input { accent-color: var(--accent); }
 .segment:hover { color: var(--ink); }
 .segment.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
-/* Display style (Bars/Circle) is only ever two short words — "the layout
-   section... is also showing large button options for Display style bars
-   and circle, make them smaller" was this stretching to fill the entire
-   settings column width via the base .segment{flex:1} rule above, reading
-   like one giant button instead of a small toggle. */
 #settings-display-style {
   max-width: 220px;
 }
@@ -452,25 +308,6 @@ label.check input { accent-color: var(--accent); }
 .segment-desc { font-size: 0.8rem; font-weight: 400; color: var(--ink-2); line-height: 1.4; }
 .segment.active .segment-desc { color: var(--accent-ink); opacity: 0.85; }
 
-/* ---- Live preview (Appearance tab) ------------------------------------
-   Markup mirrors the real overlay's own structure (style.css's .header/
-   .subhead/.bar-row/.mini-bar/.watch-badge) rather than a loose
-   approximation, right down to the grid columns and font-size ratios, so a
-   slider or color change here actually looks like what it'll do live —
-   "the live preview doesn't look like the dps meter in mini bar form or
-   bar form really, and it doesn't show circle form." Each rank dot is
-   colored separately from the name text now (--preview-my-color/
-   --preview-pet-color vs. --preview-my-name-color/--preview-pet-name-
-   color) — the OLD preview colored the name text with the bar color,
-   which the real overlay has never done (name text defaults to neutral
-   --ink unless you specifically set a name color under Text colors). */
-/* "Add a border around each different live preview panel, make them
-   orange" — one bordered card per named panel (Bars/Mini-bar/Circle),
-   label included, rather than just around the mockup box, so each of
-   the three reads as its own distinct panel at a glance. A fixed hex
-   (not tied to --accent/theme) on purpose, same reasoning as the
-   website/leaderboard gold-purple pairings elsewhere: this is Settings'
-   own UI chrome, not a reflection of the in-game theme being previewed. */
 .preview-group {
   border: 1px solid #e08a3f;
   border-radius: 10px;
@@ -481,52 +318,17 @@ label.check input { accent-color: var(--accent); }
 
 .preview-frame {
   display: flex; flex-direction: column; gap: 6px;
-  /* Only the BACKGROUND fades with the Background slider, same as the real
-     overlay's own --panel-alpha, text/bars/rank numbers stay fully opaque
-     regardless (see renderPreview() in settings.js, which sets
-     --preview-bg-alpha, not the whole element's opacity). */
   background: color-mix(in srgb, var(--preview-bg-color, #14120f) calc(var(--preview-bg-alpha, 1) * var(--preview-fade, 1) * 100%), transparent);
   border-radius: 8px; padding: 9px;
   max-width: 320px;
   margin: 0 auto;
-  /* THE actual "the appearance bar still looks goofy" bug at "Extra Large"
-     Settings text size: every rule below was sized in `rem`, which always
-     resolves against the DOCUMENT ROOT's font-size — the exact thing
-     "Settings text size" changes (see BASE_UI_FONT_PX in settings.js). So
-     picking "Extra Large" scaled the mockup's text right along with the
-     window's own chrome, even though this preview is supposed to hold
-     still and show a fixed-size example of the real overlay regardless of
-     that setting — icons and header text visibly collided into each
-     other once everything below grew past what the row had room for.
-     Anchoring a fixed font-size here and switching every size below from
-     rem to em means they compute off THIS number, not the document
-     root's, so the mockup stays the same size no matter what "Settings
-     text size" is set to. 13.5px matches settings.css's own root default
-     (BASE_UI_FONT_PX) at "Normal", so nothing about the preview's actual
-     look changes from before — it just stops moving. */
   font-size: 13.5px;
 }
-/* "Fade UI when idle" — .preview-idle mirrors exactly what the real
-   overlay hides once the mouse has been off it for fadeIdleSeconds: the
-   topbar, mob line, timer, header dps total, rank numbers and pet tags
-   fade to near-nothing, while each row's own name + dps stay fully
-   legible — same split the real body.idle-faded rule draws in style.css.
-   Toggled by scheduleIdlePreviewFade() in settings.js on real idle TIME,
-   not a hover pseudo-class, since the real feature doesn't key off the
-   pointer being over this specific card either. Only the Bars preview is
-   wired up so far; note that the real mini and Circle modes DO participate
-   in idle-fade (body.idle-faded fades .mini-actions and all four
-   .watch-*-btn icons in style.css), so those two mockups currently
-   under-report what the feature does. */
 .preview-topbar, .preview-mobline, .preview-timer, .preview-total,
 .preview-rank, .preview-pet-tag { transition: opacity 0.4s ease; }
 .preview-idle .preview-topbar, .preview-idle .preview-mobline,
 .preview-idle .preview-timer, .preview-idle .preview-total,
 .preview-idle .preview-rank, .preview-idle .preview-pet-tag {
-  /* Follows Settings > "Fade UI opacity" (--preview-idle-opacity, set by
-     renderPreview()), same as --idle-ui-opacity in the real overlay. Was a
-     hardcoded 0.08, which made the slider look inert from the one place
-     you'd be looking while dragging it. */
   opacity: var(--preview-idle-opacity, 0.15);
 }
 
@@ -537,12 +339,6 @@ label.check input { accent-color: var(--accent); }
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
   margin-bottom: 2px;
 }
-/* "The live preview isn't 1:1 accurate" — index.html's real .header leads
-   with the bear-logo image before the status dot; this mockup had no logo
-   at all before, just the dot + wordmark. 14px keeps the same ~2.3:1
-   ratio to the 6px status dot that the real 16px logo has to its own 7px
-   dot, scaled down along with everything else in this fixed-px topbar
-   row (see .preview-icons' own comment for why fixed px, not em, here). */
 .preview-logo { flex: none; width: 14px; height: 14px; border-radius: 4px; }
 .preview-status-dot {
   flex: none; width: 6px; height: 6px; border-radius: 50%;
@@ -554,12 +350,6 @@ label.check input { accent-color: var(--accent); }
   color: var(--preview-text, #f2ede1); font-family: var(--preview-font, inherit);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* Real glyphs (gear/chart/trophy/folder/minimize/close, matching
-   index.html's actual .icon-btn row) instead of blank decorative dots —
-   "the preview doesn't even look like that" was partly this: six buttons
-   in the real header, four empty squares here. Fixed px, not em, same
-   reasoning as the font-size anchor above — six tiny icon buttons need to
-   stay tiny and fit in a row regardless of Settings text size. */
 .preview-icons { display: flex; gap: 2px; flex: none; }
 .preview-icons i {
   display: flex; align-items: center; justify-content: center;
@@ -569,8 +359,6 @@ label.check input { accent-color: var(--accent); }
   border: 1px solid var(--preview-border, rgba(255,255,255,0.14));
 }
 
-/* Mob name / dps-total subhead (style.css's .subhead) — the same "dps ·
-   total dmg" format the real header and mini bar both show now. */
 .preview-subhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
 .preview-mobline {
   display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden;
@@ -579,11 +367,6 @@ label.check input { accent-color: var(--accent); }
 }
 .preview-mobline-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .preview-mobline-diff { opacity: 0.75; }
-/* Mirrors the real .mob-line/.dps-side after the Sept 7 redesign — no
-   loading icon or "(live)"/"(defeated)" state any more (both removed), and
-   total damage is now the ONLY figure on this line, inline with the timer
-   instead of a big stacked dps number (see #fight-total/.dps-side in
-   style.css). */
 .preview-dpsside { display: flex; align-items: baseline; gap: 4px; flex: none; }
 .preview-timer {
   color: var(--preview-secondary-color, #a89f8d);
@@ -598,21 +381,12 @@ label.check input { accent-color: var(--accent); }
   white-space: nowrap;
 }
 
-/* Bar rows (style.css's .bar-row) — same 4-column grid (rank | dot | name
-   | amount), same proportional fill-width-by-dps behavior. */
 .preview-row {
   position: relative;
   display: grid;
   grid-template-columns: 11px auto 1fr auto;
   align-items: center;
   gap: 6px;
-  /* Real .bar-row has NO base background of its own — only .fill (its
-     proportional-width color wash) is ever visible, so a row fades to
-     fully transparent past the fill's edge and blends into the card
-     underneath. This rule used to paint a flat rgba(255,255,255,0.06)
-     across the WHOLE row regardless of fill width, which read as a
-     visible pill/box shape the real row never has — removed so only
-     .preview-fill shows, same as the real thing. */
   border: 1px solid var(--preview-border, rgba(255,255,255,0.12));
   border-radius: 6px;
   padding: calc(4px * var(--preview-barheight, 1)) 8px;
@@ -621,13 +395,9 @@ label.check input { accent-color: var(--accent); }
   font-family: var(--preview-font, inherit);
   overflow: hidden;
 }
-/* Bar length reflects each row's own share of dps (see renderPreview() in
-   settings.js) — it is NOT the same width for every row; a pet doing a
-   quarter of your damage gets roughly a quarter-width fill, same as the
-   real meter. */
 .preview-fill {
   position: absolute; inset: 0; z-index: 0;
-  width: 0%; /* set inline per row */
+  width: 0%;
   border-radius: 5px;
   transition: width 0.3s ease;
 }
@@ -643,10 +413,6 @@ label.check input { accent-color: var(--accent); }
   overflow: hidden; min-width: 0;
 }
 .preview-name-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Name TEXT color is separate from the dot/bar color above — defaults to
-   the same neutral text color every other row uses, only overridden by
-   Text colors > My name / Pet name below. This is the mismatch the old
-   preview had backwards (it colored the whole name with the bar color). */
 #preview-name-you, #preview-mini-name { color: var(--preview-my-name-color, var(--preview-text, #f2ede1)); }
 #preview-name-pet, #preview-mini-pet-name { color: var(--preview-pet-name-color, var(--preview-secondary-color, #a89f8d)); }
 .preview-pet-tag {
@@ -686,38 +452,13 @@ label.check input { accent-color: var(--accent); }
 #preview-mini-pet-name { flex: 1; min-width: 0; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #preview-mini-pet-dps { flex: none; color: var(--preview-secondary-color, #a89f8d); font-variant-numeric: tabular-nums; }
 
-/* Circle preview — style.css's .watch-badge, which didn't have any preview
-   at all before ("it doesn't show circle form"). Used to be sized down and
-   clamped to a smaller 80px base (rather than the real 132px * scale) so
-   it never outgrew this narrow sidebar column — "the circle size isn't
-   accurately 1:1 ratio from the settings to the actual overlay piece."
-   Now uses the exact same 132px base and the exact same 0.6-1.8 slider
-   range as .watch-badge in style.css, so the diameter shown here is a
-   true 1:1 match at every point on the slider, not a scaled-down
-   approximation — 132px * the slider's own max (1.8) is 237.6px, still
-   comfortably inside the clamp's 260px ceiling (a safety bound only,
-   never actually reached within the slider's real range) and inside this
-   column's own width (.preview-frame's 320px max-width sets the floor
-   for how wide this sidebar gets). Only Circle size affects it, same as
-   the real badge — Bars/Mini-bar's own sizing and color settings don't
-   reach it, hence the separate hint under it. */
 .preview-circle-wrap { display: flex; justify-content: center; padding: 4px 0 2px; }
 .preview-circle {
-  /* Same fixed-anchor fix as .preview-frame above — without this, "Extra
-     Large" Settings text size blew this badge's dps number up well past
-     what the circle has room for. */
   font-size: 13.5px;
   --preview-circle-d: clamp(60px, calc(132px * var(--preview-circlescale, 1)), 260px);
   position: relative;
   width: var(--preview-circle-d); height: var(--preview-circle-d);
   border-radius: 50%;
-  /* Circle's own colors (Sept 6 — "add color options to edit the circle
-     colors: border, background, text colors") — --preview-circle-bg/
-     -border/-text are set in settings.js's renderPreview(), independent of
-     the shared --preview-bg-color/-accent/-secondary-color Bars/Mini-bar
-     use, falling back to those same three (then these hardcoded literals)
-     only until circleBgColor/circleBorderColor/circleTextColor are
-     actually picked. */
   background: color-mix(in srgb, var(--preview-circle-bg, var(--preview-bg-color, #14120f)) calc(100% * var(--preview-bg-alpha, 1) * var(--preview-fade, 1)), transparent);
   border: 3px solid var(--preview-circle-border, var(--preview-accent, #6f9bff));
   box-shadow: 0 6px 16px rgba(0,0,0,0.45);
@@ -749,14 +490,8 @@ label.check input { accent-color: var(--accent); }
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- About & Feedback tab ---------------------------------------------- */
 .about-copy { font-size: 0.926rem; line-height: 1.6; color: var(--ink-2); margin: 0; }
 .btn-link {
-  /* Without this, .settings-section's own column-flex (no align-items set,
-     so it defaults to stretch) stretches this button to the section's full
-     width — "report a bug ... needs to be a button, not a whole long width
-     button to the edge of the screen." .link-btn just above already has
-     this exact fix; this class was the one still missing it. */
   align-self: flex-start;
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--accent); color: var(--accent-ink);
@@ -767,7 +502,6 @@ label.check input { accent-color: var(--accent); }
 .btn-link:hover { filter: brightness(1.08); }
 .btn-link:disabled { opacity: 0.6; cursor: default; filter: none; }
 
-/* ---- What's New: check-for-updates panel ------------------------------- */
 .update-panel {
   background: var(--bg-card);
   border: 1px solid var(--hair);
@@ -790,7 +524,6 @@ label.check input { accent-color: var(--accent); }
 .credits-list a { color: var(--accent-2); text-decoration: none; }
 .credits-list a:hover { text-decoration: underline; }
 
-/* ---- What's New tab -------------------------------------------------- */
 .version-block { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
 .version-badge {
   font-size: 0.963rem; font-weight: 700; color: var(--ink);
@@ -816,7 +549,6 @@ label.check input { accent-color: var(--accent); }
 .changelog-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .changelog-list li { font-size: 0.889rem; color: var(--ink-2); line-height: 1.5; }
 
-/* ---- Persistent footer ------------------------------------------------ */
 .app-footer {
   flex: none;
   display: flex; align-items: center; justify-content: space-between;

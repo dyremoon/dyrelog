@@ -1,0 +1,385 @@
+{
+  "scope": "Comments-only pass; baseline captured after the functional fixes",
+  "files": 63,
+  "executableChanges": 0,
+  "checks": [
+    {
+      "file": "desktop-overlay/window-gesture.cjs",
+      "comparison": "JavaScript AST",
+      "before": "9e40dd2ac1d0d51bbf641615178d9b604d0dec7c493530b0e8307f22486d1a3d",
+      "after": "9e40dd2ac1d0d51bbf641615178d9b604d0dec7c493530b0e8307f22486d1a3d"
+    },
+    {
+      "file": "desktop-overlay/Launch Dyrelog.vbs",
+      "comparison": "non-comment tokens",
+      "before": "f4aa37c19bb462fe5c7e497cab2452e0c5455d11b4836beeb6732aa4442de83f",
+      "after": "f4aa37c19bb462fe5c7e497cab2452e0c5455d11b4836beeb6732aa4442de83f"
+    },
+    {
+      "file": "desktop-overlay/main.js",
+      "comparison": "JavaScript AST",
+      "before": "0948af3047073bdf9ef560fa7d33af65bf714f5afc2edd53c287795a16a06512",
+      "after": "0948af3047073bdf9ef560fa7d33af65bf714f5afc2edd53c287795a16a06512"
+    },
+    {
+      "file": "desktop-overlay/preload.js",
+      "comparison": "JavaScript AST",
+      "before": "f6ea1847695415b24ba1ca636b57486e2dd262b1ff5c8b78ae889cc106be1413",
+      "after": "f6ea1847695415b24ba1ca636b57486e2dd262b1ff5c8b78ae889cc106be1413"
+    },
+    {
+      "file": "desktop-overlay/renderer/analysis.css",
+      "comparison": "non-comment tokens",
+      "before": "c0a0cd00b4c336386b849e172f42deb8df6415c9661c66bc8e8fc71ebb8eec33",
+      "after": "c0a0cd00b4c336386b849e172f42deb8df6415c9661c66bc8e8fc71ebb8eec33"
+    },
+    {
+      "file": "desktop-overlay/renderer/analysis.html",
+      "comparison": "non-comment tokens",
+      "before": "5d2fb158d8fb36784d2d67740b2f232cccd1681c221a693e7add8b339d71962b",
+      "after": "5d2fb158d8fb36784d2d67740b2f232cccd1681c221a693e7add8b339d71962b"
+    },
+    {
+      "file": "desktop-overlay/renderer/analysis.js",
+      "comparison": "JavaScript AST",
+      "before": "d9090dd59473b1080270c28f07f897b7810764dd85bc0930b68c5d46a3be4771",
+      "after": "d9090dd59473b1080270c28f07f897b7810764dd85bc0930b68c5d46a3be4771"
+    },
+    {
+      "file": "desktop-overlay/renderer/app.js",
+      "comparison": "JavaScript AST",
+      "before": "8b39514a963b61a819bb8f5f96b82fd6fc35e42024a62b97527758b6b11f6962",
+      "after": "8b39514a963b61a819bb8f5f96b82fd6fc35e42024a62b97527758b6b11f6962"
+    },
+    {
+      "file": "desktop-overlay/renderer/index.html",
+      "comparison": "non-comment tokens",
+      "before": "21c0934ba4f1b84878d30b38c2c04b798dd40aa8774314f05f74bbb6da764eca",
+      "after": "21c0934ba4f1b84878d30b38c2c04b798dd40aa8774314f05f74bbb6da764eca"
+    },
+    {
+      "file": "desktop-overlay/renderer/leaderboard.css",
+      "comparison": "non-comment tokens",
+      "before": "189ed13fd0bdd36cd9cb34ae4f8d13a35ff04ddb6535d8514a10c2c3d55a7fc3",
+      "after": "189ed13fd0bdd36cd9cb34ae4f8d13a35ff04ddb6535d8514a10c2c3d55a7fc3"
+    },
+    {
+      "file": "desktop-overlay/renderer/leaderboard.html",
+      "comparison": "non-comment tokens",
+      "before": "8a78e072d463f226cc083cbb4ff05b1f07acbb4a46df71565bec7aebe81ee6d0",
+      "after": "8a78e072d463f226cc083cbb4ff05b1f07acbb4a46df71565bec7aebe81ee6d0"
+    },
+    {
+      "file": "desktop-overlay/renderer/leaderboard.js",
+      "comparison": "JavaScript AST",
+      "before": "07702abda2331143742d7698b61d11bc641f55eeca6b7ce87d78f3792955316f",
+      "after": "07702abda2331143742d7698b61d11bc641f55eeca6b7ce87d78f3792955316f"
+    },
+    {
+      "file": "desktop-overlay/renderer/settings.css",
+      "comparison": "non-comment tokens",
+      "before": "c897354484f65837521d2c92004ef8516217a8e840029de5221c0d1493e71e0b",
+      "after": "c897354484f65837521d2c92004ef8516217a8e840029de5221c0d1493e71e0b"
+    },
+    {
+      "file": "desktop-overlay/renderer/settings.html",
+      "comparison": "non-comment tokens",
+      "before": "e9b1c84608adce91f6dc209f413912b8152ea1acef9aff57ab5735f585b114b9",
+      "after": "e9b1c84608adce91f6dc209f413912b8152ea1acef9aff57ab5735f585b114b9"
+    },
+    {
+      "file": "desktop-overlay/renderer/settings.js",
+      "comparison": "JavaScript AST",
+      "before": "4453100bb20c56590938b93ca12f8452ea017d675dd4473b5e688df34812f6b8",
+      "after": "4453100bb20c56590938b93ca12f8452ea017d675dd4473b5e688df34812f6b8"
+    },
+    {
+      "file": "desktop-overlay/renderer/style.css",
+      "comparison": "non-comment tokens",
+      "before": "f7f1758243a1f82c140d11ae911f5d57a67eb58f65d2464f3c19cfdb66b6b8eb",
+      "after": "f7f1758243a1f82c140d11ae911f5d57a67eb58f65d2464f3c19cfdb66b6b8eb"
+    },
+    {
+      "file": "desktop-overlay/renderer/submit-popup.js",
+      "comparison": "JavaScript AST",
+      "before": "bb75f863b0c111aad3149f489f4f4d6b2df1d20d0c638dbbc2756bbf692119da",
+      "after": "bb75f863b0c111aad3149f489f4f4d6b2df1d20d0c638dbbc2756bbf692119da"
+    },
+    {
+      "file": "desktop-overlay/scripts/sync-eqp-core.js",
+      "comparison": "JavaScript AST",
+      "before": "c88f4b7c3e795f019db5e8c7d0f9c32598bdaefc59c3b7203f4b7af87e058ef4",
+      "after": "c88f4b7c3e795f019db5e8c7d0f9c32598bdaefc59c3b7203f4b7af87e058ef4"
+    },
+    {
+      "file": "frontend/about.html",
+      "comparison": "non-comment tokens",
+      "before": "0aad975519119ae07daf086a57b4fa6e3d1f7b7bac0a466e740f3ec5c65e0cb6",
+      "after": "0aad975519119ae07daf086a57b4fa6e3d1f7b7bac0a466e740f3ec5c65e0cb6"
+    },
+    {
+      "file": "frontend/analyze.html",
+      "comparison": "non-comment tokens",
+      "before": "fd70371da647d9d2c9c7700774ab541be57e93ef66de1d2eed5c8fcc00108503",
+      "after": "fd70371da647d9d2c9c7700774ab541be57e93ef66de1d2eed5c8fcc00108503"
+    },
+    {
+      "file": "frontend/boss.html",
+      "comparison": "non-comment tokens",
+      "before": "b075e0d339139503fd7f89ae85d374ff752952a380a477d4caae656e8e52962d",
+      "after": "b075e0d339139503fd7f89ae85d374ff752952a380a477d4caae656e8e52962d"
+    },
+    {
+      "file": "frontend/css/dyrelog.css",
+      "comparison": "non-comment tokens",
+      "before": "7d3326a3dbcf34b5b753e413d6bb1cee46c04a24227d791966a4a42f1cd3cf66",
+      "after": "7d3326a3dbcf34b5b753e413d6bb1cee46c04a24227d791966a4a42f1cd3cf66"
+    },
+    {
+      "file": "frontend/download.html",
+      "comparison": "non-comment tokens",
+      "before": "f341b8e13fa3e02af4fd0b3336fea96612af37918f5e1d7efe9df939b3c77a8b",
+      "after": "f341b8e13fa3e02af4fd0b3336fea96612af37918f5e1d7efe9df939b3c77a8b"
+    },
+    {
+      "file": "frontend/index.html",
+      "comparison": "non-comment tokens",
+      "before": "a1e091290a7fe88d9470e25ba628b167956ca08ecfed663fb458d7d99be50084",
+      "after": "a1e091290a7fe88d9470e25ba628b167956ca08ecfed663fb458d7d99be50084"
+    },
+    {
+      "file": "frontend/js/app.js",
+      "comparison": "JavaScript AST",
+      "before": "c59ce59bb9203567d4d813de8161173197e937cbd3ab3471f26446e555d198b0",
+      "after": "c59ce59bb9203567d4d813de8161173197e937cbd3ab3471f26446e555d198b0"
+    },
+    {
+      "file": "frontend/js/eqp-core.js",
+      "comparison": "JavaScript AST",
+      "before": "73a238a43ecdf0b6b053cee4c31877badca45af9c9eda8e143dc212b2f0739a5",
+      "after": "73a238a43ecdf0b6b053cee4c31877badca45af9c9eda8e143dc212b2f0739a5"
+    },
+    {
+      "file": "frontend/profile.html",
+      "comparison": "non-comment tokens",
+      "before": "a94ab816d711ee4b108d820a40dfdb64d311efe28418f4fa62d88395d3335dda",
+      "after": "a94ab816d711ee4b108d820a40dfdb64d311efe28418f4fa62d88395d3335dda"
+    },
+    {
+      "file": "migrations/0004_review_and_restriction.sql",
+      "comparison": "non-comment tokens",
+      "before": "a3772b7a5b418f3b8496d3aa46182f292c7df10d69ec5aaf8ef46a5e6e202d0e",
+      "after": "a3772b7a5b418f3b8496d3aa46182f292c7df10d69ec5aaf8ef46a5e6e202d0e"
+    },
+    {
+      "file": "worker/fix_boss_tiers_2026-09-08.sql",
+      "comparison": "non-comment tokens",
+      "before": "038e0dbbc53084422fc9ebc01b1d0f94a87728631de9299f8ef4cff1ecb49cc5",
+      "after": "038e0dbbc53084422fc9ebc01b1d0f94a87728631de9299f8ef4cff1ecb49cc5"
+    },
+    {
+      "file": "worker/test/pet-ownership.test.mjs",
+      "comparison": "JavaScript AST",
+      "before": "935957c0545bd0fefe4e825e8acc933be1127714860e5473709cfb6aaac74a71",
+      "after": "935957c0545bd0fefe4e825e8acc933be1127714860e5473709cfb6aaac74a71"
+    },
+    {
+      "file": "worker/migrations/0001_init.sql",
+      "comparison": "non-comment tokens",
+      "before": "e31e311f92f17d37d336e2a8f2af5710ee908b9d8f0d3e75d8ed8fac6b2ac1bf",
+      "after": "e31e311f92f17d37d336e2a8f2af5710ee908b9d8f0d3e75d8ed8fac6b2ac1bf"
+    },
+    {
+      "file": "worker/migrations/0002_add_difficulty.sql",
+      "comparison": "non-comment tokens",
+      "before": "64d4ab6b8455e4560cc71bfa613120a1a0ee0ff1912ce335afc29920a415003e",
+      "after": "64d4ab6b8455e4560cc71bfa613120a1a0ee0ff1912ce335afc29920a415003e"
+    },
+    {
+      "file": "worker/migrations/0003_submission_solo_and_difficulty.sql",
+      "comparison": "non-comment tokens",
+      "before": "31ab9ce7b35c1d6ccf5680c26aa9fbaca1cf8aea829ae910338666e9d4927bc8",
+      "after": "31ab9ce7b35c1d6ccf5680c26aa9fbaca1cf8aea829ae910338666e9d4927bc8"
+    },
+    {
+      "file": "worker/migrations/0004_review_and_restriction.sql",
+      "comparison": "non-comment tokens",
+      "before": "a3772b7a5b418f3b8496d3aa46182f292c7df10d69ec5aaf8ef46a5e6e202d0e",
+      "after": "a3772b7a5b418f3b8496d3aa46182f292c7df10d69ec5aaf8ef46a5e6e202d0e"
+    },
+    {
+      "file": "worker/migrations/0005_submission_visibility.sql",
+      "comparison": "non-comment tokens",
+      "before": "906085aeb24d752a580e1b639d56e268b3ab727d988187e45cd326bc2a7c0dd2",
+      "after": "906085aeb24d752a580e1b639d56e268b3ab727d988187e45cd326bc2a7c0dd2"
+    },
+    {
+      "file": "worker/migrations/0006_boss_metadata.sql",
+      "comparison": "non-comment tokens",
+      "before": "6e4d140ce0dec18428d7d876bb75ecbba64320b0b9ef1a4cfae68c3c687926a9",
+      "after": "6e4d140ce0dec18428d7d876bb75ecbba64320b0b9ef1a4cfae68c3c687926a9"
+    },
+    {
+      "file": "worker/migrations/0007_class_source.sql",
+      "comparison": "non-comment tokens",
+      "before": "09f1297d9faa3ce1952ba61ba3f7950c1d25c4329db434cb3418aead73f45e2f",
+      "after": "09f1297d9faa3ce1952ba61ba3f7950c1d25c4329db434cb3418aead73f45e2f"
+    },
+    {
+      "file": "worker/migrations/0008_user_bio.sql",
+      "comparison": "non-comment tokens",
+      "before": "984bc5542e951c2bcd44e81650f5f7aa027aaebfcb1af1a6d411eafba0eb973a",
+      "after": "984bc5542e951c2bcd44e81650f5f7aa027aaebfcb1af1a6d411eafba0eb973a"
+    },
+    {
+      "file": "worker/scripts/dedupe_bosses.sql",
+      "comparison": "non-comment tokens",
+      "before": "38233d86051df69709eedc8200e64babbd6a4c87a08115d3971aeb618afd8c12",
+      "after": "38233d86051df69709eedc8200e64babbd6a4c87a08115d3971aeb618afd8c12"
+    },
+    {
+      "file": "worker/seed/bosses.sql",
+      "comparison": "non-comment tokens",
+      "before": "b4321ac5d141b2a9e82feb4a5ea424ce676aee01fb0f0ceb3f9760933f5c3b11",
+      "after": "b4321ac5d141b2a9e82feb4a5ea424ce676aee01fb0f0ceb3f9760933f5c3b11"
+    },
+    {
+      "file": "worker/seed/bosses_voidling_and_sky.sql",
+      "comparison": "non-comment tokens",
+      "before": "baa2b6233c6defa84943e25ca7c2b6cf9cd6345caf3c407045b71220f2bd51dc",
+      "after": "baa2b6233c6defa84943e25ca7c2b6cf9cd6345caf3c407045b71220f2bd51dc"
+    },
+    {
+      "file": "worker/seed/master_yael.sql",
+      "comparison": "non-comment tokens",
+      "before": "5bde8860dbe343283986d57db9d7082fe8af6b7bf96e4f9c2404126a13bccd9d",
+      "after": "5bde8860dbe343283986d57db9d7082fe8af6b7bf96e4f9c2404126a13bccd9d"
+    },
+    {
+      "file": "worker/src/admin.js",
+      "comparison": "JavaScript AST",
+      "before": "4bf4ac5efc2f53c73f19ac84eaa97515ed6aafddbe34499dff057ca55f318b7c",
+      "after": "4bf4ac5efc2f53c73f19ac84eaa97515ed6aafddbe34499dff057ca55f318b7c"
+    },
+    {
+      "file": "worker/src/anticheat.js",
+      "comparison": "JavaScript AST",
+      "before": "cf9f70a1afd0b18e7144fbba0ecc1103ea7ec5572adba14db1ba4cc452aaa882",
+      "after": "cf9f70a1afd0b18e7144fbba0ecc1103ea7ec5572adba14db1ba4cc452aaa882"
+    },
+    {
+      "file": "worker/src/db.js",
+      "comparison": "JavaScript AST",
+      "before": "d9ec38ceb04259379732a53300a24c315adf227615416f1eefb831badee6f4f4",
+      "after": "d9ec38ceb04259379732a53300a24c315adf227615416f1eefb831badee6f4f4"
+    },
+    {
+      "file": "worker/src/discord-auth.js",
+      "comparison": "JavaScript AST",
+      "before": "5a36601f208fa0da8eca970af41f54880f2a9851b4e2f8d1d9bc85bc331d64fd",
+      "after": "5a36601f208fa0da8eca970af41f54880f2a9851b4e2f8d1d9bc85bc331d64fd"
+    },
+    {
+      "file": "worker/src/eqp-classes.js",
+      "comparison": "JavaScript AST",
+      "before": "9e367098365922b600ebf6f4e21362faedbba5b0f53bbd502cb7054f4ca0cc9c",
+      "after": "9e367098365922b600ebf6f4e21362faedbba5b0f53bbd502cb7054f4ca0cc9c"
+    },
+    {
+      "file": "worker/src/eqp-core.js",
+      "comparison": "JavaScript AST",
+      "before": "e688ef269c55bae1f09e53604d1944b5fd293a272fb2ed39dd8d926bf02de6ee",
+      "after": "e688ef269c55bae1f09e53604d1944b5fd293a272fb2ed39dd8d926bf02de6ee"
+    },
+    {
+      "file": "worker/src/index-1.js",
+      "comparison": "JavaScript AST",
+      "before": "1e89301a1132396ef1a58a51ef98038c6d9e6033fa6959bcc5d9b18e50078c83",
+      "after": "1e89301a1132396ef1a58a51ef98038c6d9e6033fa6959bcc5d9b18e50078c83"
+    },
+    {
+      "file": "worker/src/index.js",
+      "comparison": "JavaScript AST",
+      "before": "c1fef00a9b1514f66f876b7d81f17f378f27373b196db4ef3275d1ed12940353",
+      "after": "c1fef00a9b1514f66f876b7d81f17f378f27373b196db4ef3275d1ed12940353"
+    },
+    {
+      "file": "worker/src/leaderboard-1.js",
+      "comparison": "JavaScript AST",
+      "before": "4567b260d631334988c7941950100a777000d06c8e8b62a53d272e03a47740a4",
+      "after": "4567b260d631334988c7941950100a777000d06c8e8b62a53d272e03a47740a4"
+    },
+    {
+      "file": "worker/src/leaderboard.js",
+      "comparison": "JavaScript AST",
+      "before": "fe6538df407efbca75294b3096f6b10f90bda9e8acfd1b5253fd5bfe6ee1ef6d",
+      "after": "fe6538df407efbca75294b3096f6b10f90bda9e8acfd1b5253fd5bfe6ee1ef6d"
+    },
+    {
+      "file": "worker/src/session.js",
+      "comparison": "JavaScript AST",
+      "before": "831c3d027d8e6381dd38a28cab0270f437d689fd6b021d8df50717879861191a",
+      "after": "831c3d027d8e6381dd38a28cab0270f437d689fd6b021d8df50717879861191a"
+    },
+    {
+      "file": "worker/src/streaming.js",
+      "comparison": "JavaScript AST",
+      "before": "0bd7d259303316e7b34d621ceec51ff39ae0e0e7d9d062f8ee2eb481d724b4b2",
+      "after": "0bd7d259303316e7b34d621ceec51ff39ae0e0e7d9d062f8ee2eb481d724b4b2"
+    },
+    {
+      "file": "worker/src/submissions-1.js",
+      "comparison": "JavaScript AST",
+      "before": "8e04c1f27ff3cb3018efbc78268e45006cd28575b08f9086a052bd539243d035",
+      "after": "8e04c1f27ff3cb3018efbc78268e45006cd28575b08f9086a052bd539243d035"
+    },
+    {
+      "file": "worker/src/submissions.js",
+      "comparison": "JavaScript AST",
+      "before": "5609a4a64c6d423e1ddf6b6fb439872570d63f0520294358acab1bf4c1d7c2e9",
+      "after": "5609a4a64c6d423e1ddf6b6fb439872570d63f0520294358acab1bf4c1d7c2e9"
+    },
+    {
+      "file": "worker/test/admin.test.mjs",
+      "comparison": "JavaScript AST",
+      "before": "9049ca52cecda2432b258339c45dd6b53bb58aee21f2c8be4cc99572b300b204",
+      "after": "9049ca52cecda2432b258339c45dd6b53bb58aee21f2c8be4cc99572b300b204"
+    },
+    {
+      "file": "worker/test/anticheat.test.mjs",
+      "comparison": "JavaScript AST",
+      "before": "9ea94121a8b387ddd19a57348467c24e3f88f771efb7dc28be53b66b3532e367",
+      "after": "9ea94121a8b387ddd19a57348467c24e3f88f771efb7dc28be53b66b3532e367"
+    },
+    {
+      "file": "worker/test/d1-shim.mjs",
+      "comparison": "JavaScript AST",
+      "before": "6fb760473891fbec18d370d421db83be502f98f3e52d6c433bf762d40a45b9ce",
+      "after": "6fb760473891fbec18d370d421db83be502f98f3e52d6c433bf762d40a45b9ce"
+    },
+    {
+      "file": "worker/test/leaderboard-features.test.mjs",
+      "comparison": "JavaScript AST",
+      "before": "34e55919460e55144c3b5d12b5c8544121772c1232267fd57e47db9f3cfafa8b",
+      "after": "34e55919460e55144c3b5d12b5c8544121772c1232267fd57e47db9f3cfafa8b"
+    },
+    {
+      "file": "worker/test/personal-history.test.mjs",
+      "comparison": "JavaScript AST",
+      "before": "8e0e3f676d4824ddd9dd68c2a71dca48a81f91c535709a667756b26995c267d2",
+      "after": "8e0e3f676d4824ddd9dd68c2a71dca48a81f91c535709a667756b26995c267d2"
+    },
+    {
+      "file": "worker/wrangler.toml",
+      "comparison": "non-comment tokens",
+      "before": "bcb6410273cbe245531961bdd1cf7f3d5bb4054b1ad70e444167305b2d183833",
+      "after": "bcb6410273cbe245531961bdd1cf7f3d5bb4054b1ad70e444167305b2d183833"
+    },
+    {
+      "file": "desktop-overlay/renderer/eqp-core.js",
+      "comparison": "JavaScript AST",
+      "before": "73a238a43ecdf0b6b053cee4c31877badca45af9c9eda8e143dc212b2f0739a5",
+      "after": "73a238a43ecdf0b6b053cee4c31877badca45af9c9eda8e143dc212b2f0739a5"
+    }
+  ]
+}

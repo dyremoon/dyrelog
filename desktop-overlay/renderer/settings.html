@@ -36,7 +36,6 @@
 
   <div class="panel" id="panel">
 
-    <!-- ==================== Appearance ==================== -->
     <section class="tab-panel tab-panel-appearance" data-tab-panel="appearance">
     <div class="appearance-main">
 
@@ -262,25 +261,12 @@
       </div>
 
     </div>
-    <!-- End of the scrollable settings column; the live preview below is
-         its own sibling column (sticky-positioned, see settings.css) so it
-         stays in view as the column above scrolls, instead of sitting at
-         the top of one long stack — "as you go down to test [sliders], you
-         have to scroll up to see the test bar." Collapses back to a
-         stacked single column below settings.css's own width breakpoint. -->
     <div class="appearance-split-handle" id="appearance-split-handle" title="Drag to resize"></div>
     <aside class="appearance-preview-col">
       <div class="settings-section preview-live" data-searchable="preview live example test visuals bars mini-bar circle meter idle fade">
         <p class="section-label">Live preview</p>
 
 
-        <!-- Markup mirrors the real overlay's own structure (see style.css's
-             .header/.subhead/.bar-row/.mini-bar/.watch-badge) rather than a
-             loose approximation, so a slider or color change actually looks
-             like what it'll do live — rank dot + neutral name text (not a
-             colored name, that was never how the real bar looked), the same
-             "dps · total dmg" header format, and now a Circle preview too
-             (there wasn't one at all before). -->
         <div class="preview-group">
           <p class="preview-group-label">Bars</p>
           <div class="preview-frame" id="preview-frame">
@@ -352,7 +338,6 @@
     </aside>
     </section>
 
-    <!-- ==================== Options ==================== -->
     <section class="tab-panel" data-tab-panel="options" hidden>
       <div class="settings-section" data-searchable="submission sound audio mp3 volume mute">
         <p class="section-label">Submission Sound</p>
@@ -361,9 +346,6 @@
         <div class="row"><label for="submission-volume">Volume</label><input id="submission-volume" type="range" min="0" max="100" step="1"><output id="submission-volume-value" class="range-val"></output></div>
         <p id="submission-sound-status" role="status"></p>
       </div>
-      <!-- Moved here from a header icon on the mini-mode card (Sept 6) —
-           picking a new file/folder just re-saves the source, no separate
-           "forget" step needed; the mini-mode window updates live. -->
       <div class="settings-section" data-searchable="log source file folder change eqlog character switch upload select everquest">
         <p class="section-label">Log source</p>
         <p class="hint source-hint" id="source-hint"><span class="source-dot"></span><span id="source-hint-text">No log source set yet.</span></p>
@@ -421,7 +403,6 @@
       </div>
     </section>
 
-    <!-- ==================== About & Feedback ==================== -->
     <section class="tab-panel" data-tab-panel="about" hidden>
       <div class="settings-section" data-searchable="about goals why made this">
         <p class="section-label">About Dyrelog</p>
@@ -462,7 +443,6 @@
       </div>
     </section>
 
-    <!-- ==================== What's New ==================== -->
     <section class="tab-panel" data-tab-panel="whatsnew" hidden>
       <div class="settings-section">
         <div class="version-block">
@@ -470,16 +450,6 @@
           <a class="github-link" id="whatsnew-github" href="#">View on GitHub &#8599;</a>
         </div>
 
-        <!-- "a 'check if an update is available' button... If they're up to
-             date, we have a green light that shows that. If they're not,
-             then we provide a 'update now and relaunch' button that will
-             automatically pull the update and relaunch." Real download +
-             install via electron-updater, not just the link-out-to-GitHub
-             banner the main mini-mode window already had (see main.js's
-             checkForUpdates()/updateInfo, untouched) — this is a separate,
-             heavier flow that only does anything in a packaged, installed
-             build (see the "dev-mode" status text below for why running via
-             `npm start` won't actually find/apply anything here). -->
         <div class="update-panel" id="update-panel">
           <div class="update-row">
             <button class="btn-link" id="btn-check-updates" type="button">Check for updates</button>

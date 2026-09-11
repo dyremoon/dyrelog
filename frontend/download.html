@@ -3,9 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Tells the Dark Reader browser extension to leave this page alone
-       entirely instead of repainting an already-dark site — Dark Reader
-       muddying the gold header text/logo (Sept 6) traced back to this. -->
   <meta name="darkreader-lock" />
   <title>Dyrelog — Download</title>
   <meta name="description" content="Download the free Dyrelog desktop overlay, an always-on-top EverQuest Legends DPS meter." />
@@ -33,7 +30,7 @@
         <p class="muted" style="margin-top:-6px;">
           Dyrelog overlay is a free, always-on-top desktop app for
           EverQuest Legends. It runs entirely on your own machine, reads
-          your combat log, and shows you a live dps meter while you play. 
+          your combat log, and shows you a live dps meter while you play.
         </p>
         <a class="btn btn-brass" id="releases-link" href="https://github.com/dyremoon/dyrelog/releases/latest" target="_blank" rel="noopener">Download for Windows &#8595;</a>
         <p class="muted" style="margin-top:14px; margin-bottom:0; font-size:0.85rem;">
@@ -91,7 +88,7 @@
     </main>
 
     <footer class="site-footer">
-      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by 
+      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by
       Daybreak Game Company or EverQuest Legends.
     </footer>
   </div>
@@ -99,13 +96,6 @@
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
   <script>
-    // Point the download button straight at the latest release's .exe
-    // asset instead of the releases page, so clicking it starts the
-    // download immediately (backlog item 7). Same GitHub API endpoint the
-    // footer version and the desktop overlay's own update check already
-    // use. Falls back to linking at the releases page (the href already on
-    // the button) if there's no release yet, no exe asset on it, or the
-    // request fails for any reason.
     (async () => {
       const link = document.getElementById('releases-link');
       try {

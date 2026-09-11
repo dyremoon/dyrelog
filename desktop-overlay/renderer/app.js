@@ -1,52 +1,23 @@
-// Dyrelog desktop overlay — mini-mode window renderer. Parsing is EQP
-// (eqp-core.js, synced from overlay/eqp-core.js — see
-// scripts/sync-eqp-core.js), identical to the browser overlay; this file's
-// job is the mini-mode UI, resize/mini-mode window control, and wiring raw
-// text chunks from main (see main.js's startTailing()) into it. The
-// Settings UI itself lives in its own popup window (renderer/settings.js) —
-// this window only reads settings, live, over IPC — see applySettings().
-//
-// Discord login and leaderboard submission (wired up Sept 7 — see
-// requestSubmitFor()/updateSubmitUI() below and the auth/submit sections of
-// main.js) go through a small always-on-top submit-popup window rather than
-// anything in this window itself, so the same prompt works in every display
-// mode (bars/mini/circle) — see submit-popup.html/js. Local tracking (mob
-// identity, pet folding, difficulty auto-detect, the last-spell-caster
-// heuristic for DoT ticks, the self/pet damage split) is already fully live
-// here, same as the browser overlay, because it all comes from eqp-core.js
-// unchanged.
 
 (function () {
   "use strict";
 
   var RANK_COLORS = ["--rank1", "--rank2", "--rank3", "--rank4", "--rank5", "--rank6"];
   var DIFFICULTY_LABELS = { D1: "D1 · Awakened", D2: "D2 · Adaptive", D3: "D3 · Fused", D4: "D4 · Refined" };
-  var TOP_N = 6; // mini mode shows a party-sized card, not a raid wall — see README art spec
+  var TOP_N = 6;
   var BASE_WIDTH = 320, BASE_HEIGHT = 420;
-  // Mirrors --pet-default in style.css — a pet's default bar color when
-  // Settings > Pet bar isn't overridden, deliberately distinct from every
-  // rank hue (not just "whichever rank index the pet happens to sort
-  // into") so it never coincidentally matches its owner's color — see
-  // colorForRow() below and item 3.5 of the newest feature list.
   var PET_DEFAULT_COLOR = "#4fa8c9";
   var FONT_STACKS = {
     system: '-apple-system, "Segoe UI", "Inter", system-ui, sans-serif',
     serif: 'Georgia, "Iowan Old Style", "Times New Roman", serif',
     mono: 'Consolas, "SF Mono", "Cascadia Code", "Courier New", monospace',
     rounded: '"Segoe UI Rounded", -apple-system, system-ui, sans-serif',
-    // The four below are loaded from Google Fonts in index.html — see
-    // item 3 ("some gamer ones, some cool ones, some fancy ones").
     fantasy: '"Cinzel", Georgia, serif',
     medieval: '"MedievalSharp", "Segoe UI", sans-serif',
     scifi: '"Orbitron", -apple-system, sans-serif',
     pixel: '"Press Start 2P", "Courier New", monospace'
   };
 
-  // Mirrors class-colors.csv at the project root — the 16 EverQuest
-  // classes with their established colors. Used only for the optional
-  // "Use class colors" setting (applies to your own row; every other
-  // combatant still uses the fixed rank hues, since we have no way to
-  // know a groupmate's class from the log).
   var EQ_CLASSES = [
     "Berserker", "Warrior", "Cleric", "Bard", "Paladin", "Necromancer",
     "Ranger", "Druid", "Monk", "Beastlord", "Magician", "Shaman",
@@ -58,43 +29,17 @@
     Monk: "#019a98", Beastlord: "#04764c", Magician: "#08a2c4", Shaman: "#0b80c8",
     Rogue: "#5569ee", "Shadow Knight": "#7c49c9", Wizard: "#a138b1", Enchanter: "#dd4ca3"
   };
-  // A player's own saved override (Settings > Use class colors > pick a
-  // class > its own color swatch) wins over the built-in default above —
-  // see item 4.1 ("adjust and save our own class colors manually, but
-  // have a default... if they don't want to make their own").
   function classColorFor(className) {
     return (settings.classColorOverrides && settings.classColorOverrides[className]) || EQ_CLASS_COLORS[className];
   }
 
-  // The curated leaderboard boss list, fetched once at boot — see
-  // fetchKnownBosses() near the bottom of this file. Gates the Submit
-  // prompt so it only ever shows after a real leaderboard-eligible kill,
-  // not every trash mob — see item 4.3 ("It seems to show up after every
-  // fight regardless of even if its a trash mob"). Also fed into eqp-core
-  // via EQP.newState()'s knownBossNames (see makeState() below), which
-  // the desktop app was never actually passing before this — a latent
-  // gap that also means trash-preceding-a-boss identity promotion
-  // (considerMobIdentity() in eqp-core.js) now genuinely works here too.
   var knownBossNames = null;
-  var API_BASE = "https://dyrelog-api.dyremoon.workers.dev"; // mirrors leaderboard.js
+  var API_BASE = "https://dyrelog-api.dyremoon.workers.dev";
 
   function makeState(charName) {
     return EQP.newState({ gapSeconds: 9, soloMode: false, characterName: charName || null, knownBossNames: knownBossNames });
   }
 
-  // Feeds a fresh Set of boss names into both the module-level var and the
-  // live parser state, then RE-checks every mob already confirmed within
-  // whatever fight is currently open against it — see
-  // EQP.reconsiderCurrentMob()'s own comment for why the second step
-  // matters: just assigning state.knownBossNames only ever affects mobs
-  // considerMobIdentity() sees FOR THE FIRST TIME after this point, not
-  // ones already sitting in the current encounter (e.g. Lady Vox showed
-  // up and got confirmed before this resolved, but never got promoted to
-  // the fight's primary identity because the boss list wasn't loaded yet
-  // at that exact moment) — which used to mean a fight that started (or
-  // even finished, on a slow connection) before the fetch below resolved
-  // could NEVER get the Ask-before-submit prompt, for its entire
-  // duration. See "i killed vox again... and still no popup to submit."
   function applyKnownBossNames(names) {
     knownBossNames = names;
     if (state) {
@@ -103,15 +48,6 @@
     }
   }
 
-  // Populates knownBossNames from the same public endpoint the Leaderboards
-  // window already hits. Called once from boot() — first from whatever was
-  // cached on disk from the LAST successful fetch (near-instant, no network
-  // round trip needed — see Settings' cachedBossNames in main.js), then
-  // again from a fresh network request, so the list is both immediately
-  // available AND kept current. If neither the cache nor the network has
-  // ever produced a list, knownBossNames stays null, and isKnownBoss()
-  // below treats that as "don't know yet, don't show the Submit prompt"
-  // rather than guessing.
   function bossNamesFromArray(arr) {
     var names = new Set();
     (arr || []).forEach(function (n) { if (n) names.add(n); });
@@ -122,45 +58,18 @@
       var res = await fetch(API_BASE + "/api/bosses");
       if (!res.ok) return;
       var data = await res.json();
-      // The endpoint's real shape is { bosses: [...] } (see handleBossList()
-      // in worker/src/leaderboard.js — leaderboard.js's own fetch of this
-      // same endpoint already unwraps it the same way, via `data.bosses`).
-      // This used to check Array.isArray(bosses) on the raw response
-      // object itself, which is never true for a plain object — so this
-      // always fell through to the empty-array fallback and knownBossNames
-      // was silently an empty (but non-null, so "known, and empty") Set
-      // forever. isKnownBoss() then reported every mob, Lady Vox included,
-      // as not a curated boss — no exception, no network error, just a
-      // Submit prompt ("Ask before submit") that could never fire for
-      // anyone. See the "Bar is fixed" thread — "I killed lady vox with
-      // ask to submit on, and it didn't ask me after she died."
       var bosses = (data && Array.isArray(data.bosses)) ? data.bosses : [];
       var names = bossNamesFromArray(bosses.map(function (b) { return b && b.name; }));
       applyKnownBossNames(names);
-      // Cache this successful fetch to disk (fire-and-forget) so the NEXT
-      // launch has a real boss list from the instant the app starts,
-      // instead of racing a fresh network request every single time.
       window.dyrelog.saveSettings({ cachedBossNames: Array.from(names), cachedBossNamesAt: Date.now() });
     } catch (err) {
-      // Offline/worker down — whatever applyKnownBossNames() was already
-      // called with (the on-disk cache, if any — see boot()) stays in
-      // effect rather than getting cleared; no broken fetch loop either.
     }
   }
 
-  // A curated boss can spawn with a trailing "+N" tier suffix baked right
-  // into its own EQ name (e.g. "Grandmaster R'tal +4") that DJ's curated
-  // roster tracks by base name only — stripping it before matching is what
-  // makes a "+N" spawn still count as that boss instead of silently
-  // failing an exact-string match. See "I killed grandmaster r'tal...
-  // it didn't submit... I'm in a +4."
   function stripTierSuffix(name) {
     return name ? name.replace(/\s*\+\d+\s*$/, "") : name;
   }
 
-  // Gates the Submit prompt (item 4.3) — only a curated, leaderboard-eligible
-  // boss should ever trigger it, never a trash mob. Unknown-yet (fetch still
-  // in flight, or failed) errs toward NOT showing the prompt.
   function isKnownBoss(mobName) {
     if (!knownBossNames || !mobName) return false;
     return knownBossNames.has(mobName) || knownBossNames.has(stripTierSuffix(mobName));
@@ -168,27 +77,14 @@
 
   var state = makeState(null);
   var lineBuffer = "";
-  var settings = null; // loaded on boot — see applySettings()
+  var settings = null;
   var miniMode = false;
-  // Mini mode's own remembered window size, independent of the standard
-  // Bars size (item 3 — "I want them to keep their own independent
-  // sizes") — same preWatchBounds pattern applyDisplayStyle() below uses
-  // for Circle, see toggleMini() further down.
   var preMiniBounds = null;
-  // Display style (Bars vs. Circle — item 8), driven entirely by Settings >
-  // Display style now — see applyDisplayStyle() further down. Circle forces
-  // a fixed small square window while active (a round badge only reads as
-  // a "watch" at a small, roughly-square size); preWatchBounds remembers
-  // whatever real size/position you were at so switching back to Bars in
-  // Settings restores it exactly.
   var currentDisplayStyle = "bars";
   var preWatchBounds = null;
-  // Settings > Circle size (item: "resize the scale of the circle") — how
-  // big the badge itself is drawn (see --circle-scale in style.css) AND,
-  // via watchWindowSizeFor() below, how big the window it lives in is.
   var currentCircleScale = 1;
-  var WATCH_BADGE_BASE = 132; // the badge's diameter in style.css at scale 1
-  var WATCH_MARGIN = 38; // fixed breathing room around the badge inside its window
+  var WATCH_BADGE_BASE = 132;
+  var WATCH_MARGIN = 38;
   function watchWindowSizeFor(scale) {
     // Must never go below main.js's own MIN_W (170) — set-bounds clamps
     // width up to that floor regardless, and a width/height mismatch there
@@ -196,45 +92,34 @@
     return Math.max(170, Math.round(WATCH_BADGE_BASE * (scale || 1)) + WATCH_MARGIN);
   }
   var characterName = null;
-  var realm = null; // captured alongside characterName in applySourceStatus() — needed for the /api/streams start call, see requestSubmitFor()
-  // Raw log lines for the current run, kept only so a submission can hand
-  // the server the exact original text for one finished encounter (see
-  // requestSubmitFor() below) — eqp-core.js itself never retains raw text,
-  // only the parsed stats. Trimmed periodically so a long session doesn't
-  // grow this forever; see feedLines().
+  var realm = null;
+
+
+
+
+
   var rawLineBuffer = [];
-  var RAW_BUFFER_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — generous; a real fight is minutes, not hours
-  var lastSubmitPromptedStartTime = null; // dedupes updateSubmitUI() firing every render tick for the same already-handled kill
-  // Combat-session continuity for the live fight timer — see item 3 of
-  // the newest feature list ("it resets the duration of the fight every
-  // time I select a different target"). eqp-core.js still locks one mob
-  // per encounter (see considerMobIdentity() there), so killing add #1
-  // and immediately tabbing to add #2 genuinely does create a brand-new
-  // encounter object with a fresh startTime — that part is unchanged.
-  // What changes here is purely the displayed timer: as long as the gap
-  // between one encounter ending and the next one starting is shorter
-  // than eqp-core's own gapMs (state.gapMs, 9s), it's read as the SAME
-  // continuous pull rather than a reset, so the timer keeps counting up
-  // instead of dropping back to 0:00 at every kill. This doesn't change
-  // what damage gets attributed to which target (that's a deeper
-  // eqp-core change — true concurrent multi-target tracking — that's
-  // deliberately not part of this pass, see the chat for why), just how
-  // long the header says you've been fighting.
+  var RAW_BUFFER_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+  var lastSubmitPromptedStartTime = null;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   var combatSessionStart = null;
   var lastCombatActivityAt = 0;
   var idleTimer = null;
-  // In-place spell/ability drill-down — which display row (see rowKey())
-  // is currently swapped into view, or null for the normal ranked list.
-  // "I like that when i click on my name in his dps meter, it swaps to my
-  // breakdown, i want ours to do that instead of opening the analysis
-  // window." See renderBarList()/renderDrillDown() below.
   var selectedRowKey = null;
-  // "the dps meter in that companion has a dropdown to show which fight,
-  // we should add that to our section too" — which recent fight the
-  // #fight-select dropdown has explicitly pinned the view to, or null to
-  // auto-follow whatever the existing live/last logic below would show
-  // anyway (the default). See buildSessions()/renderFightSelect()/
-  // renderPickedSession() further down.
   var selectedSessionKey = null;
 
   var els = {
@@ -277,10 +162,6 @@
     iconTooltip: document.getElementById("icon-tooltip")
   };
 
-  // Instant floating label for any [data-tooltip] element — native title=""
-  // tooltips are unreliable on this frameless/transparent window, so this
-  // shows on hover with no OS delay instead. Positions below the element,
-  // flipping above if that would run off the bottom of the screen.
   function wireIconTooltips() {
     var tip = els.iconTooltip;
     if (!tip) return;
@@ -312,10 +193,6 @@
     return Math.round(n).toLocaleString();
   }
 
-  // Abbreviated totals ("4.1k", "2.0k") — no longer used for any total
-  // damage display (Sept 7: every one of those switched to fmtNum()'s flat
-  // "4,503" instead, per DJ's own request). Left defined in case a future
-  // compact figure needs it again.
   function fmtAbbrev(n) {
     n = Math.max(0, n || 0);
     if (n >= 1000000) return (n / 1000000).toFixed(1) + "m";
@@ -331,10 +208,6 @@
     return m + ":" + (s < 10 ? "0" : "") + s;
   }
 
-  // Same convention as the browser overlay's parseCharacterFromFilename()
-  // — "eqlog_<Character>_<Realm>.txt" — so pet-folding (resolveCombatant()
-  // in eqp-core.js) has an identity to fold your own pet's damage onto
-  // without asking you to type your own name in.
   function parseCharacterFromFilename(filename) {
     var m = /^eqlog_([^_]+)_(.+)\.(txt|log)$/i.exec(filename || "");
     return m ? { characterName: m[1], realm: m[2] } : null;
@@ -349,25 +222,19 @@
       if (!line) return;
       var ev = EQP.parseLine(line);
       if (ev) { EQP.ingest(state, ev); lastKnownTime = ev.time; }
-      // Kept even when parseLine can't read it (a line eqp-core doesn't
-      // recognize is still real log text the server should see) — tagged
-      // with the last real timestamp seen so far so it still lands in the
-      // right encounter's slice below.
       rawLineBuffer.push({ time: lastKnownTime, line: line });
     });
     var cutoff = Date.now() - RAW_BUFFER_MAX_AGE_MS;
     while (rawLineBuffer.length && rawLineBuffer[0].time < cutoff) rawLineBuffer.shift();
   }
 
-  // The exact original log text for one finished encounter, reconstructed
-  // from rawLineBuffer above — a couple seconds of padding on each side
-  // catches a line landing right on the boundary between two timestamps.
+  // Include two seconds of padding to retain boundary events in the encounter upload.
   function rawTextForEncounter(enc) {
     var padMs = 2000;
-    return rawLineBuffer
+    var lines = rawLineBuffer
       .filter(function (r) { return r.time >= enc.startTime - padMs && r.time <= enc.endTime + padMs; })
-      .map(function (r) { return r.line; })
-      .join("\n");
+      .map(function (r) { return r.line.replace(/\r$/, ""); });
+    return EQP.encounterRawText(enc, lines);
   }
 
   function setActiveView(view) {
@@ -386,71 +253,25 @@
     els.statusDot.classList.add("off");
   }
 
-  // ---- settings ------------------------------------------------------
-  // The actual Settings UI now lives in its own popup window (see
-  // btn-settings below and main.js's createSettingsWindow()) — this
-  // window only ever *reads* settings: once at boot (getSettings()) and
-  // live from then on (onSettingsUpdate(), fed by every save the Settings
-  // window makes — see the "settings-update" broadcast in main.js). Scale
-  // is applied at the Electron BrowserWindow level by main.js; opacity,
-  // theme, and text-size are pure CSS/render concerns only this window's
-  // own DOM can apply to itself — see --panel-alpha below and
-  // style.css's .card::before.
-  // Every theme swatch Settings offers — see THEME_NAMES' use in
-  // applySettings() below and the matching :root[data-theme="X"] palette
-  // block each one needs in style.css. "blue"/"brass" are the original
-  // pair; the rest are the newest curated presets (item 9 — "some that are
-  // druidic, magical, girly, hardcore, metal, etc.").
   var THEME_NAMES = ["blue", "brass", "druidic", "magical", "girly", "hardcore", "metal"];
 
   function applySettings(s) {
     settings = s;
     s = Appearance.resolve(s, s.displayStyle === "circle" ? "circle" : miniMode ? "mini" : "bars");
     document.documentElement.setAttribute("data-theme", THEME_NAMES.indexOf(s.theme) !== -1 ? s.theme : "blue");
-    // Text/icon/timer size are three fully independent scale variables now
-    // (Sept 7 — "adjusting the bar text size seemingly is just zooming in
-    // on the overlay") — <html>'s own font-size in style.css is a fixed
-    // 12.5px that's never touched here any more; only the specific text/
-    // icon selectors that opt into each variable (via calc()) actually
-    // move, so the window itself never zooms.
     document.documentElement.style.setProperty("--text-scale", String(s.textScale || 1));
     document.documentElement.style.setProperty("--icon-scale", String(s.iconScale || 1));
     document.documentElement.style.setProperty("--timer-text-scale", String(s.timerTextScale || 1));
-    // Background-only opacity — see the long comment on --panel-alpha in
-    // style.css. Genuinely background-only now: the bar fills used to
-    // multiply their own tint by this and washed out to grey at a low
-    // setting (see .bar-row .fill), which Settings' copy never promised.
     document.documentElement.style.setProperty("--panel-alpha", String(s.opacity));
     document.documentElement.style.setProperty("--bar-height-mult", String(s.barHeight || 1));
     document.documentElement.style.setProperty("--idle-ui-opacity", String(s.fadeIdleOpacity != null ? s.fadeIdleOpacity : 0.15));
     document.documentElement.style.setProperty("--font-family", FONT_STACKS[s.fontFamily] || FONT_STACKS.fantasy);
-    // An explicit background color always wins over the theme's own — see
-    // the "Reset to default colors" button and the theme-swatch click
-    // handler in settings.js, which are what clear this back to null.
     if (s.bgColor) document.documentElement.style.setProperty("--bg-card", s.bgColor);
     else document.documentElement.style.removeProperty("--bg-card");
-    // Each bar row's own outline — deliberately its own override, separate
-    // from --hair (used elsewhere for icon buttons, dividers, etc.), and
-    // no longer scaled down by the Background opacity slider the way it
-    // used to be (see .bar-row in style.css) — "it would be nice if there
-    // were some borders or some sort of structure within the graph,
-    // lightweight borders at least... with their own color selector." A
-    // low panel opacity used to fade this out right along with the
-    // background tint, which is exactly what read as "not much of a
-    // difference between minimal mode and bar mode" — structure, not just
-    // color, is the point.
     if (s.borderColor) document.documentElement.style.setProperty("--row-border-color", s.borderColor);
     else document.documentElement.style.removeProperty("--row-border-color");
-    // Custom text color — overrides --ink everywhere; unset means "use the
-    // theme's own ink color" same as bgColor above.
     if (s.textColor) document.documentElement.style.setProperty("--ink", s.textColor);
     else document.documentElement.style.removeProperty("--ink");
-    // Secondary/muted text (timer, "(defeated)"/"(live)" state, the "dps"
-    // unit label, rank numbers, hints) rides --ink-2/--ink-3, not --ink —
-    // recoloring those two is what actually reaches every one of those
-    // elements at once. --ink-3 is derived as a dimmer version of the same
-    // color rather than asked for separately, mirroring how the theme
-    // presets already relate their own --ink-2/--ink-3 to each other.
     if (s.secondaryTextColor) {
       document.documentElement.style.setProperty("--ink-2", s.secondaryTextColor);
       document.documentElement.style.setProperty("--ink-3", "color-mix(in srgb, " + s.secondaryTextColor + " 65%, transparent)");
@@ -458,77 +279,30 @@
       document.documentElement.style.removeProperty("--ink-2");
       document.documentElement.style.removeProperty("--ink-3");
     }
-    // Per-row "DPS" number color and the total-damage figure's color (mob-
-    // line + mini-bar) — two separate pickers per item 9 of the newest
-    // list, independent of --ink/--accent so recoloring the theme doesn't
-    // silently drag these along too.
     if (s.dpsTextColor) document.documentElement.style.setProperty("--dps-text-color", s.dpsTextColor);
     else document.documentElement.style.removeProperty("--dps-text-color");
     if (s.totalDpsColor) document.documentElement.style.setProperty("--total-dps-color", s.totalDpsColor);
     else document.documentElement.style.removeProperty("--total-dps-color");
-    // Icon color (Sept 7) — recolors the gear/circle/mini/bars mode-switch
-    // buttons everywhere via one shared token; real emoji icons (Analysis/
-    // Leaderboards) ignore this entirely, CSS color has no effect on them.
     if (s.iconColor) document.documentElement.style.setProperty("--icon-color", s.iconColor);
     else document.documentElement.style.removeProperty("--icon-color");
-    // Circle badge icons' drag-to-reposition angles (Sept 7) — applied here
-    // too, not just after a fresh drag, so a saved position sticks across
-    // window reopens/relaunches. See wireBadgeIcon() below.
     applyIconAngles(s.iconAngles || {});
-    // Mini mode's pet sub-line gets its own size control (item 5) instead of
-    // riding the main textScale, which the pet line was too small under.
     document.documentElement.style.setProperty("--mini-pet-scale", String(s.miniPetTextScale || 1));
-    // The fight timer / "(live)"/"(defeated)" status / "dps" unit label get
-    // their own size control too — separate from the main Text size slider,
-    // which never touched these specifically (item 7 of the newest list —
-    // "there still doesn't seem to be a text font slider for dps/timer/
-    // status").
     document.documentElement.style.setProperty("--secondary-text-scale", String(s.secondaryTextScale || 1));
-    // Circle's own colors (Sept 6) — same null-means-"use the theme"
-    // convention as bgColor/borderColor/textColor above, but on their own
-    // properties so picking one never touches Bars/Mini-bar's colors and
-    // vice versa. See .watch-badge/.watch-dps/.watch-unit/.watch-timer in
-    // style.css for where these three actually land.
     if (s.circleBgColor) document.documentElement.style.setProperty("--circle-bg-color", s.circleBgColor);
     else document.documentElement.style.removeProperty("--circle-bg-color");
     if (s.circleBorderColor) document.documentElement.style.setProperty("--circle-border-color", s.circleBorderColor);
     else document.documentElement.style.removeProperty("--circle-border-color");
     if (s.circleTextColor) document.documentElement.style.setProperty("--circle-text-color", s.circleTextColor);
     else document.documentElement.style.removeProperty("--circle-text-color");
-    // Circle size BEFORE display style, so that if this save is what's
-    // actually turning Circle on, the window opens at the right size the
-    // first time instead of at the old scale for one frame.
     applyCircleScale(Appearance.resolve(settings, "circle").circleScale);
-    // Bars vs. Circle (item 8) — only ever changes from a Settings save now,
-    // never a header-icon click; see applyDisplayStyle() further down, which
-    // no-ops if this isn't actually a change from what's already applied.
     applyDisplayStyle(s.displayStyle || "bars");
-    scheduleIdleFade(); // fadeIdleEnabled/fadeIdleSeconds may have just changed
+    scheduleIdleFade();
   }
 
-  // ---- rendering -------------------------------------------------------
-  // A row's internal key is always "You" (eqp-core.js/submissions rely on
-  // that literal string) — this only swaps what gets *displayed*, once we
-  // know the log's own character name (see parseCharacterFromFilename()).
   function displayName(rawName) {
     return rawName === "You" ? (characterName || "You") : rawName;
   }
 
-  // isPet matters here, not just ownerName — buildDisplayRows() below
-  // gives a pet row the SAME ownerName as its owner's own row (both are
-  // "You" for your own pet), so without this a pet used to silently pick
-  // up your class color too, making it read as the exact same color as
-  // you — see item 3.5 of the earlier feature list. A custom Settings >
-  // Pet bar color (or the built-in --pet-default) always takes priority
-  // for a pet row instead, and is never influenced by class-color at all.
-  //
-  // Precedence for your OWN (non-pet) row, per item 4's rework: "Use
-  // class colors" is a convenience PRESET, not a second competing color
-  // system — when it's on and a class is picked, that class's color
-  // (your own saved override if you've customized it, else the built-in
-  // default — see classColorFor()) wins; only when it's off does the
-  // separate Settings > "My bar" custom color picker apply; failing
-  // both, it's the plain rank1 hue like anyone else's top bar.
   function colorForRow(ownerName, index, isPet) {
     if (isPet) return settings.petBarColor || PET_DEFAULT_COLOR;
     if (ownerName === "You") {
@@ -538,25 +312,12 @@
     return "var(" + RANK_COLORS[index % RANK_COLORS.length] + ")";
   }
 
-  // The NAME text's own color — separate from colorForRow() above, which
-  // only colors the bar/dot/fill. Item 8 ("can we get a 'my name text
-  // color' and 'my pet text color'"): null means "just inherit --ink like
-  // every other row's name already does", so this only ever narrows to a
-  // row that's genuinely yours (or your pet's).
   function nameColorForRow(ownerName, isPet) {
     if (isPet) return settings.petNameTextColor || null;
     if (ownerName === "You") return settings.myNameTextColor || null;
     return null;
   }
 
-  // Splits each combatant row into its own bar plus one bar per pet — a
-  // pet no longer hides folded inside its owner's number, UNLESS Settings
-  // > "Show pets as separate bars" is off, in which case a pet's damage
-  // stays folded into its owner's single bar the way computeStats()
-  // already computes it (r.dps is always the combined total regardless —
-  // see item 10). Either way, ownerName carries the raw ("You") key
-  // through for class-color/identity purposes, while name is what
-  // actually gets shown.
   function buildDisplayRows(rows) {
     var out = [];
     var showPets = settings.showPets !== false;
@@ -564,11 +325,6 @@
       var pets = r.pets || [];
       var petDpsTotal = pets.reduce(function (sum, p) { return sum + p.dps; }, 0);
       var ownDps = showPets ? Math.max(0, r.dps - petDpsTotal) : r.dps;
-      // r.selfDamage/r.damage are computeStats()'s own self-only/combined
-      // totals (see eqp-core.js) — used directly here rather than derived
-      // by subtraction, same relationship ownDps above has to r.dps, so
-      // this row's "total dmg" figure (see fmtAbbrev() and the new amount
-      // markup below) always agrees with its own dps number.
       var ownDamage = showPets ? r.selfDamage : r.damage;
       out.push({ name: displayName(r.name), ownerName: r.name, dps: ownDps, damage: ownDamage, isPet: false, abilities: r.abilities });
       if (showPets) {
@@ -581,12 +337,6 @@
     return out;
   }
 
-  // Stable per-render identity for a display row — a pet gets its owner's
-  // name folded in too, so "your pet" and "a groupmate's same-named pet"
-  // (rare, but the log can't tell them apart by name alone either) don't
-  // collide. Used to remember which row is currently drilled into across
-  // re-renders (see selectedRowKey) without needing DOM state to survive
-  // #barlist's innerHTML getting fully replaced every tick.
   function rowKey(r) {
     return r.ownerName + (r.isPet ? "::pet::" + r.name : "");
   }
@@ -597,11 +347,6 @@
     return null;
   }
 
-  // Shared by both the ranked list and the drill-down list below — DPS
-  // only now (item 3 of the newest UI list: "the dps meter with just the
-  // DPS... total damage you can only see at the top, on that first top
-  // line"). damage is unused here now but still passed in by both callers
-  // so the per-row total, if it ever comes back, has nowhere else to change.
   function amountHtml(dps, damage) {
     return '<b>' + fmtNum(dps) + '</b><span class="unit">dps</span>';
   }
@@ -611,31 +356,19 @@
     if (selectedRowKey) {
       var sel = findDisplayRow(display, selectedRowKey);
       if (sel) { renderDrillDown(sel); return; }
-      selectedRowKey = null; // that row's gone (e.g. a pet despawned) — fall back to the normal list below
+      selectedRowKey = null;
     }
     var top = display.slice(0, TOP_N);
     if (!top.length) {
       els.barlist.innerHTML = '<div style="color:var(--ink-3);font-size:0.88rem;padding:6px 2px">No damage recorded yet.</div>';
       return;
     }
-    // Bar width is relative to the TOP row's dps (a relative bar chart,
-    // like a classic EQ parser's meter — not a % of the raid total, which
-    // would make every bar tiny in a big group). Re-rendered fresh every
-    // second from render()'s setInterval, and .fill's CSS transition (see
-    // style.css) is what makes that read as the bar growing/shrinking
-    // instead of jumping — see item 6 of the request that added this.
     var maxDps = top[0] ? top[0].dps : 0;
     els.barlist.innerHTML = top.map(function (r, i) {
       var swatch = colorForRow(r.ownerName, i, r.isPet);
       var pct = maxDps > 0 ? Math.max(4, (r.dps / maxDps) * 100) : 0;
       var nameColor = nameColorForRow(r.ownerName, r.isPet);
       var nameStyle = nameColor ? ' style="color:' + esc(nameColor) + '"' : "";
-      // Every row is clickable now, not just your own — clicking swaps the
-      // list in place to that combatant's own spell/ability breakdown (see
-      // renderDrillDown() below and the delegated click listener further
-      // down) rather than opening Combat Analysis, so a groupmate's or a
-      // pet's row is just as valid a door in — see item 6 ("clicking on
-      // someones pet... should open their analytics as well").
       return (
         '<div class="bar-row" data-row-key="' + esc(rowKey(r)) + '" style="--swatch:' + swatch + ';--pct:' + pct.toFixed(1) + '%">' +
           '<div class="fill"></div>' +
@@ -651,14 +384,6 @@
     }).join("");
   }
 
-  // "i like that when i click on my name in his dps meter, it swaps to my
-  // breakdown, i want ours to do that instead of opening the analysis
-  // window... I Want to see the DPS and the damage done by each spell like
-  // that." sel.abilities is already computed by eqp-core's computeStats()
-  // (same field Combat Analysis' own deep dive reads — see
-  // renderAbilityTable() in analysis.js) — this just lays it out as the
-  // same style of ranked bar list the top-level view already uses, scoped
-  // to one combatant/pet.
   function renderDrillDown(sel) {
     var abilities = (sel.abilities || []).slice().sort(function (a, b) { return b.dps - a.dps; });
     var maxDps = abilities.length ? abilities[0].dps : 0;
@@ -686,10 +411,6 @@
       '<div class="drill-list">' + listHtml + "</div>";
   }
 
-  // Delegated (not re-attached every render — #barlist's innerHTML gets
-  // replaced every tick, but the container itself never does). A row click
-  // drills in; the header of the drill-down view itself is the way back
-  // out — see data-drill-back above.
   els.barlist.addEventListener("click", function (e) {
     if (e.target.closest("[data-drill-back]")) {
       selectedRowKey = null;
@@ -707,13 +428,6 @@
   // out) without waiting up to a second for the next setInterval tick.
   var lastRenderedRows = [];
 
-  // The player's own combined (self + pet) total — what the header DPS
-  // number and mini mode show, per item 2 of the newest feature list
-  // ("I don't want it to be raid dps, including other players"). The
-  // "You" row's own .damage/.dps already has pet damage folded in (see
-  // eqp-core.js's ingest()), so this is just picking that one row out
-  // rather than stats.raidDps, which sums every combatant including any
-  // groupmates who happen to be in the same log.
   function selfSummary(stats) {
     var row = null;
     for (var i = 0; i < stats.rows.length; i++) {
@@ -724,27 +438,15 @@
     return { dps: row.dps, damage: row.damage, pet: pet };
   }
 
-  // finishedEnc is the just-ended encounter object (or null while a fight
-  // is live / nothing has happened yet). Per item 4.3, this whole row of
-  // UI should only ever appear after a REAL leaderboard-eligible boss kill
-  // — not after every trash mob you happen to stop fighting.
   var visitCompletedKills = createCompletedKillQueue();
   function updateSubmitUI(finishedEnc, displayOnly) {
     var eligible = !!(finishedEnc && finishedEnc.mobKilled && isKnownBoss(finishedEnc.mobName));
-    // The in-window submit-row/auto-submit-line are gone (Sept 7) — the
-    // small submit-popup window (see requestSubmitFor() below) is now the
-    // ONE place a submit prompt appears, in every display mode (bars/mini/
-    // circle) alike, instead of three separate in-window prompts that only
-    // ever worked in Bars mode. submit-row.hidden stays permanently true;
-    // the elements are left in the DOM/CSS rather than removed outright.
     els.submitRow.hidden = true;
     els.autoSubmitLine.hidden = true;
     if (!eligible) {
       els.autoSubmitToggles.hidden = true;
       return;
     }
-    // The first-run toggle row only ever shows until you've picked once —
-    // see item 2. After that, Settings > Auto-submit is the only control.
     els.autoSubmitToggles.hidden = true;
     if (displayOnly) return;
     if (!FirstRunPolicy.permitsSubmission(settings)) return;
@@ -756,21 +458,12 @@
     requestSubmitFor(finishedEnc, settings.autoSubmitMode);
   }
 
-  // Hands one finished, eligible encounter off to main.js — see
-  // request-submit in main.js and the submit-popup window it drives. mode
-  // is "ask" (small popup with Submit/Discard) or "auto" (submits right
-  // away, popup just shows the result).
   function requestSubmitFor(finishedEnc, mode) {
-    if (!characterName || !realm) return; // no log source identified yet — nothing to attribute this to
+    if (!characterName || !realm) return;
     var stats = EQP.computeStats(finishedEnc);
     var youRow = (stats.rows || []).find(function (r) { return r.name === "You"; });
     var rawText = rawTextForEncounter(finishedEnc);
-    // If this fight was already being streamed live (see maybeStreamLiveFight()
-    // below), finish that SAME submission instead of starting a new one — only
-    // the unsent tail of the log goes up now. This is what satisfies the
-    // server's checkStreamingPattern() check (worker/src/anticheat.js): a
-    // submission that arrived as one lump batch at kill time was flagging
-    // every real fight lasting 20+ seconds.
+    // Finalize the existing live submission with only its unsent tail to preserve streaming verification.
     var stream = liveStreams[finishedEnc.startTime];
     delete liveStreams[finishedEnc.startTime];
     var payload = {
@@ -782,9 +475,6 @@
       dps: youRow ? youRow.dps : 0,
       damage: youRow ? youRow.damage : 0,
       difficulty: finishedEnc.difficultyKnown ? finishedEnc.difficulty : null,
-      // Lets main.js write the resulting submissionId back onto this exact
-      // local history entry once the submit succeeds — see recordSubmission()
-      // there and the website deep-link button in analysis.js.
       startTime: finishedEnc.startTime
     };
     if (stream && stream.submissionId) {
@@ -798,15 +488,8 @@
     window.dyrelog.requestSubmit(payload);
   }
 
-  // ---- live streaming (Sept 7) -------------------------------------------
-  // Uploads a curated boss fight's raw log lines to the server AS IT
-  // HAPPENS, once per render tick, instead of waiting for the kill and
-  // sending the whole thing as one lump batch — see requestSubmitFor()
-  // above for how the fight is finalized once it ends. Only starts once a
-  // fight is already recognizable as a curated boss (isKnownBoss()) and the
-  // user is logged in; a trash pull is never streamed.
-  var liveStreams = {}; // startTime -> { submissionId, sentLength, starting }
-  var STREAM_MIN_MS_BEFORE_START = 5000; // skip instant-kill trash before bothering to open a stream
+  var liveStreams = {};
+  var STREAM_MIN_MS_BEFORE_START = 5000;
   function maybeStreamLiveFight(enc) {
     if (!FirstRunPolicy.permitsSubmission(settings)) return;
     if (!characterName || !realm) return;
@@ -815,7 +498,7 @@
     var stream = liveStreams[enc.startTime];
     if (!stream) stream = liveStreams[enc.startTime] = { submissionId: null, sentLength: 0, starting: false };
     if (!stream.submissionId) {
-      if (stream.starting) return; // start call already in flight
+      if (stream.starting) return;
       stream.starting = true;
       window.dyrelog.startLiveStream({ characterName: characterName, realm: realm, soloMode: false }).then(function (res) {
         stream.starting = false;
@@ -824,23 +507,12 @@
       return;
     }
     var fullText = rawTextForEncounter(enc);
-    if (fullText.length <= stream.sentLength) return; // nothing new since the last tick
+    if (fullText.length <= stream.sentLength) return;
     var chunk = fullText.slice(stream.sentLength);
     stream.sentLength = fullText.length;
     window.dyrelog.pushLiveBatch(stream.submissionId, chunk);
   }
 
-  // Every finished encounter that belongs to the SAME continuous combat
-  // session as combatSessionStart, plus the live one if there is one — see
-  // combatSessionStart's comment near the top of this file. This is what
-  // makes the header dps number and timer agree with each other (both
-  // span the exact same window) instead of the timer counting a
-  // continuous multi-kill pull while dps quietly resets to just the
-  // latest target's own number: "I would like the dps total to be the
-  // average for the entire fight in combat... I dont want separate
-  // analytics per mob." Analysis gets the SAME grouping (see analysis.js'
-  // buildSessions()) so the live header and the history list always agree
-  // on what counts as "one fight."
   function currentSessionMembers() {
     if (combatSessionStart === null) return state.current ? [state.current] : [];
     var members = state.encounters.filter(function (enc) { return enc.startTime >= combatSessionStart; });
@@ -848,13 +520,6 @@
     return members;
   }
 
-  // ---- fight-selector dropdown -------------------------------------------
-  // Mirrors buildSessions()/sessionKey()/sessionLabel() in analysis.js
-  // exactly (same gap-based continuity grouping) so the dropdown lists the
-  // exact same fights, with the exact same labels, as Combat Analysis' own
-  // history list. Duplicated rather than shared — each renderer window
-  // loads its own plain <script> files, same reason eqp-core.js itself is
-  // a synced copy instead of an actual shared module.
   function buildSessions() {
     var gapMs = state.gapMs || 9000;
     var sessions = [];
@@ -876,12 +541,10 @@
         sessions.push({ members: [state.current], lastEndTime: state.current.endTime, isLive: true });
       }
     }
-    return sessions; // oldest-first
+    return sessions;
   }
   function sessionKeyOf(session) { return String(session.members[0].startTime); }
 
-  // Same "<primary mob>[ (generation)][ +party]" format as analysis.js's
-  // own sessionLabel() — see its comment there for the full rationale.
   function sessionShortLabel(session) {
     var merged = EQP.mergeEncounters(session.members);
     var stats = EQP.computeStats(merged);
@@ -894,21 +557,10 @@
       (partyCount > 0 ? " +" + partyCount : "");
   }
 
-  // Rebuilt every render() tick (like the bar list) so the trigger button's
-  // own label always reflects whatever fight is actually being shown right
-  // now, and any brand-new fight shows up in the popup immediately. Custom
-  // popup instead of a native <select> — see .fight-popup in style.css for
-  // why (a native select's option list can't be recolored off the OS
-  // default white). sessions is oldest-first (buildSessions()'s own order),
-  // so the auto-follow slot is naturally the LAST entry — labeled "Current
-  // Fight" in the popup itself ("it's not implied that it'll update to the
-  // next fight" — this makes that explicit) — and it renders at the BOTTOM
-  // of the upward-opening popup, closest to the trigger, oldest fights
-  // above it.
   function renderFightSelect(sessions) {
     var current = sessions[sessions.length - 1];
     if (selectedSessionKey && !sessions.some(function (s) { return sessionKeyOf(s) === selectedSessionKey; })) {
-      selectedSessionKey = null; // stale key — no matching session any more, fall back to auto-follow
+      selectedSessionKey = null;
     }
     var activeKey = selectedSessionKey || "";
     var activeSession = selectedSessionKey
@@ -948,12 +600,6 @@
   document.addEventListener("click", closeFightPopup);
   window.addEventListener("resize", closeFightPopup);
 
-  // An explicitly picked (not auto-followed) past fight — frozen, since
-  // nothing about an already-closed fight changes tick to tick. Picking
-  // the CURRENTLY live fight from the dropdown still works (isLive stays
-  // true and this keeps updating normally), it's just reached through the
-  // same code path as any other pick instead of the auto-follow branches
-  // below.
   function renderPickedSession(session, now) {
     var members = session.members;
     if (session.isLive) {
@@ -963,15 +609,11 @@
     var merged = EQP.mergeEncounters(members);
     var stats = EQP.computeStats(merged);
     var self = selfSummary(stats);
-    // No zone-in line seen yet is assumed Base rather than shown blank/unknown.
     els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base");
     els.fightTotal.textContent = fmtNum(self.damage);
     els.fightTimer.textContent = fmtDur((merged.endTime - merged.startTime) / 1000);
     lastRenderedRows = stats.rows;
     renderBarList(stats.rows);
-    // No submit prompt while explicitly browsing history — that's not "the
-    // fight that just ended," and resurfacing it for something already
-    // decided on (or a much older kill) would just be confusing.
     updateSubmitUI(null);
     updateMiniBar(self.dps, self.damage, self.pet, stats.rows);
     updateWatchBadge(self.dps, els.fightTimer.textContent, self.pet);
@@ -985,10 +627,6 @@
     if (state.current) maybeStreamLiveFight(state.current);
     var now = Date.now();
 
-    // Raw data straight through to Analysis — it has its own copy of EQP
-    // (see analysis.html) and does its own session-grouping/merging with
-    // EQP.mergeEncounters(), rather than receiving pre-computed stats
-    // shaped around a single encounter at a time the way it used to.
     var pushPayload = { current: state.current, encounters: state.encounters, characterName: characterName, gapMs: state.gapMs };
 
     var sessions = buildSessions();
@@ -1003,16 +641,11 @@
         window.dyrelog.pushState(pushPayload);
         return;
       }
-      selectedSessionKey = null; // stale — fall through to the normal auto-follow logic below
+      selectedSessionKey = null;
     }
 
     if (state.current) {
       var enc = state.current;
-      // Combat-session continuity — only treat this as a genuinely fresh
-      // pull (reset the timer to enc's own startTime) if there was a real
-      // gap since the last time any fight was live; a same-continuous-pull
-      // retarget (eqp-core swapping its locked mob right after a kill)
-      // lands well inside that gap and keeps the clock running.
       if (combatSessionStart === null || (now - lastCombatActivityAt) > state.gapMs) {
         combatSessionStart = enc.startTime;
       }
@@ -1025,7 +658,6 @@
       var merged = EQP.mergeEncounters(extended);
       var stats = EQP.computeStats(merged);
       var self = selfSummary(stats);
-      // No zone-in line seen yet is assumed Base rather than shown blank/unknown.
     els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base");
       els.fightTotal.textContent = fmtNum(self.damage);
       els.fightTimer.textContent = fmtDur((merged.endTime - merged.startTime) / 1000);
@@ -1035,18 +667,10 @@
       updateMiniBar(self.dps, self.damage, self.pet, stats.rows);
       updateWatchBadge(self.dps, els.fightTimer.textContent, self.pet);
     } else if (state.encounters.length) {
-      // No live fight right now, but don't treat a brief natural gap
-      // between one kill and the next target's first hit as "combat
-      // ended" — only actually clear the session clock once it's been
-      // quiet at least as long as eqp-core's own encounter-closing gap.
       if (combatSessionStart !== null && (now - lastCombatActivityAt) > state.gapMs) {
         combatSessionStart = null;
       }
       var last = state.encounters[state.encounters.length - 1];
-      // combatSessionStart may have just been cleared above (right at the
-      // "combat truly ended" boundary) — currentSessionMembers() would
-      // return [] in that same tick, so fall back to just the last
-      // encounter for display continuity rather than showing nothing.
       var lastMembers = currentSessionMembers();
       if (!lastMembers.length) lastMembers = [last];
       var lastMerged = EQP.mergeEncounters(lastMembers);
@@ -1057,9 +681,6 @@
       els.fightTimer.textContent = fmtDur(lastStats.duration);
       lastRenderedRows = lastStats.rows;
       renderBarList(lastStats.rows);
-      // Submission is still gated on the specific individual kill (a
-      // curated boss, not the session average) — see updateSubmitUI()'s
-      // own comment, so this stays `last`, not the merged session.
       updateSubmitUI(last, true);
       updateMiniBar(lastSelf.dps, lastSelf.damage, lastSelf.pet, lastStats.rows);
       updateWatchBadge(lastSelf.dps, els.fightTimer.textContent, lastSelf.pet);
@@ -1078,33 +699,13 @@
     window.dyrelog.pushState(pushPayload);
   }
 
-  // Always the player's own character name, never the mob's — see item 5.
-  // Mini mode is "just my dps" by design (per the very first ask that
-  // added it); showing whatever's being fought instead of who's fighting
-  // it undercut that at a glance.
-  // pet is { name, dps } or null — see selfSummary(). Only shown when your
-  // pet has actually dealt damage this fight, per item 3.9 of the newest
-  // feature list. Reworked Sept 7 (items 1/2 of the mini-bar rework) — the
-  // combined total damage moved to its own line above both rows instead of
-  // trailing the player's own dps number, so the player's and pet's dps
-  // numbers are now the SAME kind of value ("NNN dps", nothing else) and
-  // actually line up as a column — see .mini-dps/.mini-pet-dps's shared
-  // min-width in style.css.
   function updateMiniBar(dps, damage, pet, rows) {
-    // Same split buildDisplayRows() does for Bars mode. `dps` arrives as the
-    // COMBINED self+pet total every time (selfSummary() reads the "You" row,
-    // whose dps already has pet damage folded in by eqp-core's ingest()), so
-    // showing it as-is made "Show pets as separate bars" look broken here:
-    // toggling it off removed the pet's sub-line without your own number
-    // moving, i.e. "merge isn't merging the dps, it's just removing the pet's
-    // dps." Splitting pets out has to subtract them from your own number;
-    // merging them back in is what makes it climb.
     var showPets = !(settings && settings.showPets === false);
     var petDps = pet && pet.dps > 0 ? pet.dps : 0;
     var ownDps = showPets ? Math.max(0, dps - petDps) : dps;
     if (!showPets) pet = null;
     document.getElementById("mini-timer").textContent = els.fightTimer.textContent || "0:00";
-    els.miniTotal.textContent = fmtNum(damage) + " total dmg"; // flat number, not "4.5k" — item 7 of the newest list
+    els.miniTotal.textContent = fmtNum(damage) + " total dmg";
     els.miniName.textContent = characterName || "Dyrelog";
     els.miniDps.textContent = fmtNum(ownDps) + " dps";
     if (pet && pet.dps > 0) {
@@ -1123,11 +724,6 @@
     }).join('');
   }
 
-  // Watch mode's own tiny circular badge (item 8 — "a theme that is a
-  // circle and it just has a dps number in it... almost like a watch") —
-  // just your own dps and the current fight's duration, nothing else, so
-  // it only ever needs these two values regardless of which render()
-  // branch is live right now.
   function updateWatchBadge(dps, timerText, pet) {
     // Same self/pet split as updateMiniBar() above — merging the pet in has to
     // move the badge's own number, otherwise the toggle just deletes the pet
@@ -1139,19 +735,9 @@
     els.watchTimer.textContent = timerText || "0:00";
     var showPet = showPets && petDps > 0;
     els.watchPet.hidden = !showPet;
-    // Numbers only. The badge is ~132px across and the pet's name pushed the
-    // line into an ellipsis ("Dyremoon`s warder 78 ..." ) that told you
-    // nothing — "in circle mode the pet ui has text and numbers, we just want
-    // numbers." The row directly above it is already your own dps, so the
-    // second number reads as the pet's without needing to be labelled.
     els.watchPet.textContent = showPet ? fmtNum(petDps) : "";
   }
 
-  // ---- fade UI when idle -------------------------------------------------
-  // Settings > "Fade UI when idle" — see the body.idle-faded rules in
-  // style.css and item 3.11 of the newest feature list. Skipped entirely
-  // in mini mode, which is already just name/dps(/pet) with nothing left
-  // to fade.
   function scheduleIdleFade() {
     clearTimeout(idleTimer);
     document.body.classList.remove("idle-faded");
@@ -1163,7 +749,6 @@
   document.addEventListener("mousemove", scheduleIdleFade);
   document.addEventListener("mousedown", scheduleIdleFade);
 
-  // ---- log source wiring -------------------------------------------------
   function applySourceStatus(status) {
     if (!status || !status.ok) return;
     var identity = parseCharacterFromFilename(status.fileName);
@@ -1214,12 +799,6 @@
     if (res) applySourceStatus({ ok: true, fileName: res.fileName });
   });
 
-  // First-run auto-submit row on the fight card itself (see item 2 of the
-  // original feature list) — the ONLY place this choice can be made from
-  // now that Settings is its own window; Settings still shows the same
-  // tri-state control for changing your mind later (see settings.js),
-  // there just aren't two copies of it live in the same place at once
-  // anymore.
   document.querySelectorAll("#auto-submit-toggles .toggle-btn").forEach(function (b) {
     b.addEventListener("click", function () {
       window.dyrelog.saveSettings({ autoSubmitMode: b.dataset.mode, autoSubmitChosen: true }).then(function (s) {
@@ -1229,28 +808,16 @@
     });
   });
 
-  // ---- header icons ---------------------------------------------------
   document.getElementById("btn-settings").addEventListener("click", function () { window.dyrelog.openSettings(); });
   document.getElementById("btn-analysis").addEventListener("click", function () { window.dyrelog.openAnalysis(); });
   document.getElementById("btn-leaderboard").addEventListener("click", function () { window.dyrelog.openLeaderboard(); });
   document.getElementById("btn-close").addEventListener("click", function () { window.dyrelog.close(); });
 
-  // ---- mini mode --------------------------------------------------------
-  // Mini mode hides the header icon row, the mob-name/timer subhead, and
-  // the submit UI, while keeping the SAME ranked bar list standard mode
-  // shows (see body.mini rules in style.css) — "can we keep the dps bars
-  // of standard mode?" Reworked Sept 7 (item 3 — "I want them to keep
-  // their own independent sizes") to remember its OWN window size
-  // separately from standard Bars mode, the same preWatchBounds pattern
-  // applyDisplayStyle() below already uses for Circle: whatever size you
-  // leave mini mode at is what get-mini-size hands back next time you
-  // click into it, and leaving mini restores exactly the Bars size you
-  // had before, instead of the two modes fighting over one shared size.
   function toggleMini() {
     miniMode = !miniMode;
     document.body.classList.toggle("mini", miniMode);
     if (settings) applySettings(settings);
-    scheduleIdleFade(); // re-evaluate now that miniMode changed
+    scheduleIdleFade();
     if (miniMode) {
       window.dyrelog.getBounds().then(function (b) {
         preMiniBounds = b;
@@ -1283,10 +850,8 @@
     evt.stopPropagation();
     switchMode("circle");
   });
-  // Mini mode had no way back to Settings at all before (item 6 of the
-  // newest list) — every other display mode already has a gear somewhere.
   document.getElementById("btn-mini-settings").addEventListener("click", function (evt) {
-    evt.stopPropagation(); // don't also toggle mini mode via a bubbled drag/click on .mini-bar
+    evt.stopPropagation();
     window.dyrelog.openSettings();
   });
   document.getElementById("btn-mini-pets").addEventListener("click", function (evt) {
@@ -1304,31 +869,13 @@
     window.dyrelog.saveSettings({ showPets: !(settings.showPets !== false) }).then(applySettings);
   });
 
-  // ---- display style (Settings > Display style: Bars / Circle) ------------
-  // Circle (item 8's "watch" look) used to be its own header icon you could
-  // click into and out of live — turns out that read as the app randomly
-  // "opening in watch mode," and there was no way back to Settings once in
-  // it (the header, gear icon included, is hidden while it's active). Circle
-  // is a persisted Settings choice now, exactly like Theme or Font: it only
-  // ever changes when you pick it in Settings, it's remembered across
-  // restarts the same deliberate way, and the badge itself just opens
-  // Settings on click so there's always a way back. See applySettings()
-  // above, which calls this whenever settings.displayStyle changes; the
-  // currentDisplayStyle/preWatchBounds/WATCH_SIZE vars it uses live up top
-  // with miniMode.
   function applyDisplayStyle(style) {
-    if (style === currentDisplayStyle) return; // no-op on every render()-driven re-apply once it's already set
+    if (style === currentDisplayStyle) return;
     var enteringCircle = style === "circle";
     currentDisplayStyle = style;
     document.body.classList.toggle("watch", enteringCircle);
     scheduleIdleFade();
     if (enteringCircle) {
-      // A fixed square (sized off the current Circle-size setting — see
-      // watchWindowSizeFor()) is what makes the badge actually read as a
-      // circle — see preWatchBounds' comment above. persist:false (plus
-      // setWatchMode(true), which tells main.js's bounds persister to
-      // ignore this window entirely while active) keeps this transient
-      // size from ever being saved as your real remembered window size.
       window.dyrelog.getBounds().then(function (b) {
         preWatchBounds = b;
         window.dyrelog.setWatchMode(true);
@@ -1343,21 +890,13 @@
       }
     }
   }
-  // Settings > Circle size — resizes the badge itself (--circle-scale, read
-  // by style.css) and, whenever Circle is the active display style, the
-  // window it lives in too, so the window always exactly fits the badge
-  // with no dead transparent margin or clipped edge. Works live even while
-  // Circle mode is already on (no need to bounce back to Bars and in again)
-  // by growing/shrinking the window from its current center rather than its
-  // top-left corner, so the badge doesn't appear to drift while you drag
-  // the slider.
   function applyCircleScale(scale) {
     scale = scale || 1;
     document.documentElement.style.setProperty("--circle-scale", String(scale));
     if (scale === currentCircleScale) return;
     var prevScale = currentCircleScale;
     currentCircleScale = scale;
-    if (currentDisplayStyle !== "circle") return; // applyDisplayStyle() will size the window correctly whenever Circle is next turned on
+    if (currentDisplayStyle !== "circle") return;
     var prevSize = watchWindowSizeFor(prevScale);
     var size = watchWindowSizeFor(scale);
     window.dyrelog.getBounds().then(function (b) {
@@ -1370,19 +909,6 @@
       }, { persist: false });
     });
   }
-  // Direct mode-switch shortcuts (Sept 7 — "a button in the bars setting to
-  // swap to circle mode... in mini mode... swap to circle or main... in
-  // circle you can have a swap to mini or standard"). Safe to add now that
-  // showWatchMenu()'s Settings/Analysis/Leaderboards/Switch-to-Bars menu
-  // already gives Circle a reliable way back out — the original reason it
-  // had no direct toggle (see applyDisplayStyle()'s comment above) no
-  // longer applies. Always fully exits whichever of mini/circle is active
-  // FIRST, before entering the other, so their separate preMiniBounds/
-  // preWatchBounds captures never run against each other's bounds instead
-  // of Bars' — see toggleMini()/applyDisplayStyle() above for why each
-  // needs to start from a real Bars-sized window. Mini has no persisted
-  // display style of its own (it's a Bars-based mode), so the only
-  // Settings > Display style value this ever changes is Bars vs Circle.
   function switchMode(target) {
     var goingMini = target === "mini";
     var goingCircle = target === "circle";
@@ -1399,13 +925,6 @@
   document.getElementById("btn-pets").addEventListener("click", togglePets);
   wireBadgeIcon(els.watchPetsBtn, "pets", togglePets);
 
-  // Three independent ways back out to a menu with Settings / Combat
-  // Analysis / Leaderboards / Switch to Bars — see the comment on
-  // .watch-badge in style.css for why a single plain click isn't trusted
-  // alone. showWatchMenu() pops a real native context menu (main.js).
-  // Same fight list buildSessions()/renderFightSelect() already build for
-  // the Bars-mode popup, newest-first for a native menu's natural reading
-  // order — Circle mode had no way to change fights at all before this.
   function fightMenuSessions() {
     var sessions = buildSessions();
     var reversed = sessions.slice().reverse();
@@ -1421,38 +940,18 @@
     evt.preventDefault();
     window.dyrelog.showWatchMenu(fightMenuSessions());
   });
-  // Drag-to-reposition (Sept 7 — "like an icon in World of Warcraft's mini
-  // map"): mousedown starts tracking; if the cursor actually moves past a
-  // small threshold before mouseup, that's a drag — update --btn-angle live
-  // and persist the final angle, without firing the button's normal action.
-  // A mousedown/mouseup with no real movement in between is a plain click,
-  // same as before. angleKey indexes into settings.iconAngles; onActivate
-  // is whatever the button used to do unconditionally.
-  // "pets" belongs in this list. wireBadgeIcon(els.watchPetsBtn, "pets", ...)
-  // below happily SAVED iconAngles.pets on every drag, but this only ever
-  // re-applied menu/mini/bars, so the pet/merge button silently snapped back
-  // to its CSS default (--btn-angle: 180deg) on the next launch — "rebooting
-  // the app isn't saving the merge icon position on the circle." It looked
-  // like it stuck until then only because the drag's own inline style was
-  // still on the element and nothing here cleared it.
   function applyIconAngles(angles) {
     [["menu", els.watchMenuBtn], ["mini", els.watchMiniBtn], ["bars", els.watchBarsBtn], ["pets", els.watchPetsBtn]].forEach(function (pair) {
       var deg = angles[pair[0]];
       if (deg != null) pair[1].style.setProperty("--btn-angle", deg + "deg");
-      else pair[1].style.removeProperty("--btn-angle"); // falls back to the CSS default for that button
+      else pair[1].style.removeProperty("--btn-angle");
     });
   }
   function wireBadgeIcon(btn, angleKey, onActivate) {
     var dragging = false, moved = false, suppressClick = false, startX = 0, startY = 0, angle = 0;
-    // Both stops matter: mousedown's stopPropagation keeps the badge's own
-    // drag region from swallowing the interaction; the click listener's
-    // stopPropagation is what actually matters for a real click, since the
-    // browser still fires a real "click" on mouseup regardless of what
-    // mousedown did, which would otherwise bubble up to the badge's own
-    // click-to-Settings handler right after onActivate() already ran below.
     btn.addEventListener("mousedown", function (evt) {
       evt.stopPropagation();
-      evt.preventDefault(); // no native drag-ghost/text-selection while sliding this around
+      evt.preventDefault();
       dragging = true;
       moved = false;
       suppressClick = false;
@@ -1496,71 +995,15 @@
     render();
   });
 
-  // ---- manual corner/edge resize ----------------------------------------
-  // Anchored at the window's current top-left — only width/height change,
-  // x/y never do, so this can't accidentally drag the window somewhere
-  // else while you're just trying to resize it (see item 7).
-  function wireResizeHandle(el, growsWidth, growsHeight) {
-    el.addEventListener("mousedown", function (e) {
-      e.preventDefault();
-      var startX = e.screenX, startY = e.screenY;
-      window.dyrelog.getBounds().then(function (startBounds) {
-        function onMove(ev) {
-          var dx = ev.screenX - startX;
-          var dy = ev.screenY - startY;
-          var next = { x: startBounds.x, y: startBounds.y, width: startBounds.width, height: startBounds.height };
-          if (growsWidth) next.width = clamp(startBounds.width + dx, 170, 900);
-          if (growsHeight) next.height = clamp(startBounds.height + dy, 56, 900);
-          window.dyrelog.setBounds(next);
-        }
-        function onUp() {
-          document.removeEventListener("mousemove", onMove);
-          document.removeEventListener("mouseup", onUp);
-        }
-        document.addEventListener("mousemove", onMove);
-        document.addEventListener("mouseup", onUp);
-      });
-    });
-  }
-  wireResizeHandle(document.getElementById("rh-right"), true, false);
-  wireResizeHandle(document.getElementById("rh-bottom"), false, true);
-  wireResizeHandle(document.getElementById("rh-corner"), true, true);
-
-  // The in-window Submit button itself is unused now (Sept 7) — see
-  // updateSubmitUI() above, submission prompts all go through the
-  // submit-popup window instead so the same flow works in every display
-  // mode, not just Bars. Left disabled/hidden rather than removed from the
-  // DOM so index.html/style.css don't need a layout change alongside this.
   els.btnSubmit.disabled = true;
 
-  // Live updates from the Settings window (see main.js's "settings-update"
-  // broadcast, sent after every save-settings call regardless of which
-  // window made it) — this is what keeps theme/text-size/class-color in
-  // sync here without this window owning any settings controls itself.
   window.dyrelog.onSettingsUpdate(function (s) {
     applySettings(s);
     render();
   });
 
-  // "when I send updates, the overlay should inform the user to update" —
-  // dismissing just hides the banner for the rest of this run (nothing is
-  // persisted), so a player who ignores it still sees it again next launch
-  // until they actually update. See checkForUpdates() in main.js.
-  //
-  // "I'd like it to auto install if possible" — this banner used to just
-  // openExternal() the releases page, leaving the actual download/install
-  // to the player's browser. It now drives the SAME real electron-updater
-  // flow as Settings > What's New's "Check for updates" button (see
-  // main.js's check-for-updates-now/download-and-install-update handlers)
-  // — one click here checks, and the instant a newer version is confirmed
-  // it starts the download itself, no second click, matching "automatically
-  // pull the update and relaunch." Settings' own button was a genuine
-  // two-click flow until Sept 6 (check, then a separate "Update now and
-  // relaunch" button) — collapsed to match this banner's one click after
-  // DJ found the two-step version confusing ("the button isn't immediately
-  // installing... its a failure point").
   var updateDismissed = false;
-  var updaterBusy = false; // this window's own click started a real update — see the updaterStatus guard below
+  var updaterBusy = false;
   function showUpdateBanner(info) {
     if (!info || updateDismissed || updaterBusy) return;
     els.updateBannerText.textContent = "Update available — v" + info.version;
@@ -1569,25 +1012,18 @@
   els.updateBanner.addEventListener("click", function () {
     if (updaterBusy) return;
     updaterBusy = true;
-    els.updateBannerDismiss.hidden = true; // don't let it get dismissed mid-download
+    els.updateBannerDismiss.hidden = true;
     els.updateBannerText.textContent = "Checking for update…";
     window.dyrelog.checkForUpdatesNow();
   });
   els.updateBannerDismiss.addEventListener("click", function (evt) {
-    evt.stopPropagation(); // don't also trigger the banner's own click-to-update
+    evt.stopPropagation();
     updateDismissed = true;
     els.updateBanner.hidden = true;
   });
   window.dyrelog.onUpdateAvailable(showUpdateBanner);
   window.dyrelog.getUpdateInfo().then(showUpdateBanner);
 
-  // sendUpdaterStatus() in main.js now broadcasts to this window too (it
-  // used to only reach Settings), since this banner needs the same
-  // checking/available/downloading/ready/error states Settings shows. The
-  // updaterBusy guard means this window only reacts when ITS OWN click
-  // started the flow — not, say, a check the player ran from an open
-  // Settings window at the same time, which would otherwise make the
-  // banner jump around for no reason the player did in this window.
   window.dyrelog.onUpdaterStatus(function (payload) {
     if (!updaterBusy) return;
     var state = payload && payload.state;
@@ -1600,8 +1036,6 @@
       els.updateBannerText.textContent = "Downloading update… " + Math.round(payload.percent || 0) + "%";
     } else if (state === "ready") {
       els.updateBannerText.textContent = "Update downloaded — relaunching…";
-      // main.js calls autoUpdater.quitAndInstall() itself shortly after
-      // this — nothing else to do here.
     } else if (state === "up-to-date") {
       // Shouldn't normally happen (the banner only shows once the lighter
       // GitHub-poll check already found something newer), but handle it
@@ -1617,25 +1051,16 @@
     }
   });
 
-  // ---- boot ---------------------------------------------------------------
   (async function boot() {
     var loadedSettings = await window.dyrelog.getSettings();
     applySettings(loadedSettings);
-    // Seed from whatever was cached on disk from the last successful fetch
-    // BEFORE applySourceStatus() below builds the real parser state (which
-    // reads the knownBossNames module var at that moment) — this is what
-    // makes the boss list available from literally the first parsed line
-    // on every launch after the first, instead of racing a fresh network
-    // request. See applyKnownBossNames()'s own comment.
     if (loadedSettings.cachedBossNames && loadedSettings.cachedBossNames.length) {
       applyKnownBossNames(bossNamesFromArray(loadedSettings.cachedBossNames));
     }
-    fetchKnownBosses(); // fire-and-forget — refreshes from the network regardless; see its own comment above
+    fetchKnownBosses();
 
     var saved = await window.dyrelog.getSavedSource();
     if (saved && saved.path) {
-      // main.js already started tailing this on app launch (see
-      // createWindow()'s did-finish-load handler) — just reflect it here.
       applySourceStatus({ ok: true, fileName: saved.fileName || (saved.path.split(/[\\/]/).pop()) });
     } else {
       showEmptyState();

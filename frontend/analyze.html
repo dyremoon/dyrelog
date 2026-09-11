@@ -3,9 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Tells the Dark Reader browser extension to leave this page alone
-       entirely instead of repainting an already-dark site — Dark Reader
-       muddying the gold header text/logo (Sept 6) traced back to this. -->
   <meta name="darkreader-lock" />
   <title>Dyrelog — Analyze Log</title>
   <meta name="description" content="Drop an EverQuest Legends combat log into Dyrelog and get a full per-fight, per-combatant breakdown — entirely in your browser, nothing uploaded." />
@@ -51,9 +48,6 @@
         <p class="muted" id="dz-error" style="margin-bottom:0; display:none;"></p>
       </div>
 
-      <!-- Replaces the dropzone once a log is successfully read — "that
-           window goes away and shows a new text that says what log is
-           imported, and then below that is the boss dropdown." -->
       <div class="plate plate-gold" style="margin-bottom:24px;" id="loaded-plate" hidden>
         <div class="analyze-detail-head" style="margin-bottom:4px;">
           <h3 style="margin:0;" id="loaded-title">Log imported</h3>
@@ -64,15 +58,6 @@
       </div>
 
       <div id="results" hidden>
-        <!-- Analysis lives at the TOP of the results, above the (now-removed)
-             fight list — "if i drop a log in and click on a fight, it scrolls
-             me all the way to the bottom to see the analysis, and i dont
-             want that, the analysis should be at the top." The newest fight
-             is selected by default the moment a log is parsed (see
-             handleFile()), so the breakdown is already showing here before
-             you ever touch the boss/kill picker above, and picking a
-             different fight there updates this same panel in place —
-             nothing scrolls. -->
         <div class="plate plate-highlight" id="detail-plate" style="margin-bottom:24px;" hidden>
           <div class="analyze-detail-head">
             <h3 id="detail-title" style="margin:0;"></h3>
@@ -89,7 +74,7 @@
     </main>
 
     <footer class="site-footer">
-      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by 
+      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by
       Daybreak Game Company or EverQuest Legends.
     </footer>
   </div>
@@ -98,26 +83,14 @@
   <script src="./js/app.js"></script>
   <script src="./js/eqp-core.js"></script>
   <script>
-    var encounters = []; // newest-first, see handleFile()/loadFromSubmission()
+    var encounters = [];
     var activeIndex = null;
     var characterName = null;
     var activeDetailTab = 'outgoing';
-    // Fights grouped by boss name (buildBossGroups()), newest-fought boss
-    // first, and the page of that list currently shown — see
-    // renderPickerPlate()/renderBossPagination().
     var bossGroups = [];
     var bossPage = 0;
     var BOSSES_PER_PAGE = 50;
-    // Which per-combatant deep-dive cards are expanded, keyed by
-    // "<encounter index>::<row name>" so re-rendering the same fight
-    // (switching tabs, etc.) doesn't forget what was open, and switching
-    // to a different fight doesn't leak one fight's expanded rows into
-    // another that happens to share a combatant name.
     var expanded = new Set();
-    // "Create a toggle button to combine pets+pet owners into one
-    // analysis" (Sept 6) — off by default (unchanged behavior: a pet keeps
-    // its own row/card). See buildAnalysisRows()'s combinePets parameter
-    // and mergeAbilityArrays() below.
     var combinePets = false;
 
     function esc(s) {
@@ -147,8 +120,6 @@
       var m = Math.floor(sec / 60), s = sec % 60;
       return m + ':' + (s < 10 ? '0' : '') + s;
     }
-    // No zone-in line seen is assumed Base rather than shown as unknown —
-    // matches the desktop overlay's own analysis.js.
     function fmtDifficultyLabel(enc) {
       return enc.difficulty ? EQP_DIFFICULTY_LABELS[enc.difficulty] || enc.difficulty : 'Base';
     }
@@ -165,19 +136,8 @@
       return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + h + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
     }
 
-    // Same rank hues the site's boss-category dots use (--c1..--c8 in
-    // dyrelog.css), reused here so a combatant's accent color in the deep
-    // dive ties back to a color already used elsewhere on the site.
     var RANK_SWATCHES = ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6', '--c7', '--c8'];
 
-    // Combines several already-computed ability arrays (each shaped like
-    // abilitiesArray()'s output in eqp-core.js — name/damage/hits/crits/
-    // misses/casts, plus a .pct that was computed against a DIFFERENT
-    // denominator than the merged result needs) back down to one row per
-    // ability name, with dps/pct recomputed fresh against `denom`. Used by
-    // the "combine pets with owner" toggle below — a render-only merge, no
-    // eqp-core.js change needed, mirroring mergeAbilities()+abilitiesArray()
-    // there but operating on arrays instead of raw tally buckets.
     function mergeAbilityArrays(arrays, dur, denom) {
       var bucket = {};
       (arrays || []).forEach(function (arr) {
@@ -200,16 +160,6 @@
       }).sort(function (a, b) { return b.damage - a.damage; });
     }
 
-    // Same split as the desktop overlay's own Combat Analysis window
-    // (buildAnalysisRows() in analysis.js) — a pet gets its own row here
-    // too, instead of staying folded silently inside its owner's combined
-    // total, and keeps each row's own per-ability breakdown for the deep
-    // dive below. combinePets (item 2, Sept 6 — "a toggle button to combine
-    // pets+pet owners into one analysis") folds each pet's row and
-    // abilities back into its owner's single row instead, using the
-    // OWNER's already-combined damage/hits/crits (c.damage/c.hits/c.crits
-    // in eqp-core.js already include pet contributions) rather than
-    // re-summing self+pet by hand.
     function buildAnalysisRows(rows, totalDamage, duration, combinePets) {
       var out = [];
       (rows || []).forEach(function (r) {
@@ -273,14 +223,6 @@
       return state.encounters;
     }
 
-    // ---- boss dropdown -> inner kill dropdown -------------------------
-
-    // Groups by mob name, preserving newest-fought-first order — encounters
-    // is already newest-first (see handleFile()/loadFromSubmission()), so
-    // the first time a given name is seen while scanning it is that boss's
-    // most recent fight, which is exactly the order groups should appear
-    // in. "not a long list of bosses" — any mob fought groups here, not
-    // just curated raid bosses.
     function buildBossGroups(encs) {
       var byName = {};
       var order = [];
@@ -300,10 +242,6 @@
       return '<div class="boss-pagination">' + buttons + '</div>';
     }
 
-    // "the boss drop down to be at the top with a selection drop down
-    // within that" — the outer dropdown picks a boss (paginated, 50 per
-    // page), the inner one picks which kill of that boss by timestamp, so
-    // repeat kills of the same boss are each still reachable.
     function renderPickerPlate() {
       var wrap = document.getElementById('picker-body');
       if (!encounters.length) {
@@ -317,9 +255,6 @@
 
       var activeBossName = (activeIndex !== null && encounters[activeIndex]) ? (encounters[activeIndex].mobName || 'Unknown') : null;
       var activeGroup = bossGroups.find(function (g) { return g.mobName === activeBossName; });
-      // If the active fight's boss isn't on the current page (e.g. right
-      // after a fresh load, or the page changed), still list it so the
-      // dropdown's selection matches what's actually showing below.
       if (activeGroup && pageGroups.indexOf(activeGroup) === -1) pageGroups = [activeGroup].concat(pageGroups);
 
       var bossOptions = pageGroups.map(function (g) {
@@ -366,12 +301,6 @@
       });
     }
 
-    // ---- fight detail (ported from the overlay's Combat Analysis window) --
-
-    // "id also like to see Peak DPS like this graph does" — reconstructed
-    // from eqp-core.js's per-second timeline (stats.timeline). A short
-    // centered moving average is applied only to what gets drawn; nothing
-    // it touches feeds back into any real total.
     function smoothSeries(values, windowSize) {
       var n = values.length;
       var half = Math.floor(windowSize / 2);
@@ -384,23 +313,6 @@
       return out;
     }
 
-    // mode 'both' (default) is the original Outgoing chart — your own dps
-    // line, plus an incoming line whenever there was any. mode 'in' is the
-    // Incoming tab's own chart (Sept 6 parity pass — "the incoming section
-    // is very lackluster compared to outgoing, add the same tools"): just
-    // the incoming line, peak-labeled the same way, so a fight taken hard
-    // for a few seconds shows up here the same way a burst window does on
-    // Outgoing.
-    // Returns { html, wire(container) } — matches the desktop overlay's
-    // own analysis.js. See its buildDpsChart() for the full reasoning:
-    // chart TEXT (axis numbers, the Peak label) moved off SVG <text> onto
-    // plain HTML overlay elements (position:absolute, in %) because this
-    // chart's viewBox stretches non-uniformly to fill its real on-screen
-    // width, which stretched glyph shapes right along with it — the
-    // "strange font" look on the Peak label. wire() attaches the mouse-
-    // hover readout (item 6 — a small bordered tooltip + guide line
-    // showing your dps/incoming at the hovered point) once the html has
-    // actually been inserted into the page.
     function buildDpsChart(timeline, duration, mode) {
       mode = mode === 'in' ? 'in' : 'both';
       if (!timeline || timeline.length < 2) return null;
@@ -448,14 +360,6 @@
         '<div class="dps-axis-label dps-axis-label-x dps-axis-label-x-end" style="left:' + pctX(W - padR) + '; top:' + pctY(H - 4) + ';">' + fmtDur(duration) + '</div>' +
         '<div class="dps-peak-label" style="left:' + pctX(peakLabelX) + '; top:' + pctY(peakAbove ? peakY - 8 : peakY + 16) + ';">Peak ' + fmtAbbrevNum(peakVal) + peakSuffix + '</div>';
 
-      // .dps-chart-plot holds ONLY the svg plus the overlay/tooltip divs
-      // positioned as a % of W/H above — it has to be exactly the svg's
-      // own box for those percentages to land right. Sept 7 bug: these
-      // used to sit straight inside .dps-chart-wrap, which is taller than
-      // the svg alone (it also holds .dps-chart-legend below it), so "97%
-      // down" meant 97% of wrap+legend combined — pushing "0:00" into the
-      // legend row, which is exactly what read as "Your DPS" sitting on
-      // top of "0:00."
       var html =
         '<div class="dps-chart-wrap">' +
           '<div class="dps-chart-plot">' +
@@ -486,20 +390,13 @@
         function showAt(clientX) {
           var rect = svg.getBoundingClientRect();
           if (!rect.width) return;
-          // clientX -> SVG-unit space (viewBox's 0..W maps 1:1 onto the
-          // element's real screen width thanks to preserveAspectRatio="none"),
-          // THEN normalize against the plot region [padL, W-padR] — not the
-          // full [0, W] box. The plotted line never reaches all the way to
-          // x=0 or x=W (that's what padL/padR are for), so normalizing
-          // against the full box was shifting the hover line to the right of
-          // the actual cursor for most of the chart's width.
           var svgX = (clientX - rect.left) / rect.width * W;
           var rel = Math.max(0, Math.min(1, (svgX - padL) / plotW));
           var idx = Math.round(rel * (n - 1));
           var x = xAt(idx);
           hoverLine.setAttribute('x1', x.toFixed(1));
           hoverLine.setAttribute('x2', x.toFixed(1));
-          hoverLine.removeAttribute('hidden'); // attribute, not the .hidden property
+          hoverLine.removeAttribute('hidden');
           var outV = Math.round(smoothOut[idx]), inV = Math.round(smoothIn[idx]);
           var rows = mode === 'in'
             ? '<div class="tip-row"><span class="tip-dot tip-dot-in"></span>Incoming <b>' + inV + ' dps</b></div>'
@@ -522,11 +419,6 @@
       return { html: '<p class="section-label">DPS over time</p>' + chart.html, wire: chart.wire };
     }
 
-    // A compact at-a-glance list of every distinct target this encounter
-    // actually confirmed (stats.byMob) — only shown once there's more than
-    // one, e.g. an add fought concurrently alongside the main target. A
-    // single-target fight has nothing to break down here; its own header/
-    // stat-chips already say everything this table would.
     function renderMobsFoughtSection(stats) {
       var byMob = stats.byMob || [];
       if (byMob.length <= 1) return '';
@@ -550,17 +442,6 @@
       );
     }
 
-    // "remove the Deep Dive portion, and bake that into the analysis
-    // portion. It seemingly has a lot of double-up information and serves
-    // no purpose. the analysis IS the deep dive." — used to be a plain
-    // summary table here, then a SEPARATE "Deep dive" section further down
-    // repeating the same name/damage/dps/% for each combatant just to add
-    // an expand arrow. Now there's one Combatants section: still a plain
-    // table on a multi-target view (per-ability breakdown isn't reliably
-    // attributable across more than one confirmed mob), but a single-target
-    // view renders those same numbers as expandable cards instead of a
-    // table-plus-cards duplicate, with hits/crits folded into each card's
-    // own header so nothing that used to be in the table is lost.
     function renderCombatantSection(stats) {
       var rows = buildAnalysisRows(stats.rows, stats.totalDamage, stats.duration, combinePets);
       var showPct = rows.length > 1;
@@ -580,25 +461,9 @@
       }).join('');
 
       var byMob = stats.byMob || [];
-      // Always expandable now (Sept 7) — each combatant's own ability array
-      // is already an overall total for THAT COMBATANT regardless of how
-      // many mobs are in view, so there was never a real reason this needed
-      // only one mob in view. See the multi-mob caveat text below, which
-      // replaces the old "not shown" fallback table.
       var canExpand = true;
       var deepDiveMobName = byMob.length === 1 ? byMob[0].name + (byMob[0].generation > 1 ? ' (spawn ' + byMob[0].generation + ')' : '') : null;
-      // Deliberately NOT suffixed by combinePets — an already-expanded card
-      // stays open across the toggle (showing merged vs. split abilities
-      // as appropriate) instead of silently collapsing.
       var viewKey = String(activeIndex);
-      // "Create a toggle button to combine pets+pet owners into one
-      // analysis" — sits in the section header regardless of which layout
-      // (cards vs. plain table) renders below, since either one already
-      // reads combinePets via buildAnalysisRows() above.
-      // Only ever merges a pet EQ's own log names in the "Owner`s <type>"
-      // pattern (warders, wolves, etc.) — a custom-named pet (a necro's
-      // skeleton, say) has no textual link to its owner in the log at all,
-      // so it can't be identified as a pet here and stays a separate row.
       var toggleHtml =
         '<button class="btn-toggle-sm' + (combinePets ? ' active' : '') + '" id="btn-combine-pets" type="button" title="Only merges pets EQ names after their owner (like &quot;Owner`s warder&quot;) — a custom-named pet (e.g. a necro\'s skeleton) can\'t be identified as a pet and stays separate.">' +
           (combinePets ? '&#10003; Pets combined with owners' : 'Combine pets with owners') +
@@ -633,17 +498,6 @@
       );
     }
 
-    // "the incoming section is very lackluster compared to outgoing, add
-    // the same/some same tools from outgoing into incoming" (Sept 6) — an
-    // incoming-only DPS-over-time chart (buildDpsChart's own 'in' mode) and
-    // a Hits column pulled from EQP.computeTakenStats(), which already
-    // tracks per-source hit counts (enc.damageTaken[name].hits) that
-    // simply weren't being shown here before — no engine change needed for
-    // either. What's still deliberately NOT here (no per-ability incoming
-    // breakdown, no incoming crit count) is a real EQ-log-format limit, not
-    // an oversight — see computeTakenStats()'s own comment in eqp-core.js:
-    // an incoming hit only ever tells you which MOB dealt it, never which
-    // spell/swing type, so there's nothing to break a table down BY.
     function renderIncomingChartSection(stats) {
       var chart = buildDpsChart(stats.timeline, stats.duration, 'in');
       if (!chart) return { html: '', wire: null };
@@ -691,11 +545,6 @@
       );
     }
 
-    // "it also has an incoming tab, i like that" — damage taken during
-    // this fight, plus healing received. See the chart/breakdown functions
-    // above for the Sept 6 parity pass, and renderIncomingTab() in the
-    // overlay's analysis.js for the full reasoning behind the
-    // "Unattributed (spell/DoT)" row.
     function renderIncomingTab(enc, stats) {
       var taken = EQP.computeTakenStats(enc);
       var dur = Math.max(stats.duration || 0, 1);
@@ -713,13 +562,6 @@
       return { html: html, wire: chartSection.wire };
     }
 
-    // "I want a procs window like this" — your own passive/triggered
-    // abilities (weapon procs, defensive procs, aggro procs), with a
-    // procs-per-minute rate instead of damage/dps. Told apart from an
-    // actively-cast spell by "did this ability ever appear as one of your
-    // own cast-start lines" (a.casts === 0) — only ever meaningful for the
-    // "You" row, since EQ's log only ever shows a cast-start line for the
-    // log owner's own casts.
     var MELEE_BUCKET_NAMES = {
       Melee: true, 'Non-melee': true, 'Unnamed DoT tick': true,
       Slash: true, Pierce: true, Crush: true, Claw: true, Bite: true,
@@ -728,8 +570,6 @@
       Shoot: true, Burn: true, Gouge: true, Cleave: true, Backstab: true,
       Strike: true
     };
-    // Richer proc details (damage/dps/%), not just ppm — matches the
-    // desktop overlay's own analysis.js.
     function renderProcsSection(stats) {
       var youRow = (stats.rows || []).find(function (r) { return r.name === 'You'; });
       if (!youRow) return '';
@@ -742,8 +582,6 @@
       var durMin = dur / 60;
       var totalHits = procs.reduce(function (sum, a) { return sum + a.hits; }, 0);
       var totalDamage = procs.reduce(function (sum, a) { return sum + a.damage; }, 0);
-      // a.pct is already computed against your own (non-pet) damage — see
-      // abilitiesArray() in eqp-core.js — matching the desktop overlay.
       var rowsHtml = procs.map(function (a) {
         return (
           '<div class="proc-row">' +
@@ -766,16 +604,6 @@
       );
     }
 
-    // Everyone's spells, kept separate per combatant (Sept 6 — "if
-    // multiple users pierce/kick/backstab/use the same ability, those get
-    // separated in their own line") instead of the old abilitiesTotal,
-    // which silently merged e.g. every combatant's "Slash" into one row
-    // with no way to tell who actually swung it. Sourced from eqp-core.js's
-    // abilitiesByCombatant (owner/label/isPet per raw entry, pct already
-    // against enc.totalDamage) — grouped here by display entity (label, or
-    // owner when combinePets folds a pet's lines into its owner) + ability
-    // name, re-summed and re-computed against the SAME denominator so the
-    // combine toggle never has to touch eqp-core.js itself.
     function buildTeamAbilityRows(abilitiesByCombatant, combinePets, dur, totalDamage) {
       var bucket = {};
       (abilitiesByCombatant || []).forEach(function (a) {
@@ -828,12 +656,6 @@
       );
     }
 
-    // "The bottom 'Damage by Ability' needs renaming/rebranding to explain
-    // that its the full teams' breakdown" (Sept 6) — was
-    // renderAbilitiesTotalSection()/abilitiesTotal, which read exactly like
-    // one combatant's own breakdown at a glance. Respects the same
-    // combinePets toggle as the Combatants section above, via
-    // buildTeamAbilityRows().
     function renderTeamAbilitySection(stats, combinePets) {
       var rows = buildTeamAbilityRows(stats.abilitiesByCombatant, combinePets, stats.duration, stats.totalDamage);
       if (!rows.length) return '';
@@ -844,15 +666,6 @@
       );
     }
 
-    // Ability/Hits/Damage done/% of dmg/DPS/Crits/Misses — the % column
-    // (Sept 6 — "we need a column for % damage done per spell in the deep
-    // dive") was already being computed everywhere (abilitiesArray()'s
-    // .pct in eqp-core.js) but never actually rendered here; this is a
-    // render-only addition, no engine change needed. Reused for a single
-    // combatant's own deep dive AND a pet's (denom is already whichever
-    // one's own total damage eqp-core.js used when it built that specific
-    // abilities[] array), so "40%" always reads as "40% of THIS row's own
-    // damage," never the raid's.
     function renderAbilityTable(abilities) {
       if (!abilities || !abilities.length) return '<p class="muted">No ability breakdown yet.</p>';
       var maxDmg = abilities[0].damage || 0;
@@ -898,13 +711,6 @@
       );
     }
 
-    // "The layout of the analysis screen is very colored one-note. We need
-    // borders around new sections... For each new section, make it its own
-    // border" (Sept 6) — wraps a section's already-rendered HTML in its own
-    // bordered card with a themed left accent (see .analysis-section* in
-    // dyrelog.css). Returns '' unchanged when the section itself rendered
-    // nothing (no healing this fight, no procs, etc.) so an empty section
-    // never shows up as a bare empty box.
     function wrapSection(html, themeClass) {
       if (!html) return '';
       return '<div class="analysis-section ' + themeClass + '">' + html + '</div>';
@@ -978,16 +784,12 @@
       if (dpsChartSection.wire) dpsChartSection.wire(detailBody);
     }
 
-    // Shared finish-up for both a dropped file and a loaded submission —
-    // builds the boss groups, resets picker/detail state to the newest
-    // fight, and swaps the dropzone plate out for the "log imported" +
-    // picker plate. sourceLabel is the loaded-summary line's lead-in text.
     function finishLoad(sourceLabel) {
       bossGroups = buildBossGroups(encounters);
       bossPage = 0;
       expanded.clear();
       activeDetailTab = 'outgoing';
-      activeIndex = encounters.length ? 0 : null; // the newest fight
+      activeIndex = encounters.length ? 0 : null;
       document.getElementById('upload-plate').hidden = true;
       document.getElementById('loaded-plate').hidden = false;
       document.getElementById('loaded-summary').textContent = encounters.length
@@ -1006,12 +808,6 @@
       reader.onload = function () {
         try {
           characterName = parseCharacterFromFilename(file.name);
-          // Newest-first — "the sorting of the logs is backwards, it has
-          // the oldest fights at the top and most recent at the bottom."
-          // EQP.newState()'s encounters array is built oldest-first as the
-          // log is read top to bottom, so this just reverses the finished
-          // array once, up front, and every render/index downstream stays
-          // consistent with it.
           encounters = parseLogText(String(reader.result), characterName).slice().reverse();
           document.getElementById('loaded-title').textContent = 'Log imported: ' + file.name;
           finishLoad('Imported ' + file.name);
@@ -1055,13 +851,6 @@
       showError('');
     });
 
-    // "have the option to click on the parse in your personal history to
-    // analyze it, it will open that parse in the analyze log window" —
-    // profile.html links here as analyze.html?submissionId=123&name=You.
-    // Reuses the exact same client-side parse/render path as a dropped
-    // file: the server hands back that submission's own original raw log
-    // text (owner-only, see /api/me/submissions/:id/log), and everything
-    // after that is identical to handleFile() above.
     function loadFromSubmission(submissionId, name) {
       characterName = name || null;
       document.getElementById('dz-title').textContent = 'Loading your parse…';

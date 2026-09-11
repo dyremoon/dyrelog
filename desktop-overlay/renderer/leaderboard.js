@@ -1,16 +1,3 @@
-// Leaderboards window — a thin read-only view of the same public API the
-// website uses (GET /api/bosses, GET /api/bosses/:id/leaderboard, GET
-// /api/leaderboard/highlights). The worker's CORS already allows this: it
-// explicitly treats a null Origin (what a file:// page like this one
-// sends) the same as the website's own origin — see corsOrigin() in
-// worker/src/index.js, added originally for the browser overlay, which is
-// also opened as a local file.
-//
-// "We should redesign the leaderboards tab in the overlay to be more like
-// the website" — same two-panel shape as frontend/index.html now: a top
-// D4-highlights panel, then a boss picker (a dropdown here, not the old
-// left-side tab list) whose selection loads that boss's own leaderboard
-// inline below it.
 (function () {
   "use strict";
 
@@ -26,6 +13,12 @@
   var fightRequest = 0;
   var personalSort = { key: 'dps', dir: -1 };
   var boardSort = { key: 'dps', dir: -1 };
+  var boardDifficulty = '';
+  function difficultyColumnFilter() {
+    return '<select class="column-difficulty" aria-label="Filter by difficulty">' + ['', 'D0', 'D1', 'D2', 'D3', 'D4'].map(function (value) {
+      return '<option value="' + value + '"' + (value === boardDifficulty ? ' selected' : '') + '>' + (value || 'All difficulties') + '</option>';
+    }).join('') + '</select>';
+  }
   function sortRows(rows, key, dir) { return rows.slice().sort(function (a, b) { var av = key === 'difficulty' ? Number((a.difficulty || 'D0').slice(1)) : key === 'character' ? String(a.character_name || a.name).toLowerCase() : key === 'name' ? String(a.name || '').toLowerCase() : key === 'date' ? Number(a.startTime || a.start_time || 0) : key === 'visibility' ? String(a.sortVisibility || a.visibility || '').toLowerCase() : key === 'review' ? String(a.sortReview || a.status || '').toLowerCase() : Number(a[key] || 0); var bv = key === 'difficulty' ? Number((b.difficulty || 'D0').slice(1)) : key === 'character' ? String(b.character_name || b.name).toLowerCase() : key === 'name' ? String(b.name || '').toLowerCase() : key === 'date' ? Number(b.startTime || b.start_time || 0) : key === 'visibility' ? String(b.sortVisibility || b.visibility || '').toLowerCase() : key === 'review' ? String(b.sortReview || b.status || '').toLowerCase() : Number(b[key] || 0); return typeof av === 'string' ? av.localeCompare(bv) * dir : (av - bv) * dir; }); }
   function sortHeader(label, key, state) { return '<button class="table-sort" data-sort-key="' + key + '">' + label + (state.key === key ? (state.dir < 0 ? ' ↓' : ' ↑') : '') + '</button>'; }
 
@@ -46,22 +39,14 @@
     return b.name + ' (' + count.toLocaleString() + ')';
   }
 
-  // One "open website" button, not two — it goes to whatever boss is
-  // currently selected (if any), or the site's leaderboards home when
-  // nothing's selected yet. See selectBoss() for the label/target update.
   document.getElementById("btn-open-site").addEventListener("click", function () {
     window.dyrelog.openExternal(selectedId ? SITE_BASE + "/boss.html?id=" + selectedId : SITE_BASE);
   });
 
-  // Item 5 — "inside of the Leaderboards overlay, I want a link to
-  // 'submission settings'." Jumps Settings straight to the Options tab
-  // (Account + Leaderboard submission live there) instead of the default
-  // Appearance tab — see openSettings()'s tab argument in preload.js.
   document.getElementById("btn-submission-settings").addEventListener("click", function () {
     window.dyrelog.openSettings("options");
   });
 
-  // ---- Highlights panel: top 10 parses across every difficulty and boss -------------
   async function loadHighlights() {
     var el = document.getElementById("highlights-list");
     try {
@@ -92,12 +77,6 @@
     }
   }
 
-  // ---- Boss picker (dropdown) + selected boss's leaderboard -------------
-  // Grouped by category the same way frontend/index.html's own boss picker
-  // is (see loadBossPicker() there) — this window used to just dump every
-  // boss into one flat list, which is what didn't match the website.
-  // <optgroup> keeps a raid's tiers together; "Dungeons" (bosses with no
-  // category) sorts last, same as the website.
   function renderBossPicker() {
     var picker = document.getElementById("boss-picker");
     if (!bosses.length) {
@@ -145,9 +124,6 @@
       if (generation === bossRequest) detailEl.innerHTML = '<p class="muted">Can’t reach the leaderboard API right now.</p>';
     }
   }
-  // The one open-website button's label/target follows whatever's
-  // selected — see the click handler above. No separate per-boss button
-  // duplicating it in the detail pane anymore.
   function updateOpenSiteButton() {
     var btn = document.getElementById("btn-open-site");
     var boss = selectedId && bossesById[selectedId];
@@ -157,38 +133,32 @@
   function renderBossDetail(boss, parses) {
     var detail = document.getElementById('boss-detail');
     detail.innerHTML = '<h3>' + esc(boss.name) + '</h3>' +
-      '<div class="lb-picker-row"><fieldset id="difficulty-filter" class="difficulty-checks"><legend>Difficulty</legend>' +
-      '<label><input id="difficulty-all" type="checkbox" checked> All</label>' +
-      ['D0', 'D1', 'D2', 'D3', 'D4'].map(d => '<label><input type="checkbox" value="' + d + '" checked> ' + d + '</label>').join('') + '</fieldset>' +
+      '<div class="lb-picker-row">' +
       '<label for="board-sort">Sort</label><select id="board-sort"><option value="dps">Highest DPS</option><option value="difficulty">Difficulty: D4 to D0</option></select></div>' +
       '<p class="muted">Best parses per character and difficulty; up to 50 entries per boss tier.</p><div id="board-rows"></div>';
     function update() {
-      var difficulties = Array.from(document.getElementById('difficulty-filter').querySelectorAll('input[type="checkbox"]:checked'), input => input.value).filter(value => value !== 'on');
+      var difficulties = boardDifficulty ? [boardDifficulty] : ['D0', 'D1', 'D2', 'D3', 'D4'];
       var rows = BossBrowser.rankRows(parses, difficulties, document.getElementById('board-sort').value || 'dps');
-      document.getElementById('board-rows').innerHTML = difficulties.length ? renderFightRows(rows, true) : '<p class="muted">Select at least one difficulty to show parses.</p>';
+      document.getElementById('board-rows').innerHTML = renderFightRows(rows, true);
+      document.querySelector('#board-rows .column-difficulty').addEventListener('change', function (event) { boardDifficulty = event.target.value; update(); });
       document.getElementById('board-rows').querySelectorAll('[data-sort-key]').forEach(function (button) { button.addEventListener('click', function () { var key = button.dataset.sortKey; if (boardSort.key === key) boardSort.dir *= -1; else { boardSort.key = key; boardSort.dir = 1; } update(); }); });
     }
-    document.getElementById('difficulty-filter').addEventListener('change', function (event) {
-      var all = document.getElementById('difficulty-all');
-      var boxes = Array.from(document.getElementById('difficulty-filter').querySelectorAll('input[value]'));
-      if (event.target === all) boxes.forEach(function (box) { box.checked = all.checked; });
-      else all.checked = boxes.every(function (box) { return box.checked; });
-      update();
+    document.getElementById('board-sort').addEventListener('change', function (event) {
+      boardSort.key = event.target.value; boardSort.dir = -1; update();
     });
-    document.getElementById('board-sort').addEventListener('change', update);
     update();
   }
 
   function renderFightRows(rows, showDifficulty) {
-    if (!rows.length) return '<p class="muted">No public verified parses for this selection.</p>';
+    if (!rows.length && !showDifficulty) return '<p class="muted">No public verified parses for this selection.</p>';
     var state = boardSort;
     rows = sortRows(rows, state.key, state.dir);
-    return '<table><thead><tr><th>#</th><th>' + sortHeader('Character', 'character', state) + '</th><th>Class</th>' + (showDifficulty ? '<th>' + sortHeader('Difficulty', 'difficulty', state) + '</th>' : '') +
+    return '<table><thead><tr><th>#</th><th>' + sortHeader('Character', 'character', state) + '</th><th>Class</th>' + (showDifficulty ? '<th>' + sortHeader('Difficulty', 'difficulty', state) + difficultyColumnFilter() + '</th>' : '') +
       '<th>' + sortHeader('DPS', 'dps', state) + '</th><th>' + sortHeader('Damage', 'damage', state) + '</th><th></th></tr></thead><tbody>' + rows.map(function (p, i) {
         return '<tr><td>' + (i + 1) + '</td><td>' + esc(p.character_name) + ' <span class="muted">(' + esc(p.realm) + ')</span></td><td>' + esc(p.class_combo || '—') + '</td>' +
           (showDifficulty ? '<td>' + esc(p.difficulty || 'D0') + '</td>' : '') + '<td>' + fmtNum(p.dps) + '</td><td>' + fmtNum(p.damage) + '</td><td>' +
           (showDifficulty ? '<button class="view-lb-link" data-encounter-id="' + Number(p.encounter_id) + '">Analyze</button>' : '') + '</td></tr>';
-      }).join('') + '</tbody></table>';
+      }).join('') + (rows.length ? '' : '<tr><td colspan="7" class="muted">No public verified parses for this difficulty.</td></tr>') + '</tbody></table>';
   }
 
   async function openFight(id) {
@@ -240,10 +210,6 @@
         if (picker.value) selectBoss(picker.value);
       });
       if (bosses.length) {
-        // Same "default to whichever boss has the most tracked parses"
-        // change as the website's picker (see handleBossList()'s
-        // entrant_count in worker/src/leaderboard.js), not just whichever
-        // boss sorts first alphabetically.
         var defaultBoss = bosses.reduce(function (best, b) {
           var count = Number(b.entrant_count) || 0;
           var bestCount = best ? (Number(best.entrant_count) || 0) : -1;
@@ -261,15 +227,6 @@
     }
   }
 
-  // ---- "My Kills" tab: personal best-per-boss, built entirely from local
-  // history --------------------------------------------------------------
-  // There's no way to fetch a real "your private submissions" list here —
-  // Discord login was never wired up in this app (see app.js), so nothing
-  // has ever actually been submitted to the server from it. What DOES
-  // exist locally is every fight the mini-mode window has tracked, kept
-  // across restarts (see loadHistory()/saveHistory() in main.js) — this
-  // reduces that same history down to one best-DPS-parse row per boss
-  // you've killed, exactly like a personal leaderboard, entirely offline.
   var latestState = { encounters: [], characterName: null };
   var submissionRows = null;
   var refreshGeneration = 0;
@@ -301,22 +258,12 @@
     renderPersonalList();
   }
 
-  // Only real bosses (the curated list `load()` fetches below) belong on
-  // "My Kills" — every regular trash mob you've killed was showing up here
-  // too before, since this used to key off ANY tracked encounter. Exact-
-  // match on mobName, same convention as app.js's own isKnownBoss() gating
-  // the Submit prompt. Left null until the boss list actually loads so a
-  // slow/failed fetch briefly shows everything rather than wrongly hiding
-  // real bosses — this list is read-only and re-renders once bosses arrive,
-  // so a brief over-show here is just a flicker, not a wrong Submit.
   var bossNames = null;
-  // Same "+N" tier-suffix normalization as app.js's isKnownBoss() — see
-  // its comment there ("I'm in a +4").
   function stripTierSuffix(name) {
     return name ? name.replace(/\s*\+\d+\s*$/, "") : name;
   }
   function isKnownBoss(mobName) {
-    if (!bossNames) return true; // bosses haven't loaded (or failed) — don't hide everything yet
+    if (!bossNames) return true;
     return !!findBossByName(mobName);
   }
 
@@ -325,7 +272,7 @@
     (encounters || []).forEach(function (enc) {
       if (!enc.mobKilled) return; // only kills count, same as the public boards
       var name = enc.mobName || "Unknown";
-      if (!isKnownBoss(name)) return; // trash mob — not on the curated boss list
+      if (!isKnownBoss(name)) return;
       var stats = EQP.computeStats(enc);
       var youRow = (stats.rows || []).find(function (r) { return r.name === "You"; });
       if (!youRow) return;
@@ -336,9 +283,6 @@
         bestByBoss[bestKey] = {
           name: name, dps: youRow.dps, damage: youRow.damage, startTime: enc.startTime,
           difficulty: difficulty,
-          // Written by main.js's recordSubmission() once a submit actually
-          // resolves — see performSubmit()'s result there. Absent (null)
-          // until then, which reads the same as "not public" below.
           submissionId: enc.submissionId || null,
           status: enc.submissionStatus || null,
           visibility: enc.submissionVisibility || null
@@ -350,10 +294,6 @@
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
   }
 
-  // "I want a button in 'My kills' to view that boss on the public
-  // leaderboards." Matches on the same exact-or-tier-stripped name as
-  // isKnownBoss() above, since a "My Kills" row's name can still carry a
-  // "+N" suffix the curated bosses list itself doesn't.
   function findBossByName(name) {
     if (!name || !bosses.length) return null;
     var stripped = stripTierSuffix(name);
@@ -363,8 +303,6 @@
     return null;
   }
 
-  // Switches to the Public Leaderboards tab already scoped to one boss —
-  // same tab-toggle bookkeeping the lbTabs click handler below does.
   function viewBossOnPublicLeaderboard(bossId) {
     var tabBtn = lbTabs.querySelector('.detail-tab[data-view="public"]');
     Array.prototype.forEach.call(lbTabs.querySelectorAll(".detail-tab"), function (b) {
@@ -377,17 +315,6 @@
     selectBoss(bossId);
   }
 
-  // "I want the 'view on leaderboard' to only appear if there is a public
-  // log of it. Then that link takes the user to the log in the public log.
-  // Secondly, I want a link to the bosses leaderboard if you click the
-  // boss's name. I also don't want the bosses name to be 'xyz D4' I want it
-  // to be 'xyz' then with a column called difficulty." Three separate
-  // changes below: (1) name/difficulty split into two columns, (2) the boss
-  // NAME is now always a link (when matched) straight to that boss's public
-  // leaderboard, regardless of this particular kill's own status, (3) the
-  // old "View on leaderboard" button only shows once this exact kill is
-  // actually verified+public, and now opens that exact log on the website
-  // instead of just the boss's leaderboard.
   function renderPersonalList() {
     var el = document.getElementById("personal-list");
     var bests = buildPersonalBests(latestState.encounters);
@@ -475,9 +402,6 @@
   window.addEventListener('focus', scheduleStatusRefresh);
   setInterval(function () { if (!document.hidden && !personalBody.hidden) scheduleStatusRefresh(); }, 30000);
 
-  // Settings > Theme — same fix as the Analysis window (see analysis.js):
-  // this window shares analysis.css's palettes but was never told which
-  // one to apply.
   var THEME_NAMES = ["blue", "brass", "druidic", "magical", "girly", "hardcore", "metal"];
   function applyTheme(s) {
     if (!s) return;

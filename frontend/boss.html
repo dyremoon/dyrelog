@@ -42,7 +42,7 @@
     </main>
 
     <footer class="site-footer">
-      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by 
+      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by
       Daybreak Game Company or EverQuest Legends.
     </footer>
   </div>
@@ -65,9 +65,6 @@
           (boss.zone || '') + (boss.zone ? ' · ' : '') + fmtDifficulty(boss.difficulty) +
           (boss.category ? ' · ' + boss.category : '');
 
-        // Both optional — a boss with neither just shows the plain header it
-        // always has. wiki_url/image_url come from worker/seed/bosses_voidling_and_sky.sql;
-        // nobody's supplied portraits yet, so image_url is null for now.
         const wikiLink = document.getElementById('boss-wiki-link');
         if (boss.wiki_url) {
           wikiLink.href = boss.wiki_url;

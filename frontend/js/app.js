@@ -20,12 +20,6 @@ async function renderAuthNav() {
   const slot = document.getElementById('auth-slot');
   if (!slot) return;
   try {
-    // "Review queue" used to live here too, but it only ever applies to one
-    // admin account — it now lives inside profile.html instead, so the nav
-    // itself stays the same for everyone. See loadAdminSection() there.
-    // Log out lives on profile.html now too ("remove the log out button
-    // from the headers completely and just embed that into the My Profile
-    // section") — the header's own job is just getting you there.
     const { user } = await api('/api/me');
     slot.innerHTML = user
       ? `<a href="./profile.html">My Profile (${capitalizeName(user.username)})</a>`
@@ -38,9 +32,6 @@ async function renderAuthNav() {
   }
 }
 
-// Discord usernames come back all-lowercase — just capitalize the first
-// letter for display, don't touch the underlying value anywhere it's used
-// for lookups/URLs.
 function capitalizeName(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
@@ -64,10 +55,6 @@ function fmtDifficulty(difficulty) {
   return difficulty ? (DIFFICULTY_LABELS[difficulty] || difficulty) : 'Base';
 }
 
-// Same 16-class list as desktop-overlay/renderer/settings.js's EQ_CLASSES —
-// kept here too since this is a separate static site with no shared build
-// step. Used by profile.html's class picker (see "on the website you can
-// manually edit your classes... it needs to be selectable" — no free text).
 const EQ_CLASSES = [
   'Berserker', 'Warrior', 'Cleric', 'Bard', 'Paladin', 'Necromancer',
   'Ranger', 'Druid', 'Monk', 'Beastlord', 'Magician', 'Shaman',
@@ -113,14 +100,6 @@ function renderSiteFooter() {
   loadFooterVersion();
 }
 
-// Shows the current overlay release version in the footer, on every page
-// (the footer is this one shared component). Fetched client-side from the
-// same public GitHub Releases endpoint the desktop overlay's own update
-// check already uses (see desktop-overlay/main.js's checkForUpdates/
-// UPDATE_CHECK_URL) rather than hand-maintaining a version number here.
-// Same "quietly skip" handling as that update check on any failure — no
-// releases published yet, offline, rate-limited — since a missing version
-// number in the footer is cosmetic, never worth surfacing as an error.
 async function loadFooterVersion() {
   const slot = document.getElementById('footer-version');
   if (!slot) return;
