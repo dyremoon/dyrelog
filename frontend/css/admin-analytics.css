@@ -1,0 +1,17 @@
+#admin-analytics { margin-bottom: 24px; }
+.analytics-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+.analytics-card { border: 1px solid #66543c; padding: 16px; border-radius: 4px; }
+.analytics-card strong { display: block; font-size: 1.8rem; color: #e4c48a; }
+.analytics-card span { font-size: .85rem; }
+.analytics-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px; }
+.analytics-bars { height: 150px; display: flex; align-items: end; gap: 3px; border-bottom: 1px solid #66543c; }
+.analytics-bar { flex: 1; min-width: 0; background: #ba975d; }
+.analytics-download-bar { background: #709d9c; }
+.analytics-axis { display: flex; justify-content: space-between; font-size: .75rem; margin-top: 6px; }
+.analytics-version { display: grid; grid-template-columns: 100px 1fr 110px; align-items: center; gap: 12px; margin: 12px 0; }
+.analytics-version meter { width: 100%; }
+.analytics-table { overflow-x: auto; margin-top: 24px; }
+@media (max-width: 600px) {
+  .analytics-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analytics-version { grid-template-columns: 70px 1fr 85px; gap: 6px; font-size: .85rem; }
+}

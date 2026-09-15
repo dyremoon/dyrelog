@@ -343,6 +343,46 @@ table tbody tr:hover { background: var(--surface-2); }
   resize: vertical;
 }
 .bio-textarea:focus { outline: none; border-color: var(--gold); }
+
+.review-note-input {
+  display: block;
+  width: 100%;
+  min-width: 220px;
+  max-width: 320px;
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--hair-strong);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  resize: vertical;
+}
+.review-note-input:focus { outline: none; border-color: var(--gold); }
+.review-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Personal history / My Kills — the admin's typed reason for a review
+   decision, shown under the status badge. Never present unless an admin
+   actually left one. */
+.review-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  max-width: 260px;
+}
+
+/* Target of a ?submissionId= deep link (e.g. clicked from the overlay's
+   "Denied" status) — scrolled into view and briefly highlighted so it's
+   obvious which row the link meant. */
+.row-highlight { animation: dyrelog-row-highlight 2.4s ease-out; }
+@keyframes dyrelog-row-highlight {
+  0% { background-color: var(--gold); }
+  100% { background-color: transparent; }
+}
 .bio-row {
   display: flex;
   justify-content: space-between;

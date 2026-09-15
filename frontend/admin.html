@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dyrelog — Review Queue</title>
+  <meta name="darkreader-lock" />
+  <title>Dyrelog — Admin Dashboard</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="./css/dyrelog.css" />
+  <link rel="stylesheet" href="./css/admin-analytics.css" />
   <link rel="icon" type="image/png" href="./assets/favicon-32.png" />
   <link rel="apple-touch-icon" href="./assets/logo-180.png" />
 </head>
@@ -19,34 +21,68 @@
         <a href="./about.html">About</a>
         <a href="./download.html">Download Dyrelog</a>
         <span id="auth-slot"></span>
+        <a href="./admin.html" id="nav-admin-link" class="active" hidden>Admin</a>
       </nav>
     </header>
 
     <main>
-      <div class="plate">
-        <h2>Review queue</h2>
-          <p class="muted">
-          Submissions that didn't auto-post:<br><br>
+      <div class="analyze-detail-head" style="margin-bottom:2px;">
+        <h1 style="margin:0;">Admin</h1>
+      </div>
+      <p class="muted" style="margin:0 0 16px;">Visible only to admins.</p>
 
-          <strong>pending_review</strong> means the account is currently restricted, so
-          check numbers and approve if it looks right.<br><br>
-          
-          <strong>flagged</strong> means one of the anti-cheat checks tripped on this
-          fight itself, read the reason before approving.
-        </p>
-        <div id="queue"><p class="muted">Loading…</p></div>
+      <div class="detail-tabs" id="admin-tabs">
+        <button class="detail-tab active" data-tab="analytics" type="button">Analytics</button>
+        <button class="detail-tab" data-tab="queue" type="button">Review queue</button>
+      </div>
+
+      <div class="admin-panel" data-panel="analytics">
+        <section class="plate plate-gold" id="admin-analytics" hidden aria-labelledby="analytics-title">
+          <h2 id="analytics-title">Application analytics</h2>
+          <p class="muted">Daily Active Installs · Participating installations only · UTC calendar days. These counts do not represent all installations or unique people.</p>
+          <button class="btn btn-brass" id="analytics-refresh" type="button">Refresh analytics</button>
+          <p id="analytics-status" role="status"></p>
+          <div id="analytics-content"></div>
+        </section>
+      </div>
+
+      <div class="admin-panel" data-panel="queue" hidden>
+        <div class="plate">
+          <h2>Review queue</h2>
+            <p class="muted">
+            Submissions that didn't auto-post:<br><br>
+
+            <strong>pending_review</strong> means the account is currently restricted, so
+            check numbers and approve if it looks right.<br><br>
+
+            <strong>flagged</strong> means one of the anti-cheat checks tripped on this
+            fight itself, read the reason before approving.
+          </p>
+          <div id="queue"><p class="muted">Loading…</p></div>
+        </div>
       </div>
     </main>
 
     <footer class="site-footer">
-      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by 
+      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by
       Daybreak Game Company or EverQuest Legends.
     </footer>
   </div>
 
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
+  <script src="./js/admin-analytics.js"></script>
   <script>
+    // Tabs just toggle which panel is visible — each panel still gates its
+    // own content on isAdmin/API errors independently (see admin-analytics.js
+    // and loadQueue() below), this is purely a display switch.
+    document.querySelectorAll('#admin-tabs .detail-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#admin-tabs .detail-tab').forEach((b) => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.admin-panel').forEach((p) => { p.hidden = p.dataset.panel !== btn.dataset.tab; });
+      });
+    });
+
     const REASON_LABELS = {
       duplicate_content_hash: 'Duplicate of an existing submission',
       hits_too_fast: 'Hits landed faster than physically possible',
@@ -89,15 +125,18 @@
                 (it) => `
               <tr data-submission-id="${it.submissionId}" data-user-id="${it.userId}">
                 <td class="muted">${fmtDate(it.submittedAt)}</td>
-                <td>${it.characterName} <span class="muted">(${it.username})</span></td>
-                <td>${it.bossName || '—'} <span class="muted">${fmtDifficulty(it.difficulty)}</span></td>
+                <td>${esc(it.characterName)} <span class="muted">(${esc(it.username)})</span></td>
+                <td>${esc(it.bossName) || '—'} <span class="muted">${esc(fmtDifficulty(it.difficulty))}</span></td>
                 <td class="num">${it.totalDamage != null ? fmtNumber(it.totalDamage) : '—'}</td>
-                <td><span class="badge ${it.status === 'flagged' ? 'badge-bad' : 'badge-warn'}">${it.status}</span></td>
-                <td class="muted">${it.reasons.length ? it.reasons.map(labelReason).join('; ') : '—'}</td>
+                <td><span class="badge ${it.status === 'flagged' ? 'badge-bad' : 'badge-warn'}">${esc(it.status)}</span></td>
+                <td class="muted">${it.reasons.length ? esc(it.reasons.map(labelReason).join('; ')) : '—'}</td>
                 <td>
-                  <button class="btn approve-btn" type="button">Approve</button>
-                  <button class="btn reject-btn" type="button">Reject</button>
-                  <button class="btn restore-btn" type="button" title="Clear this account's restricted flag so future clean fights auto-post again">Restore privilege</button>
+                  <textarea class="review-note-input" rows="2" maxlength="2000" placeholder="Optional note — shown to the player on the website (never in the overlay)"></textarea>
+                  <div class="review-actions">
+                    <button class="btn approve-btn" type="button">Approve</button>
+                    <button class="btn reject-btn" type="button">Reject</button>
+                    <button class="btn restore-btn" type="button" title="Clear this account's restricted flag so future clean fights auto-post again">Restore privilege</button>
+                  </div>
                 </td>
               </tr>`
               )
@@ -110,16 +149,21 @@
         btn.addEventListener('click', async () => {
           const row = btn.closest('tr');
           const id = row.dataset.submissionId;
-          btn.disabled = true;
+          const noteInput = row.querySelector('.review-note-input');
+          const note = noteInput ? noteInput.value.trim() : '';
+          const action = btn.classList.contains('approve-btn') ? 'approve' : 'reject';
+          row.querySelectorAll('.approve-btn, .reject-btn, .restore-btn').forEach((b) => (b.disabled = true));
+          if (noteInput) noteInput.disabled = true;
           try {
             await api(`/api/admin/submissions/${id}/review`, {
               method: 'POST',
-              body: JSON.stringify({ action: btn.classList.contains('approve-btn') ? 'approve' : 'reject' }),
+              body: JSON.stringify(note ? { action, note } : { action }),
             });
             row.remove();
           } catch (err) {
             alert("Couldn't update that submission: " + err.message);
-            btn.disabled = false;
+            row.querySelectorAll('.approve-btn, .reject-btn, .restore-btn').forEach((b) => (b.disabled = false));
+            if (noteInput) noteInput.disabled = false;
           }
         });
       });
@@ -143,6 +187,5 @@
 
     loadQueue();
   </script>
-  <footer class="site-footer"></footer>
 </body>
 </html>

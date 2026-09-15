@@ -20,30 +20,13 @@
         <a href="./about.html">About</a>
         <a href="./download.html">Download Dyrelog</a>
         <span id="auth-slot"></span>
+        <a href="./admin.html" id="nav-admin-link" hidden>Admin</a>
       </nav>
     </header>
 
 <main style="padding-top:12px;">
 
-  <div
-    class="plate plate-highlight"
-    id="admin-section"
-    hidden
-    style="margin-top:0; margin-bottom:20px; padding:14px 18px !important; min-height:0 !important; height:auto !important;"
-  >
-    <h3 style="margin:0 0 6px 0;">Moderation</h3>
-
-    <p
-      class="muted"
-      style="margin:0 0 10px 0; font-size:0.9rem;"
-    >
-      Visible only to you as an admin.
-    </p>
-
-    <a class="btn" href="./admin.html">Open review queue</a>
-  </div>
-
-  <div class="plate plate-gold" style="margin-top:24px; margin-bottom:20px;">
+  <div class="plate plate-gold" style="margin-top:0; margin-bottom:20px;">
     <div class="analyze-detail-head">
       <h2 style="margin:0;">My Profile</h2>
       <button class="btn" id="logout-btn" type="button" hidden>Log out</button>
@@ -179,8 +162,7 @@
     async function loadProfile() {
       const listEl = document.getElementById('char-list');
       try {
-        const { user, characters, isAdmin } = await api('/api/me');
-        if (isAdmin) document.getElementById('admin-section').hidden = false;
+        const { user, characters } = await api('/api/me');
         if (user) {
           document.getElementById('profile-username').textContent = capitalizeName(user.username);
           document.getElementById('logout-btn').hidden = false;
@@ -204,10 +186,10 @@
                 .map(
                   (c) => `
                 <tr data-char-id="${c.id}">
-                  <td>${c.character_name}</td>
-                  <td class="muted">${c.realm}</td>
+                  <td>${esc(c.character_name)}</td>
+                  <td class="muted">${esc(c.realm)}</td>
                   <td class="muted">
-                    <span class="class-display">${c.class_combo || '—'}</span>
+                    <span class="class-display">${esc(c.class_combo) || '—'}</span>
                     <div class="class-picker" style="display:none;">
                       ${classSelect('primary', c.class_combo)}
                       ${classSelect('secondary', c.class_combo)}
@@ -303,8 +285,8 @@
                   <tr data-submission-id="${b.submission_id}">
                     <td>${
                       b.boss_id
-                        ? `<a href="./boss.html?id=${b.boss_id}">${b.boss_name || 'Unknown'}</a>`
-                        : b.boss_name || 'Unknown'
+                        ? `<a href="./boss.html?id=${b.boss_id}">${esc(b.boss_name) || 'Unknown'}</a>`
+                        : esc(b.boss_name) || 'Unknown'
                     }</td>
                     <td class="muted">${fmtDifficulty(b.difficulty)}</td>
                     <td class="num tabular">${fmtNumber(b.dps)}</td>
@@ -316,7 +298,9 @@
                     </td>
                     <td class="publish-cell">
                       ${
-                        b.visibility === 'public'
+                        b.status === 'removed'
+                          ? '<span class="badge badge-bad">Denied</span>'
+                          : b.visibility === 'public'
                           ? statusBadge(b.status, b.visibility)
                           : `
                         ${
@@ -334,6 +318,7 @@
                         <button class="btn publish-btn" type="button" ${b.difficulty ? '' : 'disabled'}>Publish</button>
                       `
                       }
+                      ${b.review_note ? `<span class="review-note">${esc(b.review_note)}</span>` : ''}
                     </td>
                   </tr>`
                   )
@@ -373,9 +358,22 @@
           LeaderboardSort.wireDifficulty(listEl, value => { personalDifficulty = value; render(); });
         };
         render();
+        highlightDeepLinkedSubmission();
       } catch (err) {
         listEl.innerHTML = `<p class="empty-state">Can't reach the API right now.</p>`;
       }
+    }
+
+    // Landed here from a click on the overlay's "My Kills" review status
+    // (?submissionId=…) — scroll straight to that row and flash it, since a
+    // long personal history can otherwise bury it.
+    function highlightDeepLinkedSubmission() {
+      const targetId = new URLSearchParams(window.location.search).get('submissionId');
+      if (!targetId) return;
+      const row = document.querySelector(`#personal-list tr[data-submission-id="${CSS.escape(targetId)}"]`);
+      if (!row) return;
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.classList.add('row-highlight');
     }
 
     document.getElementById('logout-btn').addEventListener('click', async () => {

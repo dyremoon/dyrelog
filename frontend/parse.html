@@ -19,6 +19,7 @@
         <a href="./about.html">About</a>
         <a href="./download.html">Download Dyrelog</a>
         <span id="auth-slot"></span>
+        <a href="./admin.html" id="nav-admin-link" hidden>Admin</a>
       </nav>
     </header>
 
@@ -71,8 +72,8 @@
                   (p, i) => `
                 <tr>
                   <td class="mono">${i + 1}</td>
-                  <td>${p.character_name} <span class="muted">(${p.realm})</span></td>
-                  <td class="muted">${p.class_combo || '—'}</td>
+                  <td>${esc(p.character_name)} <span class="muted">(${esc(p.realm)})</span></td>
+                  <td class="muted">${esc(p.class_combo) || '—'}</td>
                   <td class="num tabular">${fmtNumber(p.dps)}</td>
                   <td class="num tabular">${fmtNumber(p.damage)}</td>
                   <td class="num tabular">${p.hits}</td>

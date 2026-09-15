@@ -19,10 +19,12 @@ async function api(path, opts = {}) {
 async function renderAuthNav() {
   const slot = document.getElementById('auth-slot');
   if (!slot) return;
+  const adminLink = document.getElementById('nav-admin-link');
   try {
-    const { user } = await api('/api/me');
+    const { user, isAdmin } = await api('/api/me');
+    if (adminLink) adminLink.hidden = !isAdmin;
     slot.innerHTML = user
-      ? `<a href="./profile.html">My Profile (${capitalizeName(user.username)})</a>`
+      ? `<a href="./profile.html">My Profile (${esc(capitalizeName(user.username))})</a>`
       : `
         <a href="./profile.html">My Profile</a>
         <a class="btn btn-brass" href="${API_BASE}/api/auth/login">Log in with Discord</a>
@@ -34,6 +36,18 @@ async function renderAuthNav() {
 
 function capitalizeName(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+// Escapes text before it lands inside an innerHTML template literal. Every
+// user-controlled or attacker-reachable string rendered anywhere on the
+// site (character names, realms, class combos, Discord usernames, boss
+// names, admin review notes, anti-cheat flag reasons) MUST go through this
+// first — the worker only validates type/length on most of these fields,
+// never HTML-safety, so escaping at render time is the actual boundary.
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
 }
 
 function fmtNumber(n) {

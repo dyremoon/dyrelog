@@ -21,6 +21,7 @@
         <a href="./about.html">About</a>
         <a href="./download.html" class="active">Download Dyrelog</a>
         <span id="auth-slot"></span>
+        <a href="./admin.html" id="nav-admin-link" hidden>Admin</a>
       </nav>
     </header>
 
@@ -32,7 +33,9 @@
           EverQuest Legends. It runs entirely on your own machine, reads
           your combat log, and shows you a live dps meter while you play.
         </p>
-        <a class="btn btn-brass" id="releases-link" href="https://github.com/dyremoon/dyrelog/releases/latest" target="_blank" rel="noopener">Download for Windows &#8595;</a>
+        <a class="btn btn-brass" id="releases-link" href="https://dyrelog-api.dyremoon.workers.dev/api/download/latest" target="_blank" rel="noopener">Download for Windows &#8595;</a>
+        <p class="muted">This button records an aggregate download request by day and app version before redirecting to GitHub. No visitor ID or IP address is stored in download analytics. This is separate from optional in-app usage analytics.</p>
+        <p class="muted">If the download does not start, <a href="https://github.com/dyremoon/dyrelog/releases/latest" target="_blank" rel="noopener">open GitHub Releases</a>.</p>
         <p class="muted" style="margin-top:14px; margin-bottom:0; font-size:0.85rem;">
           Downloads the installer straight from GitHub. The Windows
           installer isn't code-signed yet, since that costs money a small
@@ -77,6 +80,7 @@
         </ol>
       </div>
 
+      <p class="muted">Usage analytics is optional and off until you choose “Allow” in the app. If allowed, the packaged app sends a random installation ID, app version, and platform to Dyrelog’s Cloudflare-hosted service on startup and every 15 minutes while running; the server records observation dates. No account identity, game data, or personal files are sent by usage analytics. Records currently have no automatic expiry. Change your choice in Settings → Options → Usage analytics. Turning it off stops future reports, but does not erase records already received.</p>
       <div class="plate plate-highlight">
         <h2>System requirements</h2>
         <p class="muted" style="margin-top:-6px; margin-bottom:0;">
@@ -95,25 +99,7 @@
 
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
-  <script>
-    (async () => {
-      const link = document.getElementById('releases-link');
-      try {
-        const res = await fetch('https://api.github.com/repos/dyremoon/dyrelog/releases/latest', {
-          headers: { Accept: 'application/vnd.github+json' },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        const asset = (data.assets || []).find((a) => /\.exe$/i.test(a.name));
-        if (asset && asset.browser_download_url) {
-          link.href = asset.browser_download_url;
-        }
-      } catch (err) {
-        // Offline, rate-limited, no matching asset — the releases-page
-        // fallback href already on the button still works fine.
-      }
-    })();
-  </script>
+
   <footer class="site-footer"></footer>
 </body>
 </html>

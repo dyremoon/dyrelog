@@ -127,6 +127,7 @@
         <a href="./about.html">About</a>
         <a href="./download.html">Download Dyrelog</a>
         <span id="auth-slot"></span>
+        <a href="./admin.html" id="nav-admin-link" hidden>Admin</a>
       </nav>
     </header>
 
@@ -203,10 +204,10 @@
                   (h, i) => `
                 <tr>
                   <td class="mono">${i + 1}</td>
-                  <td><a href="./parse.html?id=${h.encounter_id}">${h.character_name}</a> <span class="muted">(${h.realm})</span></td>
-                  <td class="muted">${h.class_combo || '—'}</td>
-                  <td><a href="./boss.html?id=${h.boss_id}">${h.boss_name}</a></td>
-                  <td>${h.difficulty || 'D0'}</td><td class="num tabular">${fmtNumber(h.dps)}</td>
+                  <td><a href="./parse.html?id=${h.encounter_id}">${esc(h.character_name)}</a> <span class="muted">(${esc(h.realm)})</span></td>
+                  <td class="muted">${esc(h.class_combo) || '—'}</td>
+                  <td><a href="./boss.html?id=${h.boss_id}">${esc(h.boss_name)}</a></td>
+                  <td>${esc(h.difficulty) || 'D0'}</td><td class="num tabular">${fmtNumber(h.dps)}</td>
                 </tr>`
                 )
                 .join('')}
@@ -228,9 +229,9 @@
       return `
         <tr>
           <td class="mono">${i + 1}</td>
-          <td><a href="./parse.html?id=${p.encounter_id}">${p.character_name}</a> <span class="muted">(${p.realm})</span></td>
-          <td class="muted">${p.class_combo || '—'}</td>
-          <td class="muted">${p.difficulty || 'D0'}</td>
+          <td><a href="./parse.html?id=${p.encounter_id}">${esc(p.character_name)}</a> <span class="muted">(${esc(p.realm)})</span></td>
+          <td class="muted">${esc(p.class_combo) || '—'}</td>
+          <td class="muted">${esc(p.difficulty) || 'D0'}</td>
           <td class="num tabular">${fmtNumber(p.dps)}</td>
           <td class="num tabular">${fmtNumber(p.damage)}</td>
           <td class="muted">${fmtDateOnly(p.start_time)}</td>
