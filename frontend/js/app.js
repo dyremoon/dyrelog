@@ -120,19 +120,23 @@ function renderSiteFooter() {
 
 async function loadFooterVersion() {
   const slot = document.getElementById('footer-version');
-  if (!slot) return;
+  const downloadLabel = document.getElementById('download-version');
+  if (!slot && !downloadLabel) return;
   try {
     const res = await fetch('https://api.github.com/repos/dyremoon/dyrelog/releases/latest', {
       headers: { Accept: 'application/vnd.github+json' },
     });
     if (!res.ok) return;
     const data = await res.json();
-    const tag = data && data.tag_name;
-    if (!tag) return;
-    slot.innerHTML = `
+    const tag = data && typeof data.tag_name === 'string' ? data.tag_name : '';
+    if (!/^v?\d+\.\d+\.\d+$/.test(tag)) return;
+    if (slot) {
+      slot.innerHTML = `
       <span>•</span>
-      <a href="https://github.com/dyremoon/dyrelog/releases/latest" target="_blank" rel="noopener">${tag}</a>
+      <a href="https://github.com/dyremoon/dyrelog/releases/latest" target="_blank" rel="noopener">${esc(tag)}</a>
     `;
+    }
+    if (downloadLabel) downloadLabel.textContent = 'Latest version: ' + (tag.startsWith('v') ? tag : 'v' + tag);
   } catch (err) {
     // Offline, DNS hiccup, no releases published yet — never worth surfacing.
   }

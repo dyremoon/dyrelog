@@ -1,0 +1,53 @@
+# Builds and checks the Windows installer when a v* tag is pushed (or on demand).
+# It never publishes: download the "dyrelog-installer" artifact from the run and attach it to the release yourself.
+# The private worker submodule is not checked out; the app builds from the public parser copy in frontend/js.
+name: Build desktop app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop-overlay
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop-overlay/package-lock.json
+
+      - run: npm ci
+
+      - name: Tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          test "v$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
+
+      - run: npm test
+
+      - name: Build installer (no publishing)
+        run: npm run dist -- --publish never
+
+      - run: npm run release:check
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dyrelog-installer
+          path: |
+            desktop-overlay/dist/Dyrelog-Setup-*.exe
+            desktop-overlay/dist/Dyrelog-Setup-*.exe.blockmap
+            desktop-overlay/dist/latest.yml
+          if-no-files-found: error

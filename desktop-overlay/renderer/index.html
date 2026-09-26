@@ -31,15 +31,15 @@
     <div class="icon-tooltip" id="icon-tooltip" hidden></div>
 
     <div class="empty-state" id="empty-state">
-      <div class="empty-copy">Point Dyrelog at your log once. It remembers it from here on &mdash; no browser permission dance, this is a real desktop app.</div>
+      <div class="empty-copy">Pick your EverQuest folder once and Dyrelog remembers it. No log yet? In game, type <b>/log on</b>.</div>
       <div class="empty-actions">
+        <button class="pill-btn" id="btn-pick-folder">Pick EverQuest folder&hellip;</button>
         <button class="pill-btn" id="btn-pick-file">Pick log file&hellip;</button>
-        <button class="pill-btn" id="btn-pick-folder">Pick Logs folder&hellip;</button>
       </div>
     </div>
 
     <div class="folder-pick" id="folder-pick" hidden>
-      <div class="empty-copy">Found more than one log in that folder &mdash; which one's yours?</div>
+      <div class="empty-copy">That folder has more than one log. Which character?</div>
       <select id="folder-select"></select>
       <button class="pill-btn" id="btn-folder-use">Use this one</button>
     </div>
@@ -122,6 +122,7 @@
   <script src="submission-audio.js"></script>
   <script src="window-drag.js"></script>
   <script src="first-run-policy.js"></script>
+  <script src="live-stream.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

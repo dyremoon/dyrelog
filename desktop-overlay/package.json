@@ -1,14 +1,16 @@
 {
   "name": "dyrelog-desktop",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "private": true,
-  "description": "Dyrelog's always-on-top desktop overlay (Electron) — the mini-mode DPS meter from the README art spec.",
+  "description": "Dyrelog: a free DPS meter overlay and kill leaderboard uploader for EverQuest Legends (unofficial fan project).",
   "main": "main.js",
   "scripts": {
     "sync-eqp-core": "node scripts/sync-eqp-core.js",
     "start": "npm run sync-eqp-core && npm run sync-submission-sounds && electron .",
     "dist": "npm run sync-eqp-core && npm run sync-submission-sounds && electron-builder",
-    "sync-submission-sounds": "node scripts/sync-submission-sounds.js"
+    "sync-submission-sounds": "node scripts/sync-submission-sounds.js",
+    "test": "node --test \"test/*.test.cjs\"",
+    "release:check": "node scripts/release-check.js"
   },
   "dependencies": {
     "electron-updater": "^6.3.9"
@@ -24,6 +26,9 @@
     "files": [
       "main.js",
       "analytics.cjs",
+      "link-policy.cjs",
+      "log-tailer.cjs",
+      "json-store.cjs",
       "preload.js",
       "renderer/**/*",
       "submission-sounds.cjs",
@@ -54,5 +59,7 @@
     "asarUnpack": [
       "foreground-watch.ps1"
     ]
-  }
+  },
+  "author": "Dyremoon",
+  "license": "FSL-1.1-MIT"
 }

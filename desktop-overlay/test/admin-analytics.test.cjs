@@ -11,20 +11,23 @@ test('admin page includes analytics assets and matches the site theme protection
   for (const text of ['id="admin-analytics"', './js/admin-analytics.js', './css/admin-analytics.css', 'name="darkreader-lock"']) assert.ok(html.includes(text), text);
 });
 
-test('shared navigation links admins directly to the dashboard on clean and HTML URLs', async () => {
+test('shared navigation shows the Admin link only to admins, and never renders raw usernames', async () => {
   const appSource = readFileSync(path.join(__dirname, '../../frontend/js/app.js'), 'utf8');
-  for (const pathname of ['/admin', '/admin.html', '/index.html']) {
-    for (const isAdmin of [true, false]) {
-      const slot = {};
-      const context = { window: { location: { pathname } }, document: { getElementById: () => slot, addEventListener() {} },
-        fetch: async () => ({ ok: true, status: 200, json: async () => ({ user: { username: '<user>' }, isAdmin }) }) };
-      vm.createContext(context);
-      vm.runInContext(appSource, context);
-      await context.renderAuthNav();
-      assert.equal(slot.innerHTML.includes('Admin dashboard'), isAdmin);
-      assert.equal(slot.innerHTML.includes('aria-current="page"'), isAdmin && pathname.startsWith('/admin'));
-      assert.ok(!slot.innerHTML.includes('<user>'));
-    }
+  for (const isAdmin of [true, false]) {
+    const slot = {};
+    const adminLink = { hidden: true };
+    const context = { window: { location: { pathname: '/index.html' } },
+      document: { getElementById: id => id === 'nav-admin-link' ? adminLink : slot, addEventListener() {}, querySelector: () => null },
+      fetch: async () => ({ ok: true, status: 200, json: async () => ({ user: { username: '<user>' }, isAdmin }) }) };
+    vm.createContext(context);
+    vm.runInContext(appSource, context);
+    await context.renderAuthNav();
+    assert.equal(adminLink.hidden, !isAdmin);
+    assert.ok(!slot.innerHTML.includes('<user>'));
+  }
+  for (const page of ['index', 'about', 'analyze', 'boss', 'download', 'parse', 'privacy', 'profile', 'admin']) {
+    const html = readFileSync(path.join(__dirname, '../../frontend/' + page + '.html'), 'utf8');
+    assert.match(html, /id="nav-admin-link"[^>]*hidden/, page + '.html admin link starts hidden');
   }
 });
 

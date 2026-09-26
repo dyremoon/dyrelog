@@ -66,7 +66,7 @@ Pre-existing version changes, moderation-note work, and other local edits were p
 Preview the real admin UI using explicitly synthetic data. This binds only to loopback and does not access production analytics, authenticate real users, or write a database. Do not deploy this preview server.
 
 ```powershell
-Set-Location 'D:\Documentations\Portfolio\DyreLog\dyrelog'
+Set-Location '<path-to>\dyrelog'
 node scripts/preview-admin-analytics.cjs
 ```
 
@@ -77,7 +77,7 @@ The dashboard uses the site's dark plates and gold accents, six cards in a respo
 Local Worker and database:
 
 ```powershell
-Set-Location 'D:\Documentations\Portfolio\DyreLog\dyrelog\worker'
+Set-Location '<path-to>\dyrelog\worker'
 npx wrangler d1 migrations apply dyrelog-db --local
 npm run dev
 ```
@@ -87,7 +87,7 @@ This starts the API at `http://127.0.0.1:8787`. Real local Discord authenticatio
 Local desktop launch (the consent prompt and Settings control work, but analytics is deliberately disabled for unpackaged development). If a choice was already saved, use Settings → Options → Usage analytics instead of expecting another prompt:
 
 ```powershell
-Set-Location 'D:\Documentations\Portfolio\DyreLog\dyrelog\desktop-overlay'
+Set-Location '<path-to>\dyrelog\desktop-overlay'
 npm start
 ```
 
@@ -96,7 +96,7 @@ npm start
 Apply migrations before deploying the Worker. Wrangler applies all pending migrations, including the pre-existing moderation-note migration if it has not yet been applied. Inspect the pending list first.
 
 ```powershell
-Set-Location 'D:\Documentations\Portfolio\DyreLog\dyrelog\worker'
+Set-Location '<path-to>\dyrelog\worker'
 npx wrangler d1 migrations list dyrelog-db --remote
 npx wrangler d1 migrations apply dyrelog-db --remote
 npm run deploy
@@ -105,14 +105,14 @@ npm run deploy
 Optional server-side GitHub token, only if public API limits require one:
 
 ```powershell
-Set-Location 'D:\Documentations\Portfolio\DyreLog\dyrelog\worker'
+Set-Location '<path-to>\dyrelog\worker'
 npx wrangler secret put GITHUB_TOKEN
 ```
 
 Deploy the static website after the API:
 
 ```powershell
-Set-Location 'D:\Documentations\Portfolio\DyreLog\dyrelog\worker'
+Set-Location '<path-to>\dyrelog\worker'
 npx wrangler pages deploy ..\frontend --project-name dyrelog --branch main --commit-dirty=true
 ```
 
@@ -121,7 +121,7 @@ This publishes the current frontend working tree, including other existing edits
 ## Installer build (not executed; does not publish)
 
 ```powershell
-Set-Location 'D:\Documentations\Portfolio\DyreLog\dyrelog\desktop-overlay'
+Set-Location '<path-to>\dyrelog\desktop-overlay'
 npm run dist -- --win nsis --publish never
 ```
 
@@ -130,10 +130,10 @@ The installer is written under `desktop-overlay\dist`. The existing package vers
 ## Verification
 
 ```powershell
-Set-Location 'D:\Documentations\Portfolio\DyreLog\dyrelog\worker'
+Set-Location '<path-to>\dyrelog\worker'
 npm test
 npx wrangler deploy --dry-run --outdir .wrangler/analytics-build
-Set-Location 'D:\Documentations\Portfolio\DyreLog\dyrelog'
+Set-Location '<path-to>\dyrelog'
 node --test desktop-overlay/test/*.test.cjs
 node --check frontend/js/admin-analytics.js
 node --check desktop-overlay/main.js

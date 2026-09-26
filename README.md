@@ -1,57 +1,105 @@
 # Dyrelog
 
-  **[Website](https://dyrelog.pages.dev)**
-A free DPS meter and combat-log leaderboard for **EverQuest Legends**. Track
-your damage live with the overlay, submit a fight, and see how it stacks up
-by boss.
+A free DPS meter and boss-kill leaderboard for **EverQuest Legends**.
 
-## About Dyrelog and the guy who made this
+Dyrelog is a small Windows app that sits on top of your game, reads your combat log, and shows your damage
+live. When you kill a boss, you can send the fight to the Dyrelog website and see how it ranks.
 
-I started Dyrelog because I didn't see DPS meters that really clicked with me and my quirky sense of style. I tend to like a specific type of dps meter, so I thought I'd just make my own. There are some incredible options out there,
-but often times they have much more functionality than I need, and I get overwhelmed when there's too much data and
-information at my disposal. So I made something that just did DPS, Analytics, and Leaderboards, and did
-it really well. 
+Dyrelog is an unofficial fan project and is not affiliated with Daybreak Game Company or EverQuest Legends.
 
-In real life I'm just a guy who used to work in the game industry, and now I'm a software engineer. I enjoy building projects, fixing problems, and helping others. I've been playing
-MMOs my whole life, just like most of us here, and I took inspiration from DPS meters from other games so
-that Dyrelog feels familiar and easy to pick up. I have never made a leaderboard system before, so added a fun leaderboard for us all to track
-our DPS on if we so choose as a personal project to see what I could do. Of course with the help of Claude Code to guide me through the sticky areas.
+Website: https://dyrelog.pages.dev
 
-This is a fan project, built and maintained by one person in his spare
-time and not an official tool, nor affiliated with Daybreak Game Company
-or EverQuest Legends. 
+## Download and install
 
-## What's in this repo
+1. Download the latest installer, `Dyrelog-Setup-<version>.exe`, from the
+   [Download page](https://dyrelog.pages.dev/download.html) or from
+   [GitHub Releases](https://github.com/dyremoon/dyrelog/releases/latest).
+2. Run it. The installer isn't code-signed, so Windows SmartScreen may warn you. Choose **More info**, then
+   **Run anyway**.
+3. Dyrelog opens when the install finishes.
 
-- `overlay/` — the always-on-top overlay players can run locally alongside their game.
-  (`dyrelog-overlay.html` + `eqp-core.js`). Works fully offline and login/
-  streaming/submit are opt-in on top.
-- `desktop-overlay/` — the Electron always-on-top desktop app version.
-- `frontend/` — the website itself: leaderboards, boss pages, parse
-  permalinks, profiles.
+Windows 10 or 11 is required. Mac and Linux aren't supported yet.
 
-The backend (the Cloudflare Worker API and D1 database) lives in a separate
-private repo and isn't included here because it's where the anti-cheat sieve and
-submission-verification logic lives, kept private on purpose so those checks
-can't be read and designed around. Essentially just so people can't edit their log after a boss kill and upload it to the leaderboard to invalidate results.
+## First run
 
-`overlay/eqp-core.js` and the frontend's own copy are the two places the
-parsing/stats engine lives. Ship `eqp-core.js` next to `dyrelog-overlay.html`
-as a sibling file and they're never embedded inline.
+1. In EverQuest, type `/log on`. The game then writes your combat log to
+   `<EverQuest folder>\Logs\eqlog_<Character>_<Server>.txt`.
+2. In Dyrelog, pick your EverQuest folder (or its `Logs` folder). If you play more than one character, choose
+   which log to use. Dyrelog remembers it.
+3. Fight something. The meter fills in as the log updates.
 
-## Feedback
+If the log file doesn't exist yet, Dyrelog says it's waiting for it and starts reading as soon as it appears.
 
-If you've found a bug or want to submit feedback, [Open an issue](https://github.com/dyremoon/dyrelog/issues/new) and it will come straight to me and I'll do my best to sift through all the requests. Some things are out of scope, 
-remember I just want to try to focus on a good, fun dps meter, that delivers leaderboard tracking results. 
+## Using it
 
-## Credits and Thanks
+- **Bars**, **Mini** and **Circle** display styles. Switch with the icons at the top of the meter.
+- **Combat Analysis** shows a breakdown of each fight: DPS over time, abilities, pets, healing and damage taken.
+- **Leaderboards** shows the top kills per boss, and your own kills.
+- **Settings** (gear icon) has themes, sizes, colors, your log file, and submission options.
 
-Boss and zone data draws on research from these community sites, run by
-people who've spent years documenting this game. Neither is affiliated with
-Dyrelog. Thank you to all the incredible community members who care about the game and each other.
-Hopefully Dyrelog can add some more oomph to the joy of EQL. 
-Thanks, DM. 
+## Submitting kills to the leaderboard
+
+Only kills of known bosses can be submitted.
+
+1. Log in with Discord when Dyrelog asks, or later in **Settings → Options → Account**.
+2. Choose how kills are sent: **Ask** (a small popup asks after each kill), **Auto** (sent automatically) or
+   **Off**.
+3. While a boss fight is going, Dyrelog uploads the fight log as you play. When the boss dies, the kill is
+   checked and, if it passes, shows on the website. Some kills go to a manual review first. You can see the
+   status on your profile page on the website.
+
+## Updates
+
+Dyrelog checks for a new version when it starts and about once an hour while it's open. When one is out, a
+banner shows at the top of the meter. Click it to download and install the update. Dyrelog restarts on its
+own. You can also check in **Settings → What's New**.
+
+## Privacy
+
+The meter works entirely on your PC. Dyrelog only sends data when you submit a kill (the fight's log lines,
+your character name and server) or if you turn on optional usage statistics (a random install ID, the app
+version and platform). Full details: [Privacy](https://dyrelog.pages.dev/privacy.html).
+
+## Problems and feedback
+
+[Open an issue on GitHub](https://github.com/dyremoon/dyrelog/issues/new). Say what you did, what you
+expected, and what happened. If a window shows an error, a screenshot helps.
+
+## Support
+
+Dyrelog is free. If you'd like to chip in, there's a [Ko-fi page](https://ko-fi.com/dyremoon).
+
+## About
+
+I started Dyrelog because I didn't see DPS meters that really clicked with me and my quirky sense of style.
+There are some incredible options out there, but often they have much more functionality than I need, and I
+get overwhelmed when there's too much data at once. So I made something that does DPS, analytics and
+leaderboards, and tries to do them well.
+
+In real life I'm a guy who used to work in the game industry and is now a software engineer. I've played MMOs
+my whole life, and I took inspiration from DPS meters in other games so Dyrelog feels familiar. I had never
+built a leaderboard before, so this doubled as a personal project to see what I could do, with the help of
+Claude Code for the sticky parts.
+
+This is a fan project, built and maintained by one person in his spare time.
+
+## For developers
+
+- `desktop-overlay/` is the Electron app. See [desktop-overlay/README.md](desktop-overlay/README.md) to run or
+  build it.
+- `frontend/` is the website (static pages on Cloudflare Pages).
+- `worker/` is the API and database. It's a private submodule on purpose, because it holds the checks that
+  keep edited logs off the leaderboard. A public clone builds and runs the app without it.
+
+## Credits
+
+Boss and zone data draws on research from these community sites. None of them are affiliated with Dyrelog.
+Thank you to everyone who documents this game.
 
 - [eqlwiki.com](https://eqlwiki.com)
 - [eqlegends.com/wiki](https://eqlegends.com/wiki)
 - [loadoutlegends.com](https://www.loadoutlegends.com)
+
+## License
+
+[FSL-1.1-MIT](LICENSE)

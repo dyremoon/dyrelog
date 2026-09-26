@@ -265,8 +265,8 @@
         const countLabel = hasCount ? `(${fmtNumber(entrantCount)} ${entrantCount === 1 ? 'entry' : 'entries'})` : '';
         const heading = `
           <h3 class="boss-picker-heading">
-            <a href="./boss.html?id=${boss.tiers[0].id}">${boss.name}</a>
-            <span class="muted" id="board-entry-count">${countLabel}</span> <a href="${BossBrowser.wikiUrl(boss.name)}" target="_blank" rel="noopener noreferrer">Wiki ↗</a>
+            <a href="./boss.html?id=${encodeURIComponent(boss.tiers[0].id)}">${esc(boss.name)}</a>
+            <span class="muted" id="board-entry-count">${countLabel}</span> <a href="${esc(BossBrowser.wikiUrl(boss.name))}" target="_blank" rel="noopener noreferrer">Wiki ↗</a>
           </h3>`;
         const render = () => {
           const visible = rankRows(parses);
@@ -312,8 +312,8 @@
 
         picker.innerHTML = orderedKeys
           .map((key) => `
-            <optgroup label="${key}">
-              ${groups.get(key).map((b) => `<option value="${b.name}">${b.name} (${Number(b.entrant_count || 0).toLocaleString()})</option>`).join('')}
+            <optgroup label="${esc(key)}">
+              ${groups.get(key).map((b) => `<option value="${esc(b.name)}">${esc(b.name)} (${Number(b.entrant_count || 0).toLocaleString()})</option>`).join('')}
             </optgroup>`)
           .join('');
 
@@ -339,6 +339,5 @@
       loadBossPicker();
     });
   </script>
-  <footer class="site-footer"></footer>
 </body>
 </html>

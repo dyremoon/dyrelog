@@ -49,15 +49,7 @@
       <div class="admin-panel" data-panel="queue" hidden>
         <div class="plate">
           <h2>Review queue</h2>
-            <p class="muted">
-            Submissions that didn't auto-post:<br><br>
-
-            <strong>pending_review</strong> means the account is currently restricted, so
-            check numbers and approve if it looks right.<br><br>
-
-            <strong>flagged</strong> means one of the anti-cheat checks tripped on this
-            fight itself, read the reason before approving.
-          </p>
+          <p class="muted">Submissions waiting for a manual decision. Read the reason before approving.</p>
           <div id="queue"><p class="muted">Loading…</p></div>
         </div>
       </div>
@@ -82,19 +74,6 @@
         document.querySelectorAll('.admin-panel').forEach((p) => { p.hidden = p.dataset.panel !== btn.dataset.tab; });
       });
     });
-
-    const REASON_LABELS = {
-      duplicate_content_hash: 'Duplicate of an existing submission',
-      hits_too_fast: 'Hits landed faster than physically possible',
-      hit_over_ceiling: 'A single hit exceeded the plausible ceiling',
-      total_damage_far_exceeds_boss_hp: "Total damage far exceeds the boss's known HP",
-      single_batch_for_long_fight: "Long fight arrived as one batch — didn't stream live",
-      batches_clustered_at_end: "Batches clustered at the end — didn't stream live",
-    };
-    function labelReason(r) {
-      const [key] = r.split(':');
-      return REASON_LABELS[key] || r;
-    }
 
     async function loadQueue() {
       const el = document.getElementById('queue');
@@ -129,7 +108,7 @@
                 <td>${esc(it.bossName) || '—'} <span class="muted">${esc(fmtDifficulty(it.difficulty))}</span></td>
                 <td class="num">${it.totalDamage != null ? fmtNumber(it.totalDamage) : '—'}</td>
                 <td><span class="badge ${it.status === 'flagged' ? 'badge-bad' : 'badge-warn'}">${esc(it.status)}</span></td>
-                <td class="muted">${it.reasons.length ? esc(it.reasons.map(labelReason).join('; ')) : '—'}</td>
+                <td class="muted">${(it.reasonLabels || it.reasons || []).length ? esc((it.reasonLabels || it.reasons).join('; ')) : '—'}</td>
                 <td>
                   <textarea class="review-note-input" rows="2" maxlength="2000" placeholder="Optional note — shown to the player on the website (never in the overlay)"></textarea>
                   <div class="review-actions">

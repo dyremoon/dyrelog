@@ -360,7 +360,11 @@
     }
     var top = display.slice(0, TOP_N);
     if (!top.length) {
-      els.barlist.innerHTML = '<div style="color:var(--ink-3);font-size:0.88rem;padding:6px 2px">No damage recorded yet.</div>';
+      els.barlist.innerHTML = '<div style="color:var(--ink-3);font-size:0.88rem;padding:6px 2px">' +
+        (sourceWaiting
+          ? "Waiting for your EverQuest log file&hellip; In game, type <b>/log on</b>."
+          : "No damage yet. Start a fight and it shows up here.") +
+        "</div>";
       return;
     }
     var maxDps = top[0] ? top[0].dps : 0;
@@ -462,10 +466,15 @@
     if (!characterName || !realm) return;
     var stats = EQP.computeStats(finishedEnc);
     var youRow = (stats.rows || []).find(function (r) { return r.name === "You"; });
-    var rawText = rawTextForEncounter(finishedEnc);
-    // Finalize the existing live submission with only its unsent tail to preserve streaming verification.
+    // Finalize the existing live submission with only its unsent lines to preserve streaming verification.
     var stream = liveStreams[finishedEnc.startTime];
     delete liveStreams[finishedEnc.startTime];
+    var ready = stream && stream.inFlight ? stream.inFlight : Promise.resolve();
+    ready.then(function () { sendSubmitRequest(finishedEnc, mode, stream, youRow); });
+  }
+
+  function sendSubmitRequest(finishedEnc, mode, stream, youRow) {
+    var rawText = rawTextForEncounter(finishedEnc);
     var payload = {
       mode: mode,
       characterName: characterName,
@@ -479,38 +488,67 @@
     };
     if (stream && stream.submissionId) {
       payload.existingSubmissionId = stream.submissionId;
-      payload.finalChunk = rawText.slice(stream.sentLength);
+      payload.batches = LiveStream.planBatches(rawText, stream.sent, lineTime);
     } else {
-      // Never got a live stream going (too short, or the fight ended before
-      // the /api/streams start call resolved) — same one-shot path as before.
-      payload.rawText = rawText;
+      // No live stream (short fight, or it never started) — upload the whole fight now.
+      payload.batches = LiveStream.planBatches(rawText, LiveStream.newSentLines(), lineTime);
     }
     window.dyrelog.requestSubmit(payload);
   }
 
+  function lineTime(line) {
+    var ev = EQP.parseLine(line);
+    return ev && ev.time != null ? ev.time : null;
+  }
+
   var liveStreams = {};
   var STREAM_MIN_MS_BEFORE_START = 5000;
+  var STREAM_RETRY_MS = 5000;
+  function pushBatchesInOrder(stream, batches) {
+    return batches.reduce(function (prev, chunk) {
+      return prev.then(function (ok) {
+        if (!ok) return false;
+        return window.dyrelog.pushLiveBatch(stream.submissionId, chunk).then(function (res) {
+          if (!res || !res.ok) return false;
+          LiveStream.markSent(chunk, stream.sent);
+          return true;
+        }, function () { return false; });
+      });
+    }, Promise.resolve(true));
+  }
+
   function maybeStreamLiveFight(enc) {
     if (!FirstRunPolicy.permitsSubmission(settings)) return;
     if (!characterName || !realm) return;
     if (!enc || !isKnownBoss(enc.mobName)) return;
     if ((enc.endTime - enc.startTime) < STREAM_MIN_MS_BEFORE_START) return;
     var stream = liveStreams[enc.startTime];
-    if (!stream) stream = liveStreams[enc.startTime] = { submissionId: null, sentLength: 0, starting: false };
+    if (!stream) stream = liveStreams[enc.startTime] = { submissionId: null, sent: LiveStream.newSentLines(), inFlight: null, retryAt: 0 };
+    if (stream.inFlight || Date.now() < stream.retryAt) return;
     if (!stream.submissionId) {
-      if (stream.starting) return;
-      stream.starting = true;
-      window.dyrelog.startLiveStream({ characterName: characterName, realm: realm, soloMode: false }).then(function (res) {
-        stream.starting = false;
+      stream.inFlight = window.dyrelog.startLiveStream({ characterName: characterName, realm: realm, soloMode: false }).then(function (res) {
         if (res && res.ok) stream.submissionId = res.submissionId;
-      });
+        else stream.retryAt = Date.now() + STREAM_RETRY_MS;
+      }, function () { stream.retryAt = Date.now() + STREAM_RETRY_MS; }).then(function () { stream.inFlight = null; });
       return;
     }
-    var fullText = rawTextForEncounter(enc);
-    if (fullText.length <= stream.sentLength) return;
-    var chunk = fullText.slice(stream.sentLength);
-    stream.sentLength = fullText.length;
-    window.dyrelog.pushLiveBatch(stream.submissionId, chunk);
+    // Uploads run one at a time, and lines only count as sent once the server accepted them.
+    var batches = LiveStream.planBatches(rawTextForEncounter(enc), stream.sent, lineTime);
+    if (!batches.length) return;
+    stream.inFlight = pushBatchesInOrder(stream, batches).then(function (ok) {
+      if (!ok) stream.retryAt = Date.now() + STREAM_RETRY_MS;
+      stream.inFlight = null;
+    });
+  }
+
+  // A boss fight that ended without a kill never finalizes; forget it locally.
+  function pruneLiveStreams() {
+    var liveStart = state.current ? state.current.startTime : null;
+    Object.keys(liveStreams).forEach(function (key) {
+      if (String(liveStart) === key) return;
+      var finished = state.encounters.find(function (e) { return String(e.startTime) === key; });
+      if (!finished || !finished.mobKilled) delete liveStreams[key];
+    });
   }
 
   function currentSessionMembers() {
@@ -625,6 +663,7 @@
       visitCompletedKills(state.encounters, function (enc) { updateSubmitUI(enc); });
     }
     if (state.current) maybeStreamLiveFight(state.current);
+    pruneLiveStreams();
     var now = Date.now();
 
     var pushPayload = { current: state.current, encounters: state.encounters, characterName: characterName, gapMs: state.gapMs };
@@ -749,8 +788,18 @@
   document.addEventListener("mousemove", scheduleIdleFade);
   document.addEventListener("mousedown", scheduleIdleFade);
 
+  var sourceWaiting = false;
   function applySourceStatus(status) {
-    if (!status || !status.ok) return;
+    if (!status) return;
+    if (status.waiting) {
+      sourceWaiting = true;
+      showFightView();
+      els.statusDot.classList.add("off");
+      render();
+      return;
+    }
+    if (!status.ok) return;
+    sourceWaiting = false;
     var identity = parseCharacterFromFilename(status.fileName);
     characterName = identity ? identity.characterName : null;
     realm = identity ? identity.realm : null;
@@ -780,7 +829,7 @@
     var res = await window.dyrelog.pickFolder();
     if (!res) return;
     if (!res.matches.length) {
-      alert("No eqlog_*.txt files found in that folder.");
+      alert("No EverQuest logs (eqlog_*.txt) in that folder.\n\nPick your EverQuest folder or its Logs folder. If you've never turned logging on, type /log on in game first.");
       return;
     }
     if (res.chosen) {
@@ -1047,7 +1096,8 @@
     } else if (state === "error") {
       updaterBusy = false;
       els.updateBannerDismiss.hidden = false;
-      els.updateBannerText.textContent = "Update failed — click to retry (" + (payload.message || "unknown error") + ")";
+      els.updateBannerText.textContent = "Update failed. Click to try again.";
+      els.updateBanner.title = payload.message || "";
     }
   });
 

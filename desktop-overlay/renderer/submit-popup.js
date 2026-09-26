@@ -47,7 +47,7 @@
   function showNeedsLogin() {
     if (autoCloseTimer) { clearTimeout(autoCloseTimer); autoCloseTimer = null; }
     els.title.textContent = "Log in to submit kills";
-    els.sub.textContent = "You're not logged in with Discord yet.";
+    els.sub.textContent = "Log in with Discord to send this kill. It waits while you log in.";
     els.sub.className = "sub";
     clearActions();
     addButton("Dismiss", "btn-secondary", function () { window.dyrelog.discardSubmit(); });
@@ -61,8 +61,9 @@
     clearActions();
     if (result.ok) {
       els.title.textContent = "Submitted!";
-      els.sub.textContent = result.status === "verified" ? "Live on the leaderboard now."
-        : result.status === "pending_review" ? "Pending a quick manual review."
+      els.sub.textContent = result.status === "verified" && result.visibility !== "private" ? "Live on the leaderboard now."
+        : result.status === "verified" ? "Saved as private. Only you can see it."
+        : result.status === "pending_review" || result.status === "flagged" ? "Sent for a manual review. Check My Kills for the result."
         : "Saved to your history.";
       els.sub.className = "sub ok";
       autoCloseTimer = setTimeout(function () { window.close(); }, 2500);

@@ -12,9 +12,16 @@ const FirstRunPolicy = require("./renderer/first-run-policy.js");
 const { createSubmissionSounds } = require("./submission-sounds.cjs");
 const { autoUpdater } = require("electron-updater");
 const Analytics = require('./analytics.cjs');
+const { readJson, writeJsonAtomic, removeJson } = require("./json-store.cjs");
+const { createLogTailer } = require("./log-tailer.cjs");
+const { isAllowedExternalUrl, isAllowedAuthNavigation } = require("./link-policy.cjs");
 let stopAnalytics = null;
 
 app.setName("Dyrelog");
+
+// A second copy would tail the same log and could submit the same kill twice.
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) app.quit();
 
 const CONFIG_PATH = path.join(app.getPath("userData"), "dyrelog-source.json");
 const SETTINGS_PATH = path.join(app.getPath("userData"), "dyrelog-settings.json");
@@ -104,8 +111,9 @@ let pendingSubmitPayload = null;
 let pendingLoginSubmitPayload = null;
 let tray = null;
 let appIsQuitting = false;
-let tailTimer = null;
 let tailState = null;
+let lastPickedFolder = null;
+const authWebContents = new WeakSet();
 
 
 
@@ -120,7 +128,8 @@ let isWatchMode = false;
 let updateInfo = null;
 const UPDATE_CHECK_URL = "https://api.github.com/repos/dyremoon/dyrelog/releases/latest";
 const RELEASES_PAGE_URL = "https://github.com/dyremoon/dyrelog/releases/latest";
-const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// Hourly keeps a long play session current while staying far below GitHub's 60 requests/hour limit.
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 function parseVersionParts(v) {
   return String(v || "").trim().replace(/^v/i, "").split(".").map(function (n) { return parseInt(n, 10) || 0; });
@@ -140,7 +149,7 @@ function isNewerVersion(remoteTag, localVersion) {
 
 async function checkForUpdates() {
   try {
-    var res = await fetch(UPDATE_CHECK_URL, { headers: { Accept: "application/vnd.github+json" } });
+    var res = await fetch(UPDATE_CHECK_URL, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store", signal: AbortSignal.timeout(15000) });
     if (!res.ok) return;
     var data = await res.json();
     var tag = data && data.tag_name;
@@ -174,39 +183,56 @@ autoUpdater.on("update-available", function (info) {
 autoUpdater.on("update-not-available", function () {
   sendUpdaterStatus({ state: "up-to-date" });
 });
+var updateDownloadInProgress = false;
+
+function friendlyUpdateError(err) {
+  var msg = String((err && err.message) || err || "");
+  if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|ECONNRESET|net::ERR_/i.test(msg)) return "Couldn't reach GitHub. Check your internet connection and try again.";
+  if (/404|latest\.yml|Cannot find/i.test(msg)) return "The update files aren't available yet. Try again later, or download it from the website.";
+  if (/sha512|checksum/i.test(msg)) return "The download was damaged. Try again.";
+  return "Something went wrong. Try again, or download the latest version from the website.";
+}
+
 autoUpdater.on("error", function (err) {
-  sendUpdaterStatus({ state: "error", message: (err && err.message) || String(err) });
+  updateDownloadInProgress = false;
+  console.error("Updater error:", err);
+  sendUpdaterStatus({ state: "error", message: friendlyUpdateError(err) });
 });
 autoUpdater.on("download-progress", function (progress) {
   sendUpdaterStatus({ state: "downloading", percent: Math.round((progress && progress.percent) || 0) });
 });
 autoUpdater.on("update-downloaded", function () {
+  updateDownloadInProgress = false;
   sendUpdaterStatus({ state: "ready" });
-  setTimeout(function () { autoUpdater.quitAndInstall(); }, 900);
+  setTimeout(function () {
+    // The close handler would otherwise cancel the quit with the exit prompt or hide to tray.
+    appIsQuitting = true;
+    if (tray) { tray.destroy(); tray = null; }
+    autoUpdater.quitAndInstall(true, true);
+  }, 900);
 });
 
+function isPlainObject(v) {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
 function loadJson(filePath, fallback) {
-  try {
-    return Object.assign({}, fallback, JSON.parse(fs.readFileSync(filePath, "utf8")));
-  } catch (err) {
-    return fallback ? Object.assign({}, fallback) : null;
-  }
+  var parsed = readJson(filePath);
+  if (!isPlainObject(parsed)) return fallback ? Object.assign({}, fallback) : null;
+  return Object.assign({}, fallback, parsed);
 }
 
 function loadConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
-  } catch (err) {
-    return null;
-  }
+  var cfg = readJson(CONFIG_PATH);
+  return isPlainObject(cfg) && typeof cfg.path === "string" ? cfg : null;
 }
 
 function saveConfig(cfg) {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+  writeJsonAtomic(CONFIG_PATH, cfg, 2);
 }
 
 function clearConfig() {
-  try { fs.unlinkSync(CONFIG_PATH); } catch (err) {   }
+  removeJson(CONFIG_PATH);
 }
 
 function loadSettings() {
@@ -214,21 +240,17 @@ function loadSettings() {
 }
 
 function saveSettings(settings) {
-  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2));
+  writeJsonAtomic(SETTINGS_PATH, settings, 2);
 }
 
 function loadHistory() {
-  try {
-    var parsed = JSON.parse(fs.readFileSync(HISTORY_PATH, "utf8"));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    return [];
-  }
+  var parsed = readJson(HISTORY_PATH);
+  return Array.isArray(parsed) ? parsed.filter(isPlainObject) : [];
 }
 
 function saveHistory(encounters) {
   try {
-    fs.writeFileSync(HISTORY_PATH, JSON.stringify(encounters.slice(-MAX_HISTORY_ENCOUNTERS)));
+    writeJsonAtomic(HISTORY_PATH, encounters.slice(-MAX_HISTORY_ENCOUNTERS));
   } catch (err) {
     console.error("Failed to save encounter history:", err);
   }
@@ -252,13 +274,10 @@ function broadcastHistoryState() {
 }
 
 function loadAllWindowBounds() {
-  try {
-    var raw = JSON.parse(fs.readFileSync(WINDOW_PATH, "utf8"));
-    if (raw && typeof raw.x === "number") return { main: raw };
-    return raw || {};
-  } catch (err) {
-    return {};
-  }
+  var raw = readJson(WINDOW_PATH);
+  if (!isPlainObject(raw)) return {};
+  if (typeof raw.x === "number") return { main: raw };
+  return raw;
 }
 
 function loadWindowBoundsFor(key) {
@@ -270,7 +289,7 @@ function saveWindowBoundsFor(key, b) {
   try {
     var all = loadAllWindowBounds();
     all[key] = { x: b.x, y: b.y, width: b.width, height: b.height };
-    fs.writeFileSync(WINDOW_PATH, JSON.stringify(all));
+    writeJsonAtomic(WINDOW_PATH, all);
   } catch (err) {
     // not critical — worst case that window just opens at its default spot next time
   }
@@ -324,38 +343,33 @@ function clamp(n, lo, hi) {
 }
 
 function stopTailing() {
-  if (tailTimer) clearInterval(tailTimer);
-  tailTimer = null;
+  if (tailState) tailState.stop();
   tailState = null;
+}
+
+var lastSourceStatus = null;
+function sendToMain(channel, data) {
+  if (win && !win.isDestroyed()) win.webContents.send(channel, data);
 }
 
 function startTailing(filePath) {
   stopTailing();
-  var stat;
-  try {
-    stat = fs.statSync(filePath);
-  } catch (err) {
-    if (win) win.webContents.send("source-status", { ok: false, error: "Couldn't open " + filePath });
-    return;
-  }
-  tailState = { filePath: filePath, offset: stat.size };
-  if (win) win.webContents.send("source-status", { ok: true, filePath: filePath, fileName: path.basename(filePath) });
+  var fileName = path.basename(filePath);
+  var tailer = createLogTailer({
+    filePath: filePath,
+    onChunk: function (text) { if (tailState === tailer) sendToMain("log-chunk", text); },
+    onStatus: function (s) {
+      if (tailState !== tailer) return;
+      lastSourceStatus = Object.assign({ filePath: filePath, fileName: fileName }, s);
+      sendToMain("source-status", lastSourceStatus);
+      broadcastSourceStatus(lastSourceStatus);
+    }
+  });
+  tailState = tailer;
+}
 
-  tailTimer = setInterval(function () {
-    fs.stat(filePath, function (err, st) {
-      if (err || !tailState) return;
-      if (st.size < tailState.offset) tailState.offset = 0;
-      if (st.size <= tailState.offset) return;
-      var stream = fs.createReadStream(filePath, { start: tailState.offset, end: st.size - 1, encoding: "utf8" });
-      var chunks = [];
-      stream.on("data", function (c) { chunks.push(c); });
-      stream.on("end", function () {
-        tailState.offset = st.size;
-        if (win) win.webContents.send("log-chunk", chunks.join(""));
-      });
-      stream.on("error", function () {   });
-    });
-  }, 1000);
+function broadcastSourceStatus(status) {
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send("source-status", status);
 }
 
 function createWindow() {
@@ -524,15 +538,12 @@ function createLeaderboardWindow() {
 }
 
 function loadAuth() {
-  try {
-    return JSON.parse(fs.readFileSync(AUTH_PATH, "utf8"));
-  } catch (e) {
-    return null;
-  }
+  var auth = readJson(AUTH_PATH);
+  return isPlainObject(auth) && typeof auth.sessionCookie === "string" && auth.sessionCookie ? auth : null;
 }
 function saveAuth(auth) {
-  if (auth) fs.writeFileSync(AUTH_PATH, JSON.stringify(auth, null, 2));
-  else { try { fs.unlinkSync(AUTH_PATH); } catch (e) {} }
+  if (auth) writeJsonAtomic(AUTH_PATH, auth, 2);
+  else removeJson(AUTH_PATH);
 }
 // Only ever sends username/avatarUrl out to renderers — sessionCookie stays
 // main-process-only, no reason for any web content to ever see it.
@@ -547,7 +558,7 @@ async function apiFetch(pathname, opts) {
   var auth = loadAuth();
   var headers = Object.assign({ "Content-Type": "application/json" }, (opts && opts.headers) || {});
   if (auth && auth.sessionCookie) headers.Cookie = "dyrelog_session=" + auth.sessionCookie;
-  var res = await fetch(API_BASE + pathname, Object.assign({}, opts, { headers: headers }));
+  var res = await fetch(API_BASE + pathname, Object.assign({ signal: AbortSignal.timeout(20000) }, opts, { headers: headers }));
   if (res.status === 401) { saveAuth(null); broadcastAuthUpdate(null); }
   return res;
 }
@@ -568,6 +579,7 @@ function openLoginWindow() {
       webPreferences: { session: authSession, contextIsolation: true, nodeIntegration: false }
     });
     authWin.setMenuBarVisibility(false);
+    authWebContents.add(authWin.webContents);
     authWin.loadURL(API_BASE + "/api/auth/login");
     authWin.webContents.on("before-input-event", function (event, input) {
       if (input.type === "keyDown" && input.key === "F12") authWin.webContents.toggleDevTools();
@@ -581,7 +593,9 @@ function openLoginWindow() {
     }
 
     async function handleNavigation(url) {
-      if (settled || typeof url !== "string" || url.indexOf(SITE_URL) !== 0) return; // still mid-flow — keep waiting
+      var landedOnSite = false;
+      try { landedOnSite = new URL(url).origin === SITE_URL; } catch (_err) { landedOnSite = false; }
+      if (settled || !landedOnSite) return; // still mid-flow — keep waiting
       try {
         var cookies = await authSession.cookies.get({ url: API_BASE, name: "dyrelog_session" });
         var cookie = cookies[0];
@@ -674,6 +688,37 @@ function sendToSubmitPopup(channel, data) {
   else send();
 }
 
+var SUBMIT_ERROR_MESSAGES = {
+  unauthorized: "Your Discord login expired. Log in again from Settings, then try the next kill.",
+  character_linked_to_another_account: "This character is already linked to a different Discord account.",
+  too_many_open_streams: "Too many unfinished uploads right now. Wait a minute and try again.",
+  nothing_captured: "Nothing from this fight was captured.",
+  no_you_lines_found: "The log for this fight has no lines from you, so there's nothing to submit.",
+  already_finalized: "This kill was already submitted.",
+  submission_not_streaming: "This kill was already submitted.",
+  chunk_too_large: "This fight's log is too large to upload.",
+  too_many_batches: "This fight's log is too large to upload.",
+  cross_site_origin_rejected: "The server rejected the request. Update Dyrelog and try again.",
+  internal_error: "The Dyrelog server had a problem. Try again in a few minutes."
+};
+
+function submitError(code, fallback) {
+  return new Error(SUBMIT_ERROR_MESSAGES[code] || fallback);
+}
+
+function friendlyNetworkError(err) {
+  if (err && (err.name === "TimeoutError" || err.name === "AbortError")) return "The Dyrelog server took too long to answer. Try again in a few minutes.";
+  var msg = String((err && err.message) || err || "");
+  if (/fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT/i.test(msg)) return "Couldn't reach the Dyrelog server. Check your internet connection.";
+  return msg || "Something went wrong.";
+}
+
+async function readApiError(res, fallback) {
+  var body = await res.json().catch(function () { return {}; });
+  if (res.status === 401) return submitError("unauthorized", fallback);
+  return submitError(body.error, fallback);
+}
+
 async function performSubmit(payload) {
   var submissionId = payload.existingSubmissionId;
   if (!submissionId) {
@@ -681,35 +726,59 @@ async function performSubmit(payload) {
       method: "POST",
       body: JSON.stringify({ characterName: payload.characterName, realm: payload.realm, soloMode: !!payload.soloMode })
     });
+    if (!startRes.ok) throw await readApiError(startRes, "Couldn't start the upload. Try again in a few minutes.");
     var startBody = await startRes.json().catch(function () { return {}; });
-    if (!startRes.ok) throw new Error(startBody.error || "Couldn't start the submission");
     submissionId = startBody.submissionId;
+    if (!submissionId) throw new Error("The Dyrelog server sent an unexpected answer. Try again in a few minutes.");
   }
 
-  var chunk = payload.existingSubmissionId ? payload.finalChunk : payload.rawText;
-  if (chunk) {
+  for (var i = 0; i < payload.batches.length; i++) {
     var batchRes = await apiFetch("/api/streams/" + submissionId + "/batches", {
       method: "POST",
-      body: JSON.stringify({ chunk: chunk })
+      body: JSON.stringify({ chunk: payload.batches[i] })
     });
-    if (!batchRes.ok) {
-      var batchBody = await batchRes.json().catch(function () { return {}; });
-      throw new Error(batchBody.error || "Couldn't upload the log");
-    }
+    if (!batchRes.ok) throw await readApiError(batchRes, "Couldn't upload the fight log. Try again in a few minutes.");
   }
 
   var finalizeRes = await apiFetch("/api/streams/" + submissionId + "/finalize", {
     method: "POST",
     body: JSON.stringify(payload.difficulty ? { difficulty: payload.difficulty } : {})
   });
-  var finalizeBody = await finalizeRes.json().catch(function () { return {}; });
-  if (!finalizeRes.ok) throw new Error(finalizeBody.error || "Couldn't finalize the submission");
-  return finalizeBody;
+  if (!finalizeRes.ok) throw await readApiError(finalizeRes, "Couldn't finish the submission. Try again in a few minutes.");
+  return await finalizeRes.json().catch(function () { return {}; });
+}
+
+// Renderer-supplied payloads are checked before anything reaches the network.
+var MAX_SUBMIT_BATCHES = 1000;
+var MAX_SUBMIT_CHARS = 20 * 1024 * 1024;
+function normalizeSubmitPayload(p) {
+  if (!isPlainObject(p)) return null;
+  if (p.mode !== "ask" && p.mode !== "auto") return null;
+  if (typeof p.characterName !== "string" || !p.characterName || typeof p.realm !== "string" || !p.realm) return null;
+  var batches = Array.isArray(p.batches) ? p.batches : [];
+  if (batches.length > MAX_SUBMIT_BATCHES || batches.some(function (b) { return typeof b !== "string" || !b; })) return null;
+  if (batches.reduce(function (n, b) { return n + b.length; }, 0) > MAX_SUBMIT_CHARS) return null;
+  if (p.existingSubmissionId != null && !(Number.isSafeInteger(p.existingSubmissionId) && p.existingSubmissionId > 0)) return null;
+  if (!p.existingSubmissionId && !batches.length) return null;
+  return {
+    mode: p.mode,
+    characterName: p.characterName.slice(0, 64),
+    realm: p.realm.slice(0, 64),
+    soloMode: !!p.soloMode,
+    mobName: typeof p.mobName === "string" ? p.mobName.slice(0, 120) : "",
+    dps: Number(p.dps) || 0,
+    damage: Number(p.damage) || 0,
+    difficulty: ["D1", "D2", "D3", "D4"].indexOf(p.difficulty) !== -1 ? p.difficulty : null,
+    startTime: Number.isFinite(p.startTime) ? p.startTime : null,
+    existingSubmissionId: p.existingSubmissionId || null,
+    batches: batches
+  };
 }
 
 ipcMain.handle("start-live-stream", async function (evt, payload) {
   if (!FirstRunPolicy.permitsSubmission(loadSettings())) return { ok: false, error: "submissions_disabled" };
   if (!loadAuth()) return { ok: false, error: "not_logged_in" };
+  if (!isPlainObject(payload) || typeof payload.characterName !== "string" || typeof payload.realm !== "string") return { ok: false, error: "bad_request" };
   try {
     var res = await apiFetch("/api/streams", {
       method: "POST",
@@ -724,6 +793,7 @@ ipcMain.handle("start-live-stream", async function (evt, payload) {
 });
 
 ipcMain.handle("push-live-batch", async function (evt, submissionId, chunk) {
+  if (!Number.isSafeInteger(submissionId) || submissionId < 1 || typeof chunk !== "string") return { ok: false, error: "bad_request" };
   if (!chunk) return { ok: true };
   try {
     var res = await apiFetch("/api/streams/" + submissionId + "/batches", {
@@ -762,16 +832,30 @@ ipcMain.handle("get-auth-state", function () {
   return auth ? { username: auth.username, avatarUrl: auth.avatarUrl } : null;
 });
 
+// startTimes already sent this session, so a repeated request can't create a duplicate submission.
+var submittedStartTimes = new Set();
+
+function runSubmit(payload) {
+  if (payload.startTime != null) {
+    if (submittedStartTimes.has(payload.startTime)) return;
+    submittedStartTimes.add(payload.startTime);
+  }
+  performSubmit(payload).then(function (result) {
+    recordSubmission(payload.startTime, result.submissionId, result.status, result.visibility);
+    submissionSounds.notify(result);
+    if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: true, status: result.status, visibility: result.visibility });
+  }).catch(function (err) {
+    // A failed attempt can be retried by the next request for the same kill.
+    if (payload.startTime != null) submittedStartTimes.delete(payload.startTime);
+    console.error("Submit failed:", err);
+    if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: false, error: friendlyNetworkError(err) });
+  });
+}
+
 function beginSubmitFlow(payload) {
   if (payload.mode === "auto") {
     sendToSubmitPopup("submit-popup:show", { pending: true, mobName: payload.mobName });
-    performSubmit(payload).then(function (result) {
-      recordSubmission(payload.startTime, result.submissionId, result.status, result.visibility);
-      submissionSounds.notify(result);
-      if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: true, status: result.status });
-    }).catch(function (err) {
-      if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: false, error: String((err && err.message) || err) });
-    });
+    runSubmit(payload);
     return;
   }
 
@@ -782,8 +866,10 @@ function beginSubmitFlow(payload) {
 // Single entry point the mini-mode renderer calls for every eligible kill,
 // regardless of which display mode (bars/mini/circle) it's currently in —
 // app.js never calls this at all when autoSubmitMode is "off".
-ipcMain.handle("request-submit", function (evt, payload) {
+ipcMain.handle("request-submit", function (evt, rawPayload) {
   if (!FirstRunPolicy.permitsSubmission(loadSettings())) return { ok: false, error: "submissions_disabled" };
+  var payload = normalizeSubmitPayload(rawPayload);
+  if (!payload) return { ok: false, error: "bad_request" };
   if (!loadAuth()) {
     pendingLoginSubmitPayload = payload;
     sendToSubmitPopup("submit-popup:show", { needsLogin: true });
@@ -799,13 +885,7 @@ ipcMain.on("submit-popup:confirm", function () {
   var payload = pendingSubmitPayload;
   pendingSubmitPayload = null;
   if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:show", { pending: true, mobName: payload.mobName });
-  performSubmit(payload).then(function (result) {
-    recordSubmission(payload.startTime, result.submissionId, result.status, result.visibility);
-      submissionSounds.notify(result);
-    if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: true, status: result.status });
-  }).catch(function (err) {
-    if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: false, error: String((err && err.message) || err) });
-  });
+  runSubmit(payload);
 });
 
 ipcMain.on("submit-popup:discard", function () {
@@ -890,7 +970,7 @@ async function showAnalyticsConsent() {
       result = await dialog.showMessageBox(win, {
         type: 'question', title: 'Usage statistics',
         message: 'Allow Usage Statistics?',
-        detail: 'Help improve Dyrelog by sharing statistics using a random installation ID. No account identity, location, personal files, game data, or identifying data is are collected. Optional - change your choice in settings at any time. Thank you!',
+        detail: 'Help improve Dyrelog by sharing basic usage statistics under a random installation ID. No account identity, location, personal files, game data, or other identifying data is collected. You can change this any time in Settings. Thank you!',
         buttons: ['Allow', 'Learn More', 'No thanks'], defaultId: 0, cancelId: 2, noLink: true,
       });
       if (result.response === 1) {
@@ -921,7 +1001,15 @@ ipcMain.handle('complete-first-run', function(event, mode) {
   } catch (err) { return { ok: false, error: err.message }; }
 });
 
+app.on("second-instance", function () {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+});
+
 app.whenReady().then(function () {
+  if (!hasInstanceLock) return;
   if (process.platform === 'win32') {
     stopForegroundWatch = watchGameForeground({
       appProcessId: process.pid,
@@ -943,7 +1031,12 @@ app.whenReady().then(function () {
   setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);
 });
 
-app.on('before-quit', function () { if (stopForegroundWatch) stopForegroundWatch(); if (stopAnalytics) stopAnalytics(); });
+// Every quit path (tray, updater, OS shutdown) must get past the close handler's exit prompt.
+app.on('before-quit', function () {
+  appIsQuitting = true;
+  if (stopForegroundWatch) stopForegroundWatch();
+  if (stopAnalytics) stopAnalytics();
+});
 
 app.on("window-all-closed", function () {
   stopTailing();
@@ -994,7 +1087,8 @@ ipcMain.handle("check-for-updates-now", async function () {
   try {
     await autoUpdater.checkForUpdates();
   } catch (err) {
-    sendUpdaterStatus({ state: "error", message: (err && err.message) || String(err) });
+    console.error("Update check failed:", err);
+    sendUpdaterStatus({ state: "error", message: friendlyUpdateError(err) });
   }
 });
 ipcMain.handle("download-and-install-update", async function () {
@@ -1002,10 +1096,15 @@ ipcMain.handle("download-and-install-update", async function () {
     sendUpdaterStatus({ state: "dev-mode" });
     return;
   }
+  // Both the banner and the Settings window react to "available"; only one download should run.
+  if (updateDownloadInProgress) return;
+  updateDownloadInProgress = true;
   try {
     await autoUpdater.downloadUpdate();
   } catch (err) {
-    sendUpdaterStatus({ state: "error", message: (err && err.message) || String(err) });
+    updateDownloadInProgress = false;
+    console.error("Update download failed:", err);
+    sendUpdaterStatus({ state: "error", message: friendlyUpdateError(err) });
   }
 });
 
@@ -1029,7 +1128,9 @@ ipcMain.handle("pick-folder", async function () {
   });
   if (res.canceled || !res.filePaths[0]) return null;
   var dir = res.filePaths[0];
-  var matches = findEqLogFiles(dir);
+  var matches;
+  try { matches = findEqLogFiles(dir); } catch (_err) { matches = []; }
+  lastPickedFolder = { dir: dir, matches: matches };
   if (matches.length === 0) return { dir: dir, matches: [] };
   if (matches.length === 1) {
     var filePath = path.join(dir, matches[0]);
@@ -1040,7 +1141,12 @@ ipcMain.handle("pick-folder", async function () {
   return { dir: dir, matches: matches };
 });
 
+// Only accept a log the folder picker itself found, so a renderer can't point tailing at an arbitrary path.
 ipcMain.handle("use-folder-file", function (evt, dir, fileName) {
+  if (!lastPickedFolder || dir !== lastPickedFolder.dir || typeof fileName !== "string" ||
+      lastPickedFolder.matches.indexOf(fileName) === -1 || !EQLOG_RE.test(path.basename(fileName))) {
+    return null;
+  }
   var filePath = path.join(dir, fileName);
   saveConfig({ type: "folder", dir: dir, path: filePath, fileName: fileName });
   startTailing(filePath);
@@ -1183,14 +1289,27 @@ ipcMain.on("open-analysis-fight", function (_event, key) {
 });
 ipcMain.on("open-leaderboard", function () { createLeaderboardWindow(); });
 ipcMain.on("open-settings", function (evt, tab) { createSettingsWindow(tab); });
-ipcMain.on("open-external", function (evt, url) {
-  if (
-    /^https:\/\/(dyrelog\.pages\.dev|dyrelog-api\.dyremoon\.workers\.dev|github\.com\/dyremoon\/dyrelog|eqlwiki\.com|eqlegends\.com|(www\.)?loadoutlegends\.com)/.test(
-      url
-    )
-  ) {
-    shell.openExternal(url);
-  }
+function openExternalSafe(url) {
+  if (isAllowedExternalUrl(url)) shell.openExternal(url);
+}
+ipcMain.on("open-external", function (evt, url) { openExternalSafe(url); });
+
+// App pages are local files; they must never navigate to remote content. The Discord login window is the one exception.
+var RENDERER_DIR_URL = require("url").pathToFileURL(path.join(__dirname, "renderer") + path.sep).href;
+app.on("web-contents-created", function (_evt, contents) {
+  contents.setWindowOpenHandler(function (details) {
+    openExternalSafe(details.url);
+    return { action: "deny" };
+  });
+  contents.on("will-navigate", function (evt, url) {
+    if (authWebContents.has(contents)) {
+      if (!isAllowedAuthNavigation(url)) evt.preventDefault();
+      return;
+    }
+    if (typeof url === "string" && url.toLowerCase().indexOf(RENDERER_DIR_URL.toLowerCase()) === 0) return;
+    evt.preventDefault();
+    openExternalSafe(url);
+  });
 });
 
 ipcMain.on("push-state", function (evt, data) {

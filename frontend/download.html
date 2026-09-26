@@ -34,14 +34,13 @@
           your combat log, and shows you a live dps meter while you play.
         </p>
         <a class="btn btn-brass" id="releases-link" href="https://dyrelog-api.dyremoon.workers.dev/api/download/latest" target="_blank" rel="noopener">Download for Windows &#8595;</a>
+        <p class="muted" id="download-version" style="margin:8px 0 0;"></p>
         <p class="muted">This button records an aggregate download request by day and app version before redirecting to GitHub. No visitor ID or IP address is stored in download analytics. This is separate from optional in-app usage analytics.</p>
         <p class="muted">If the download does not start, <a href="https://github.com/dyremoon/dyrelog/releases/latest" target="_blank" rel="noopener">open GitHub Releases</a>.</p>
         <p class="muted" style="margin-top:14px; margin-bottom:0; font-size:0.85rem;">
-          Downloads the installer straight from GitHub. The Windows
-          installer isn't code-signed yet, since that costs money a small
-          fan project doesn't have, so <strong>SmartScreen may warn you the
-          first time you run it. That's expected, not a sign anything's
-          wrong. It just costs money to get rid of that</strong>
+          The installer comes straight from GitHub. It isn't code-signed yet (signing costs money a small
+          fan project doesn't have), so <strong>Windows SmartScreen may warn you the first time you run it.
+          That's expected.</strong> Choose "More info", then "Run anyway".
         </p>
       </div>
 
@@ -73,20 +72,26 @@
           <li>Click the download button above to grab the installer.</li>
           <li>Run it and follow the prompts. If Windows SmartScreen shows a
             warning, choose "More info" then "Run anyway".</li>
-          <li>Launch Dyrelog and point it at your EverQuest Legends log file. You should only have to do this once, as it remembers the location from then on.
-          </li>
-          <li>Open Settings from the gear icon to pick a theme, adjust
-            sizing, and set up leaderboard submission preferences.</li>
+          <li>In EverQuest, type <code>/log on</code> so the game writes a combat log.</li>
+          <li>Launch Dyrelog and pick your EverQuest folder (or its <code>Logs</code> folder). Dyrelog finds your
+            <code>eqlog_&lt;Character&gt;_&lt;Server&gt;.txt</code> file and remembers it.</li>
+          <li>To put kills on the leaderboard, log in with Discord when the app asks (or later in
+            Settings &rarr; Options). Only kills of known bosses can be submitted.</li>
+          <li>Open Settings from the gear icon to pick a theme, adjust sizing, and change submission options.</li>
         </ol>
+        <h3 style="margin-top:18px;">Updates</h3>
+        <p class="muted" style="margin-bottom:0;">
+          Dyrelog checks for a new version about once an hour while it's open. When one is out, a banner
+          appears at the top of the meter. Click it and Dyrelog downloads the update, installs it and restarts.
+          You can also check any time in Settings &rarr; What's New.
+        </p>
       </div>
 
       <p class="muted">Usage analytics is optional and off until you choose “Allow” in the app. If allowed, the packaged app sends a random installation ID, app version, and platform to Dyrelog’s Cloudflare-hosted service on startup and every 15 minutes while running; the server records observation dates. No account identity, game data, or personal files are sent by usage analytics. Records currently have no automatic expiry. Change your choice in Settings → Options → Usage analytics. Turning it off stops future reports, but does not erase records already received.</p>
       <div class="plate plate-highlight">
         <h2>System requirements</h2>
         <p class="muted" style="margin-top:-6px; margin-bottom:0;">
-          Windows is the actively supported platform right now. Mac and
-          Linux builds exist but haven't been tested yet, so if you try
-          one, a bug report on GitHub is very welcome.
+          Windows 10 or 11. Mac and Linux aren't supported yet.
         </p>
       </div>
     </main>
@@ -100,6 +105,5 @@
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
 
-  <footer class="site-footer"></footer>
 </body>
 </html>

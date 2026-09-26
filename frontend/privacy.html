@@ -44,7 +44,7 @@
         </p>
         <p class="muted">
           Staying logged in works through a single session cookie. It's used only to know who you are between
-          requests, never for tracking or advertising, and no other cookies are set by Dyrelog.
+          requests, never for tracking or advertising, and the only other cookie is a short-lived one used during the Discord sign-in itself.
         </p>
       </div>
 
@@ -57,7 +57,8 @@
           collects your real name, email, or any other personal information from the game client itself.
         </p>
         <p class="muted">
-          A submission is private by default. You choose when to publish one to the public leaderboard, and you can
+          Kills you submit from the desktop app go on the public leaderboard once they pass the automatic checks
+          (you choose "Ask" or "Auto" submission in the app, or turn submission off). You can
           write an optional short bio on your profile, which is public once set. As the site's admin I can see
           flagged or under-review submissions, including their log content, to check them by hand.
         </p>
@@ -71,7 +72,8 @@
         </p>
         <p class="muted">
           Usage analytics is off by default. If you turn it on in Settings, the app sends a random installation ID,
-          the app version, and your platform (e.g. Windows) on startup and every 15 minutes while running. No
+          the app version, and your platform (e.g. Windows) on startup and every 15 minutes while running. The server
+          records the dates it saw that ID. No
           account identity, game data, or personal files are included. Turning it off stops future reports, but
           doesn't erase records already received.
         </p>
@@ -109,6 +111,5 @@
 
   <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
   <script src="./js/app.js"></script>
-  <footer class="site-footer"></footer>
 </body>
 </html>

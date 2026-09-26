@@ -57,7 +57,7 @@ test('explicit Allow starts reporting and Settings withdrawal stops it; preferen
 
 test('saving consent failure cannot activate telemetry and only the Settings sender may change it', async () => {
   const h = consentHarness();
-  h.state.response = 1;
+  h.state.response = 0;
   h.state.failSave = true;
   await h.context.showAnalyticsConsent();
   assert.equal(h.state.starts, 0);

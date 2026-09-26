@@ -506,6 +506,7 @@
     b.addEventListener("click", function () { save({ autoSubmitMode: b.dataset.mode, autoSubmitChosen: true }); });
   });
 
+  var NO_LOGS_FOUND_MESSAGE = "No EverQuest logs (eqlog_*.txt) in that folder.\n\nPick your EverQuest folder or its Logs folder. If you've never turned logging on, type /log on in game first.";
   function applySourceHint(cfg) {
     var active = !!(cfg && cfg.path);
     var name = active ? (cfg.fileName || String(cfg.path).split(/[\\/]/).pop()) : null;
@@ -513,6 +514,11 @@
     els.sourceHint.classList.toggle("ok", active);
   }
   window.dyrelog.getSavedSource().then(applySourceHint);
+  window.dyrelog.onSourceStatus(function (status) {
+    if (!status || !status.waiting) return;
+    els.sourceHintText.textContent = "Waiting for " + status.fileName + ". In EverQuest, type /log on.";
+    els.sourceHint.classList.remove("ok");
+  });
   els.pickFileBtn.addEventListener("click", async function () {
     var res = await window.dyrelog.pickFile();
     if (res) applySourceHint({ fileName: res.fileName, path: res.path });
@@ -521,7 +527,7 @@
     var res = await window.dyrelog.pickFolder();
     if (!res) return;
     if (!res.matches.length) {
-      alert("No eqlog_*.txt files found in that folder.");
+      alert(NO_LOGS_FOUND_MESSAGE);
       return;
     }
     if (res.chosen) {

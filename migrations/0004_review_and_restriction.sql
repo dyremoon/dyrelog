@@ -1,3 +1,0 @@
-ALTER TABLE users ADD COLUMN is_restricted INTEGER NOT NULL DEFAULT 0;
-
-ALTER TABLE submissions ADD COLUMN flag_reasons TEXT;
