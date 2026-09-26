@@ -11,6 +11,8 @@ const Appearance = require("./renderer/appearance.js");
 const FirstRunPolicy = require("./renderer/first-run-policy.js");
 const { createSubmissionSounds } = require("./submission-sounds.cjs");
 const { autoUpdater } = require("electron-updater");
+const Analytics = require('./analytics.cjs');
+let stopAnalytics = null;
 
 app.setName("Dyrelog");
 
@@ -860,6 +862,56 @@ function showFirstRunSetup() {
   setupWin.on('closed', function() { setupWin = null; });
 }
 
+function syncAnalyticsConsent() {
+  if (stopAnalytics) { stopAnalytics(); stopAnalytics = null; }
+  if (!app.isPackaged || process.env.DYRELOG_DISABLE_ANALYTICS === '1' || !Analytics.hasConsent(loadSettings())) return;
+  stopAnalytics = Analytics.startAnalytics({
+    directory: app.getPath('userData'), version: app.getVersion(), platform: process.platform, apiBase: API_BASE,
+    isAllowed: () => Analytics.hasConsent(loadSettings()),
+  });
+}
+
+function saveAnalyticsConsent(enabled) {
+  if (typeof enabled !== 'boolean') throw new Error('Choose whether to allow usage analytics.');
+  const settings = loadSettings();
+  settings.analyticsConsent = { version: Analytics.CONSENT_VERSION, enabled, decidedAt: new Date().toISOString() };
+  saveSettings(settings);
+  syncAnalyticsConsent();
+  return settings;
+}
+
+async function showAnalyticsConsent() {
+  const consent = loadSettings().analyticsConsent;
+  if (consent?.version === Analytics.CONSENT_VERSION && typeof consent.enabled === 'boolean') return;
+  if (!win || win.isDestroyed()) return;
+  try {
+    let result;
+    do {
+      result = await dialog.showMessageBox(win, {
+        type: 'question', title: 'Usage statistics',
+        message: 'Allow Usage Statistics?',
+        detail: 'Help improve Dyrelog by sharing statistics using a random installation ID. No account identity, location, personal files, game data, or identifying data is are collected. Optional - change your choice in settings at any time. Thank you!',
+        buttons: ['Allow', 'Learn More', 'No thanks'], defaultId: 0, cancelId: 2, noLink: true,
+      });
+      if (result.response === 1) {
+        await dialog.showMessageBox(win, {
+          type: 'info', title: 'About usage statistics', message: 'What you’re opting into',
+          detail: 'If you allow it, Dyrelog sends a random installation ID, app version, and platform to Dyrelog’s Cloudflare-hosted service when the app starts and every 15 minutes while running, including idle time. Server observation dates are recorded. This helps measure active installations and supported versions.\n\nNo account identity, Windows username, machine name, hardware ID, location, game data, or personal files are sent by usage analytics. Dyrelog does not store IP addresses in analytics. The hosting provider processes normal network traffic. Records currently have no automatic expiry.\n\nYour choice does not affect app features. Change it any time in Settings → Options → Usage analytics. Turning it off stops future reports; it does not erase records already received.',
+          buttons: ['Back'], defaultId: 0, cancelId: 0, noLink: true,
+        });
+      }
+    } while (result.response === 1 && win && !win.isDestroyed());
+    // A Settings choice made while the prompt is open takes precedence.
+    const latest = loadSettings().analyticsConsent;
+    if (latest?.version !== Analytics.CONSENT_VERSION || typeof latest.enabled !== 'boolean') saveAnalyticsConsent(result.response === 0);
+  } catch { /* Consent failures leave reporting disabled. */ }
+}
+
+ipcMain.handle('set-analytics-consent', function(event, enabled) {
+  if (!settingsWin || settingsWin.isDestroyed() || event.sender !== settingsWin.webContents) throw new Error('Open Settings to change analytics consent.');
+  return saveAnalyticsConsent(enabled);
+});
+
 ipcMain.handle('complete-first-run', function(event, mode) {
   if (!setupWin || setupWin.isDestroyed() || event.sender !== setupWin.webContents) return { ok: false, error: 'Setup is not open.' };
   try {
@@ -884,11 +936,14 @@ app.whenReady().then(function () {
   }
   createWindow();
   showFirstRunSetup();
+  syncAnalyticsConsent();
+  if (setupWin) setupWin.once('closed', () => { void showAnalyticsConsent(); });
+  else void showAnalyticsConsent();
   setTimeout(checkForUpdates, 5000);
   setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);
 });
 
-app.on('before-quit', function () { if (stopForegroundWatch) stopForegroundWatch(); });
+app.on('before-quit', function () { if (stopForegroundWatch) stopForegroundWatch(); if (stopAnalytics) stopAnalytics(); });
 
 app.on("window-all-closed", function () {
   stopTailing();
@@ -1023,6 +1078,8 @@ ipcMain.handle("get-settings", function () {
 });
 
 function applySettingsPartial(partial) {
+  partial = { ...partial };
+  delete partial.analyticsConsent;
   var settings = Object.assign(loadSettings(), partial || {});
   saveSettings(settings);
   // Turning the tray toggle back off tears down the tray icon immediately

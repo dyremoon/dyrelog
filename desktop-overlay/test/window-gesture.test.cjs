@@ -2,12 +2,15 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createWindowGesture } = require('../window-gesture.cjs');
 
-function setup() {
+function setup(sizeDrift = 0) {
   let bounds = { x: -200, y: 40, width: 320, height: 180 };
   let cursor = { x: -190, y: 50 }, saved = 0;
   const calls = [];
   const win = { isDestroyed: () => false, getBounds: () => ({ ...bounds }),
-    setPosition(x, y) { calls.push('position'); bounds = { ...bounds, x, y }; },
+    setPosition(x, y) { calls.push('position'); bounds = { x, y,
+      width: bounds.width + sizeDrift, height: bounds.height + sizeDrift }; },
+    setBounds(next) { calls.push('bounds'); bounds = { ...next,
+      width: next.width + sizeDrift, height: next.height + sizeDrift }; },
     setSize(width, height) { calls.push('size'); bounds = { ...bounds, width, height }; } };
   const gesture = createWindowGesture(() => win, () => ({ ...cursor }),
     { minWidth: 170, maxWidth: 900, minHeight: 56, maxHeight: 900 }, () => saved++);
@@ -21,9 +24,17 @@ test('continuous dragging changes only position, never dimensions', () => {
     t.move(i - 500, i % 400); t.gesture.handle('drag', 'move');
     assert.equal(t.bounds.width, 320); assert.equal(t.bounds.height, 180);
   }
-  assert.ok(t.calls.every(call => call === 'position'));
+  assert.ok(t.calls.every(call => call === 'bounds'));
   t.gesture.handle('drag', 'end');
   assert.equal(t.saved, 1);
+});
+
+test('native size rounding does not accumulate across drag moves', () => {
+  const t = setup(1); t.gesture.handle('drag', 'start');
+  for (let i = 0; i < 1000; i++) {
+    t.move(i - 500, i % 400); t.gesture.handle('drag', 'move');
+    assert.deepEqual(t.bounds, { x: i - 510, y: i % 400 - 10, width: 321, height: 181 });
+  }
 });
 
 test('right, bottom and corner resize change only their dimensions', () => {
@@ -43,7 +54,7 @@ test('drag and resize cannot overlap or terminate each other', () => {
     t.move(200, 200); t.gesture.handle(other, 'move'); t.gesture.handle(other, 'end');
     assert.deepEqual(t.calls, []); assert.ok(t.gesture.isActive());
     t.gesture.handle(kind, 'move');
-    assert.deepEqual(t.calls, [kind === 'drag' ? 'position' : 'size']);
+    assert.deepEqual(t.calls, [kind === 'drag' ? 'bounds' : 'size']);
   }
 });
 

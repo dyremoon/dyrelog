@@ -9,3 +9,4 @@ dist/
 # not project code, not meant to be tracked.
 Claude outputs/
 DYRELOG-PLAN-1.md
+*.asd

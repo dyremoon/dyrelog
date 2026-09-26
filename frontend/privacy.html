@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="darkreader-lock" />
+  <title>Dyrelog — Privacy</title>
+  <meta name="description" content="What Dyrelog stores when you log in, submit a fight, or use the desktop overlay, and how to ask for your data to be removed." />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="./css/dyrelog.css" />
+  <link rel="icon" type="image/png" href="./assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="./assets/logo-180.png" />
+</head>
+<body>
+  <div class="container">
+    <header class="site-header">
+      <div class="wordmark"><img class="logo-mark" src="./assets/logo-64.png" alt="" width="28" height="28">Dyrelog<span class="game-badge">EverQuest Legends</span></div>
+      <nav class="site-nav">
+        <a href="./index.html">Leaderboards</a>
+        <a href="./analyze.html">Analyze Log</a>
+        <a href="./about.html">About</a>
+        <a href="./download.html">Download Dyrelog</a>
+        <span id="auth-slot"></span>
+        <a href="./admin.html" id="nav-admin-link" hidden>Admin</a>
+      </nav>
+    </header>
+
+    <main>
+      <div class="plate plate-gold" style="margin-bottom:24px;">
+        <h2>Privacy</h2>
+        <p class="muted" style="margin-top:-6px;">
+          Dyrelog is a one-person fan project, not a company, and this page is written in plain language rather than
+          formal legal terms. It isn't legal advice, just an honest account of what the site and the desktop overlay
+          actually store and why. Last updated September 2026.
+        </p>
+      </div>
+
+      <div class="plate plate-highlight" style="margin-bottom:24px;">
+        <h3>Logging in with Discord</h3>
+        <p class="muted" style="margin-top:-6px;">
+          Logging in uses Discord's own sign-in flow. Dyrelog receives and stores your Discord user ID, username,
+          and avatar image URL, nothing else from your Discord account. This is what lets a leaderboard entry show
+          who submitted it and lets you get back into your own account.
+        </p>
+        <p class="muted">
+          Staying logged in works through a single session cookie. It's used only to know who you are between
+          requests, never for tracking or advertising, and no other cookies are set by Dyrelog.
+        </p>
+      </div>
+
+      <div class="plate plate-gold" style="margin-bottom:24px;">
+        <h3>Combat logs and submissions</h3>
+        <p class="muted" style="margin-top:-6px;">
+          When you submit a fight, the raw combat log text for that capture is stored so it can be checked for
+          obviously fabricated numbers and so you can look back at your own past submissions. Your in-game character
+          name and realm are stored too, since that's how a leaderboard entry is identified, but Dyrelog never
+          collects your real name, email, or any other personal information from the game client itself.
+        </p>
+        <p class="muted">
+          A submission is private by default. You choose when to publish one to the public leaderboard, and you can
+          write an optional short bio on your profile, which is public once set. As the site's admin I can see
+          flagged or under-review submissions, including their log content, to check them by hand.
+        </p>
+      </div>
+
+      <div class="plate plate-highlight" style="margin-bottom:24px;">
+        <h3>The desktop overlay</h3>
+        <p class="muted" style="margin-top:-6px;">
+          The overlay runs on your own machine and reads your local combat log file directly. It doesn't send
+          anything anywhere unless you submit a fight or opt in to usage analytics.
+        </p>
+        <p class="muted">
+          Usage analytics is off by default. If you turn it on in Settings, the app sends a random installation ID,
+          the app version, and your platform (e.g. Windows) on startup and every 15 minutes while running. No
+          account identity, game data, or personal files are included. Turning it off stops future reports, but
+          doesn't erase records already received.
+        </p>
+        <p class="muted">
+          The download button on the site's Download page records an aggregate count by day and app version before
+          redirecting you to the file. No visitor ID or IP address is stored as part of that count.
+        </p>
+      </div>
+
+      <div class="plate plate-gold" style="margin-bottom:24px;">
+        <h3>How long data is kept, and asking for yours to be removed</h3>
+        <p class="muted" style="margin-top:-6px;">
+          There's no automatic deletion schedule right now. If you'd like your account, submissions, or bio removed,
+          reach out and I'll take care of it by hand. The quickest way is
+          <a href="https://github.com/dyremoon/dyrelog/issues/new" target="_blank" rel="noopener">opening a GitHub issue</a>
+          or emailing <a href="mailto:dyremoon.gg@gmail.com">dyremoon.gg@gmail.com</a>.
+        </p>
+      </div>
+
+      <div class="plate plate-highlight">
+        <h3>Who this is for</h3>
+        <p class="muted" style="margin-top:-6px; margin-bottom:0;">
+          Dyrelog isn't directed at children, and Discord's own terms already require an account holder to be at
+          least 13. If you believe a child's information has ended up here, contact me at the address above and
+          it'll be removed.
+        </p>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by
+      Daybreak Game Company or EverQuest Legends.
+    </footer>
+  </div>
+
+  <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
+  <script src="./js/app.js"></script>
+  <footer class="site-footer"></footer>
+</body>
+</html>

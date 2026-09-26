@@ -92,6 +92,8 @@ function renderSiteFooter() {
       <a href="./about.html">About</a>
       <span>•</span>
       <a href="./download.html">Download Dyrelog</a>
+      <span>•</span>
+      <a href="./privacy.html">Privacy</a>
       <span id="footer-version"></span>
     </div>
 
@@ -99,6 +101,8 @@ function renderSiteFooter() {
       Created by <strong>Dyremoon - Freeport</strong>
       <span>•</span>
       <a href="https://github.com/dyremoon/dyrelog" target="_blank" rel="noopener">GitHub</a>
+      <span>•</span>
+      <a href="https://ko-fi.com/dyremoon" target="_blank" rel="noopener">Buy me a coffee on Ko-fi</a>
       <span>•</span>
       <a href="https://github.com/dyremoon/dyrelog/issues/new" target="_blank" rel="noopener">
         Report a bug or submit feedback

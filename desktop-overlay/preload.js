@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld("dyrelog", {
 
   completeFirstRun: (mode) => ipcRenderer.invoke('complete-first-run', mode),
   getSettings: () => ipcRenderer.invoke("get-settings"),
+  setAnalyticsConsent: (enabled) => ipcRenderer.invoke('set-analytics-consent', enabled),
   saveSettings: (partial) => ipcRenderer.invoke("save-settings", partial),
   onSettingsUpdate: (cb) => ipcRenderer.on("settings-update", (_evt, settings) => cb(settings)),
   // Settings window footer only — see get-app-version in main.js.

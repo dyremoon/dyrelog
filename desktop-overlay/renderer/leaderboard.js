@@ -359,6 +359,13 @@
           : esc(stripTierSuffix(b.name));
         var submission = SubmissionView.describeSubmission(b, submissionRows);
         var viewCell = '<button class="view-lb-link" data-fight-key="' + esc(String(b.startTime)) + '">Analyze</button>';
+        // Only the status word ever shows here — any admin note lives on the
+        // website, never in the overlay. Clicking it (when there's a real
+        // submission behind it) opens the website to that submission's row,
+        // where the note, if any, is visible.
+        var reviewCell = b.submissionId
+          ? '<button class="review-link" data-submission-id="' + esc(String(b.submissionId)) + '" title="Open on the website">' + esc(submission.review) + '</button>'
+          : esc(submission.review);
         return (
           "<tr>" +
             "<td>" + nameCell + "</td>" +
@@ -367,7 +374,7 @@
             '<td class="num">' + fmtNum(b.damage) + "</td>" +
             '<td class="muted">' + fmtDateOnly(b.startTime) + "</td>" +
             '<td>' + esc(submission.visibility) + '</td>' +
-            '<td class="muted">' + esc(submission.review) + '</td>' +
+            '<td class="muted">' + reviewCell + '</td>' +
             '<td>' + viewCell + "</td>" +
           "</tr>"
         );
@@ -383,7 +390,9 @@
     var nameBtn = evt.target.closest(".boss-name-link[data-boss-id]");
     if (nameBtn) { evt.preventDefault(); viewBossOnPublicLeaderboard(nameBtn.dataset.bossId); return; }
     var viewBtn = evt.target.closest(".view-lb-link[data-fight-key]");
-    if (viewBtn) window.dyrelog.openAnalysisFight(viewBtn.dataset.fightKey);
+    if (viewBtn) { window.dyrelog.openAnalysisFight(viewBtn.dataset.fightKey); return; }
+    var reviewBtn = evt.target.closest(".review-link[data-submission-id]");
+    if (reviewBtn) window.dyrelog.openExternal(SITE_BASE + "/profile.html?submissionId=" + reviewBtn.dataset.submissionId);
   });
 
   var lbTabs = document.getElementById("lb-tabs");

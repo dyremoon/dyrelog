@@ -17,7 +17,9 @@ function createWindowGesture(getWindow, getCursor, limits, persist) {
     const dx = cursor.x - active.cursor.x, dy = cursor.y - active.cursor.y;
     const initial = active.bounds;
     if (kind === 'drag') {
-      win.setPosition(initial.x + dx, initial.y + dy);
+      // Explicit dimensions prevent DPI rounding from accumulating during movement.
+      win.setBounds({ x: initial.x + dx, y: initial.y + dy,
+        width: initial.width, height: initial.height });
     } else {
       const clamp = (value, min, max) => Math.max(min, Math.min(max, Math.round(value)));
       win.setSize(active.width ? clamp(initial.width + dx, limits.minWidth, limits.maxWidth) : initial.width,

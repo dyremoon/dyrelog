@@ -70,6 +70,14 @@
 .boss-name-link { color: var(--ink); text-decoration: underline; cursor: pointer; }
 .boss-name-link:hover { color: var(--accent); }
 
+/* "My Kills" Review status — clickable only once there's a real submission
+   behind it, opening that submission's row on the website. */
+.review-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 2px;
+}
+.review-link:hover { color: var(--accent); }
+
 .header-actions { display: flex; align-items: center; gap: 8px; }
 th .column-difficulty { display: block; margin-top: 6px; max-width: 150px; font: inherit; }
 .difficulty-control { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; white-space: nowrap; color: var(--ink); font-weight: 600; }

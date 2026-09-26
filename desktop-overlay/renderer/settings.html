@@ -339,6 +339,13 @@
     </section>
 
     <section class="tab-panel" data-tab-panel="options" hidden>
+      <div class="settings-section" data-searchable="privacy consent telemetry analytics tracking usage opt in opt out">
+        <p class="section-label">Usage analytics (optional)</p>
+        <p class="about-copy">Help Dyrelog measure active installations and app versions. Only if you allow it, the packaged app sends a random installation ID, app version, and platform to Dyrelog’s Cloudflare-hosted service on startup and every 15 minutes while running, including idle time. The server records observation dates.</p>
+        <p class="about-copy">Usage analytics sends no account identity, Windows username, machine name, hardware ID, precise location, game data, or personal files. Dyrelog does not store IP addresses in analytics; Cloudflare processes normal network traffic. Records currently have no automatic expiry. Turning this off stops future reports, but does not erase records already received. All app features work with analytics off.</p>
+        <label class="check"><input type="checkbox" id="allow-usage-analytics" disabled> Allow optional usage analytics</label>
+        <p class="about-copy" id="usage-analytics-status" role="status">Loading preference…</p>
+      </div>
       <div class="settings-section" data-searchable="submission sound audio mp3 volume mute">
         <p class="section-label">Submission Sound</p>
         <div class="row"><label for="submission-sound">Sound</label><select id="submission-sound"><option value="none">No sound</option></select></div>
@@ -471,5 +478,6 @@
   <script src="appearance.js"></script>
 <script src="submission-audio.js"></script>
 <script src="settings.js"></script>
+<script src="analytics-settings.js"></script>
 </body>
 </html>
