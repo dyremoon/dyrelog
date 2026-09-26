@@ -1,7 +1,6 @@
 # Dyrelog
 
-**[Website](https://dyrelog.pages.dev) · [Download](https://dyrelog.pages.dev/download.html)**
-
+  **[Website](https://dyrelog.pages.dev)**
 A free DPS meter and combat-log leaderboard for **EverQuest Legends**. Track
 your damage live with the overlay, submit a fight, and see how it stacks up
 by boss.
