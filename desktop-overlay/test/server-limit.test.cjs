@@ -57,7 +57,7 @@ function mainHarness({ responses = [], stored = null } = {}) {
     Date: class extends Date { static now() { return now; } },
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
     clearTimeout: () => {},
-    app: { getPath: () => 'C:/userData' }, path,
+    app: { getPath: () => 'C:/userData', getVersion: () => '0.1.20' }, path,
     readJson: (p) => (p in files ? files[p] : stored),
     writeJsonAtomic: (p, v) => { files[p] = JSON.parse(JSON.stringify(v)); },
     isPlainObject: (v) => !!v && typeof v === 'object' && !Array.isArray(v),
@@ -67,6 +67,7 @@ function mainHarness({ responses = [], stored = null } = {}) {
     fetch: async (url, opts) => {
       calls.push(url.replace('https://api.test', ''));
       const r = queue.shift() || { status: 200, body: {} };
+      if (r.hang) return new Promise(() => {});
       const text = typeof r.body === 'string' ? r.body : JSON.stringify(r.body);
       const res = {
         ok: r.status < 400, status: r.status,
@@ -232,4 +233,48 @@ test('website errors that are not limits show no banner', async () => {
   const { context, main } = site(async () => ({ ok: false, status: 404, json: async () => ({ error: 'not_found' }) }));
   await assert.rejects(context.api('/api/encounters/1'), (err) => !err.limit);
   assert.equal(main.children.length, 0);
+});
+
+test('a kill that was uploading when the app closed is kept on disk with its progress and resumed on the next start', async () => {
+  const OK = { status: 200, body: { ok: true } };
+  const h = mainHarness({ responses: [{ status: 200, body: { submissionId: 12 } }, OK, { hang: true }] });
+  h.handlers['request-submit']({}, Object.assign({}, shortKill, { batches: ['a', 'b', 'c'] }));
+  await new Promise((r) => setImmediate(r));
+  await new Promise((r) => setImmediate(r));
+  // The app "closes" here: whatever was last written to disk is what the next start sees.
+  const onDisk = JSON.parse(JSON.stringify(Object.values(h.files).at(-1)));
+  assert.equal(onDisk.inflight.length, 1);
+  assert.equal(onDisk.inflight[0].existingSubmissionId, 12);
+  assert.ok(onDisk.inflight[0].batches.length < 3, 'accepted chunks are not kept for resending');
+
+  const next = mainHarness({ stored: onDisk });
+  next.ctx.loadPending();
+  assert.equal(next.ctx.pendingState().kills.length, 1);
+  await next.ctx.sendPendingKills();
+  assert.ok(next.calls.every((c) => c.startsWith('/api/streams/12/')), 'resumes the same upload: ' + next.calls.join(','));
+  assert.equal(next.calls.at(-1), '/api/streams/12/finalize');
+  assert.equal(next.ctx.pendingState().kills.length, 0);
+});
+
+test('a saved kill the server already finished is dropped quietly, not reported as a failure', async () => {
+  const stored = { pauseUntil: 0, kills: [{ mode: 'auto', mobName: 'Lady Vox', characterName: 'T', realm: 'r', startTime: 1, endTime: 9000, existingSubmissionId: 4, liveBatches: 0, batches: [] }] };
+  const h = mainHarness({ stored, responses: [{ status: 409, body: { error: 'already_finalized' } }] });
+  h.ctx.loadPending();
+  await h.ctx.sendPendingKills();
+  assert.equal(h.ctx.pendingState().kills.length, 0);
+  assert.ok(!h.popup.some((p) => p.data && p.data.ok === false), 'no error popup');
+});
+
+test('a corrupted saved-kills file is ignored instead of crashing the app', () => {
+  for (const stored of ['garbage', 42, { kills: 'nope' }, { kills: [null, 5, { mode: 'x' }] }]) {
+    const h = mainHarness({ stored });
+    h.ctx.normalizeSubmitPayload = (p) => (p && typeof p === 'object' && p.characterName ? p : null);
+    h.ctx.loadPending();
+    assert.equal(h.ctx.pendingState().kills.length, 0);
+  }
+});
+
+test('every request tells the server which app version sent it', () => {
+  const src = readFileSync(path.join(__dirname, '../main.js'), 'utf8');
+  assert.match(src, /headers\["X-Dyrelog-Version"\] = app\.getVersion\(\);/);
 });

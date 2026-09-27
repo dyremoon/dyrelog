@@ -15,6 +15,7 @@ function harness({ loggedIn = true } = {}) {
   const ctx = {
     console, Promise, Set,
     askQueue: [], loginQueue: [], popupState: null, uploadsInFlight: 0,
+    pending: { inflight: [], kills: [], pauseUntil: 0 }, savePending() {},
     loadSettings: () => ({}), FirstRunPolicy: { permitsSubmission: () => true },
     normalizeSubmitPayload: (p) => p, loadAuth: () => (ctx.auth ? {} : null), auth: loggedIn,
     performSubmit: (p) => { submitted.push(p.mobName); return new Promise((r) => { resolveUpload = () => r({ submissionId: 1, status: 'verified', visibility: 'public' }); }); },

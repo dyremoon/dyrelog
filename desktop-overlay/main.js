@@ -568,13 +568,20 @@ class LimitError extends Error {
 
 // Kills saved while the server is at its limit, sent once after it resets. Survives restarts.
 const PENDING_PATH = path.join(app.getPath("userData"), "dyrelog-pending-kills.json");
-var pending = { pauseUntil: 0, kills: [] };
+var pending = { pauseUntil: 0, kills: [], inflight: [] };
 var pendingTimer = null;
+// Kills that were uploading when the app last closed are retried like saved ones; their saved
+// progress (stream ID, chunks already accepted) means nothing is sent twice.
 function loadPending() {
-  var saved = readJson(PENDING_PATH);
+  var saved = isPlainObject(readJson(PENDING_PATH)) ? readJson(PENDING_PATH) : {};
+  var restore = function (list) {
+    return (Array.isArray(list) ? list : []).map(normalizeSubmitPayload).filter(Boolean)
+      .map(function (k) { k.mode = "auto"; return k; });
+  };
   pending = {
-    pauseUntil: isPlainObject(saved) && Number.isFinite(saved.pauseUntil) ? saved.pauseUntil : 0,
-    kills: isPlainObject(saved) && Array.isArray(saved.kills) ? saved.kills.filter(isPlainObject) : []
+    pauseUntil: Number.isFinite(saved.pauseUntil) ? saved.pauseUntil : 0,
+    kills: restore(saved.kills).concat(restore(saved.inflight)).slice(-50),
+    inflight: []
   };
 }
 function savePending() {
@@ -591,6 +598,7 @@ async function apiFetch(pathname, opts) {
   var auth = loadAuth();
   var headers = Object.assign({ "Content-Type": "application/json" }, (opts && opts.headers) || {});
   if (auth && auth.sessionCookie) headers.Cookie = "dyrelog_session=" + auth.sessionCookie;
+  headers["X-Dyrelog-Version"] = app.getVersion();
   var res = await fetch(API_BASE + pathname, Object.assign({ signal: AbortSignal.timeout(20000) }, opts, { headers: headers }));
   if (res.status === 401) { saveAuth(null); broadcastAuthUpdate(null); }
   if (res.status === 429 || res.status === 503 || res.status === 403) {
@@ -740,11 +748,15 @@ var SUBMIT_ERROR_MESSAGES = {
   chunk_too_large: "This fight's log is too large to upload.",
   too_many_batches: "This fight's log is too large to upload.",
   cross_site_origin_rejected: "The server rejected the request. Update Dyrelog and try again.",
+  update_required: "This version of Dyrelog is too old to submit kills. Update it from Settings, then submit your next kill.",
+  body_too_large: "This fight's log is too large to upload.",
   internal_error: "The Dyrelog server had a problem. Try again in a few minutes."
 };
 
 function submitError(code, fallback) {
-  return new Error(SUBMIT_ERROR_MESSAGES[code] || fallback);
+  var err = new Error(SUBMIT_ERROR_MESSAGES[code] || fallback);
+  err.code = code;
+  return err;
 }
 
 function friendlyNetworkError(err) {
@@ -773,6 +785,7 @@ async function performSubmit(payload) {
     submissionId = startBody.submissionId;
     if (!submissionId) throw new Error("The Dyrelog server sent an unexpected answer. Try again in a few minutes.");
     payload.existingSubmissionId = submissionId;
+    savePending();
   }
 
   while (payload.batches.length) {
@@ -782,6 +795,7 @@ async function performSubmit(payload) {
     });
     if (!batchRes.ok) throw await readApiError(batchRes, "Couldn't upload the fight log. Try again in a few minutes.");
     payload.batches.shift();
+    savePending();
   }
 
   var finalizeRes = await apiFetch("/api/streams/" + submissionId + "/finalize", {
@@ -816,7 +830,7 @@ function normalizeSubmitPayload(p) {
     startTime: Number.isFinite(p.startTime) ? p.startTime : null,
     endTime: Number.isFinite(p.endTime) ? p.endTime : null,
     liveBatches: Number.isSafeInteger(p.liveBatches) && p.liveBatches > 0 ? p.liveBatches : 0,
-    existingSubmissionId: p.existingSubmissionId || null,
+    existingSubmissionId: Number.isSafeInteger(p.existingSubmissionId) && p.existingSubmissionId > 0 ? p.existingSubmissionId : null,
     batches: batches
   };
 }
@@ -899,7 +913,14 @@ function runSubmit(payload) {
     submittedStartTimes.add(payload.startTime);
   }
   uploadsInFlight++;
-  performSubmit(payload).finally(function () { uploadsInFlight--; }).then(function (result) {
+  pending.inflight.push(payload);
+  savePending();
+  var settle = function () {
+    uploadsInFlight--;
+    pending.inflight = pending.inflight.filter(function (k) { return k !== payload; });
+    savePending();
+  };
+  performSubmit(payload).finally(settle).then(function (result) {
     recordSubmission(payload.startTime, result.submissionId, result.status, result.visibility);
     submissionSounds.notify(result);
     sendPopupResult({ ok: true, status: result.status, visibility: result.visibility, waiting: askQueue.length });
@@ -960,6 +981,8 @@ async function sendPendingKillsNow() {
       sent++;
     } catch (err) {
       if (err && err.name === "LimitError") { savePending(); schedulePendingRetry(); break; }
+      // The server already has this kill (the app closed after it finished uploading).
+      if (err && (err.code === "already_finalized" || err.code === "submission_not_streaming")) { pending.kills.shift(); savePending(); continue; }
       if (err && (err.name === "TimeoutError" || err.name === "AbortError" || /fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT/i.test(String(err.message)))) {
         savePending();
         clearTimeout(pendingTimer);
