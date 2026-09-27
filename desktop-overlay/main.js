@@ -826,8 +826,8 @@ ipcMain.handle("start-live-stream", async function (evt, payload) {
   if (!loadAuth()) return { ok: false, error: "not_logged_in" };
   if (!isPlainObject(payload) || typeof payload.characterName !== "string" || typeof payload.realm !== "string") return { ok: false, error: "bad_request" };
   if (Date.now() < pending.pauseUntil) return { ok: false, error: "server_limit" };
-  // Saved kills go first: starting a stream makes the server clear this player's old unfinished uploads.
-  if (pending.kills.length) await sendPendingKills();
+  // Never delay a live stream (late batches fail the spread check); saved kills upload alongside it.
+  if (pending.kills.length) sendPendingKills();
   try {
     var res = await apiFetch("/api/streams", {
       method: "POST",
