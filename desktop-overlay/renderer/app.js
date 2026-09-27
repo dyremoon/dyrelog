@@ -1070,7 +1070,7 @@
   var updaterBusy = false;
   function showUpdateBanner(info) {
     if (!info || updateDismissed || updaterBusy) return;
-    els.updateBannerText.textContent = "Update available — v" + info.version;
+    els.updateBannerText.textContent = "Update available (v" + info.version + ") · Click to install";
     els.updateBanner.hidden = false;
   }
   els.updateBanner.addEventListener("click", function () {

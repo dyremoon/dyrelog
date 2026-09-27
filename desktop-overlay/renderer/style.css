@@ -140,25 +140,30 @@ body {
   justify-content: space-between;
   gap: 6px;
   margin: -1px -1px 8px;
-  padding: 4px 8px;
+  padding: 7px 10px;
   border-radius: 8px 8px 0 0;
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 0.72rem;
+  /* Plain UI font so the notice stays readable whatever font the meter uses. */
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-variant: normal;
+  text-transform: none;
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  line-height: 1.25;
+  letter-spacing: 0;
   cursor: pointer;
   -webkit-app-region: no-drag;
   flex: none;
 }
 .update-banner-dismiss {
   flex: none;
-  width: calc(16px * var(--icon-scale, 1)); height: calc(16px * var(--icon-scale, 1));
+  width: calc(20px * var(--icon-scale, 1)); height: calc(20px * var(--icon-scale, 1));
   border: none;
   background: transparent;
   color: inherit;
   opacity: 0.8;
-  font-size: calc(0.85rem * var(--icon-scale, 1));
+  font-size: calc(1.1rem * var(--icon-scale, 1));
   line-height: 1;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
