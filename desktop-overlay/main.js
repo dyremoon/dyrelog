@@ -754,10 +754,19 @@ var SUBMIT_ERROR_MESSAGES = {
   internal_error: "The Dyrelog server had a problem. Try again in a few minutes."
 };
 
-function submitError(code, fallback) {
+function submitError(code, fallback, status) {
   var err = new Error(SUBMIT_ERROR_MESSAGES[code] || fallback);
   err.code = code;
+  err.status = status;
   return err;
+}
+
+// No connection, a timeout, or a server-side error: worth trying again later rather than giving up.
+function isTemporaryFailure(err) {
+  if (!err) return false;
+  if (err.name === "TimeoutError" || err.name === "AbortError") return true;
+  if (/fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN/i.test(String(err.message))) return true;
+  return Number(err.status) >= 500;
 }
 
 function friendlyNetworkError(err) {
@@ -769,8 +778,8 @@ function friendlyNetworkError(err) {
 
 async function readApiError(res, fallback) {
   var body = await res.json().catch(function () { return {}; });
-  if (res.status === 401) return submitError("unauthorized", fallback);
-  return submitError(body.error, fallback);
+  if (res.status === 401) return submitError("unauthorized", fallback, 401);
+  return submitError(body.error, fallback, res.status);
 }
 
 // Records progress on the payload so a kill interrupted by a server limit resumes without resending chunks.
@@ -930,7 +939,11 @@ function runSubmit(payload) {
     // A failed attempt can be retried by the next request for the same kill.
     if (payload.startTime != null) submittedStartTimes.delete(payload.startTime);
     if (err && err.name === "LimitError") {
-      sendPopupResult(Object.assign({ waiting: askQueue.length }, savePendingKill(payload)));
+      sendPopupResult(Object.assign({ waiting: askQueue.length }, savePendingKill(payload, "limit")));
+      return;
+    }
+    if (isTemporaryFailure(err)) {
+      sendPopupResult(Object.assign({ waiting: askQueue.length }, savePendingKill(payload, "offline")));
       return;
     }
     // Login expired mid-upload: keep the kill and send it once the player logs back in.
@@ -946,19 +959,34 @@ function runSubmit(payload) {
 }
 
 // Keeps a kill for after the server resets, or explains why it can't be sent later.
-function savePendingKill(payload) {
-  var check = LimitPolicy.canSubmitLater(payload);
+function savePendingKill(payload, cause) {
+  var check = LimitPolicy.canSubmitLater(payload, cause);
   if (!check.ok) return { ok: false, title: "Couldn't submit", error: check.reason };
   if (!pending.kills.some(function (k) { return k.startTime != null && k.startTime === payload.startTime; })) {
     pending.kills.push(Object.assign({}, payload, { mode: "auto" }));
     if (pending.kills.length > 50) pending.kills.shift();
     savePending();
   }
+  if (cause === "offline") {
+    scheduleOfflineRetry();
+    return {
+      ok: false, queued: true, title: "Saved for later",
+      error: "Couldn't reach the Dyrelog server. Your kill is saved and will be sent automatically once it's reachable."
+    };
+  }
   schedulePendingRetry();
   return {
     ok: false, queued: true, title: "Saved for later",
     error: "Dyrelog's server is at its daily limit. Your kill is saved and will be sent after " + LimitPolicy.formatResetTime(pending.pauseUntil) + "."
   };
+}
+
+// Waits 1, 2, 4 ... up to 30 minutes between tries while the server is unreachable.
+var offlineRetryMs = 60000;
+function scheduleOfflineRetry() {
+  clearTimeout(pendingTimer);
+  pendingTimer = setTimeout(sendPendingKills, offlineRetryMs);
+  offlineRetryMs = Math.min(offlineRetryMs * 2, 30 * 60000);
 }
 
 function schedulePendingRetry() {
@@ -988,14 +1016,14 @@ async function sendPendingKillsNow() {
       recordSubmission(kill.startTime, result.submissionId, result.status, result.visibility);
       submissionSounds.notify(result);
       sent++;
+      offlineRetryMs = 60000;
     } catch (err) {
       if (err && err.name === "LimitError") { savePending(); schedulePendingRetry(); break; }
       // The server already has this kill (the app closed after it finished uploading).
       if (err && (err.code === "already_finalized" || err.code === "submission_not_streaming")) { pending.kills.shift(); savePending(); continue; }
-      if (err && (err.name === "TimeoutError" || err.name === "AbortError" || /fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT/i.test(String(err.message)))) {
+      if (isTemporaryFailure(err)) {
         savePending();
-        clearTimeout(pendingTimer);
-        pendingTimer = setTimeout(sendPendingKills, 30 * 60000);
+        scheduleOfflineRetry();
         break;
       }
       failed.push((kill.mobName || "A saved kill") + ": " + friendlyNetworkError(err));

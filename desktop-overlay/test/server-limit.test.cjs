@@ -68,6 +68,7 @@ function mainHarness({ responses = [], stored = null } = {}) {
       calls.push(url.replace('https://api.test', ''));
       const r = queue.shift() || { status: 200, body: {} };
       if (r.hang) return new Promise(() => {});
+      if (r.offline) throw new TypeError('fetch failed');
       const text = typeof r.body === 'string' ? r.body : JSON.stringify(r.body);
       const res = {
         ok: r.status < 400, status: r.status,
@@ -288,4 +289,35 @@ test('a kill whose login expired mid-upload waits for the player to log back in'
   await h.flush();
   assert.equal(h.ctx.loginQueue.length, 1);
   assert.equal(h.popup.at(-1).data.needsLogin, true);
+});
+
+test('no internet: the kill is saved and retried with growing gaps, not dropped', async () => {
+  const h = mainHarness({ responses: [{ offline: true }, { offline: true }, { status: 200, body: { submissionId: 3 } }, { status: 200, body: {} }, { status: 200, body: { submissionId: 3, status: 'verified' } }] });
+  h.handlers['request-submit']({}, Object.assign({}, shortKill, { batches: ['a'] }));
+  await h.flush();
+  assert.equal(h.results.at(-1).queued, true);
+  assert.match(h.results.at(-1).error, /Couldn't reach the Dyrelog server\. Your kill is saved/);
+  assert.equal(h.ctx.pendingState().kills.length, 1);
+  assert.equal(h.timers.at(-1).ms, 60000, 'first retry after a minute');
+  await h.ctx.sendPendingKills();
+  assert.equal(h.ctx.pendingState().kills.length, 1, 'still offline: kept');
+  assert.equal(h.timers.at(-1).ms, 120000, 'then waits longer');
+  await h.ctx.sendPendingKills();
+  assert.equal(h.ctx.pendingState().kills.length, 0, 'sent once the connection is back');
+});
+
+test('a server error (Worker or database down) saves the kill instead of losing it', async () => {
+  const h = mainHarness({ responses: [{ status: 502, body: '<html>Bad gateway</html>' }] });
+  h.handlers['request-submit']({}, Object.assign({}, shortKill, { batches: ['a'] }));
+  await h.flush();
+  assert.equal(h.results.at(-1).queued, true);
+  assert.equal(h.ctx.pendingState().kills.length, 1);
+});
+
+test('a long fight that could not stream because the server was unreachable says so plainly', async () => {
+  const h = mainHarness({ responses: [{ offline: true }] });
+  h.handlers['request-submit']({}, Object.assign({}, shortKill, { endTime: 200000, batches: ['a'] }));
+  await h.flush();
+  assert.notEqual(h.results.at(-1).queued, true);
+  assert.match(h.results.at(-1).error, /couldn't reach its server while this fight was happening/);
 });

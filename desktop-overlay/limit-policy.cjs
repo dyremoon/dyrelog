@@ -31,14 +31,18 @@ function parseLimit(status, bodyText, retryAfterHeader, now = Date.now(), random
   return null;
 }
 
-// Whether a kill saved during a limit can still pass the server's checks when sent later.
-function canSubmitLater(payload) {
+// Whether a kill that couldn't be sent now can still pass the server's checks when sent later.
+// cause is 'limit' (server at its limit) or 'offline' (server unreachable).
+function canSubmitLater(payload, cause = 'limit') {
   const duration = Number(payload.endTime) - Number(payload.startTime);
   if (Number.isFinite(duration) && duration < LONG_FIGHT_MS) return { ok: true };
   if (payload.existingSubmissionId && Number(payload.liveBatches) > 0) return { ok: true };
+  const why = cause === 'offline'
+    ? "Dyrelog couldn't reach its server while this fight was happening."
+    : "Dyrelog's server hit its daily limit before this fight could be uploaded live.";
   return {
     ok: false,
-    reason: "Dyrelog's server hit its daily limit before this fight could be uploaded live. Long fights have to be uploaded while they happen to be verified, so this one can't go on the leaderboard. It's still in your fight history.",
+    reason: why + " Long fights have to be uploaded while they happen to be verified, so this one can't go on the leaderboard. It's still in your fight history.",
   };
 }
 
