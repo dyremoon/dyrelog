@@ -278,3 +278,14 @@ test('every request tells the server which app version sent it', () => {
   const src = readFileSync(path.join(__dirname, '../main.js'), 'utf8');
   assert.match(src, /headers\["X-Dyrelog-Version"\] = app\.getVersion\(\);/);
 });
+
+test('a kill whose login expired mid-upload waits for the player to log back in', async () => {
+  const h = mainHarness({ responses: [{ status: 401, body: { error: 'unauthorized' } }] });
+  let loggedIn = true;
+  h.ctx.loadAuth = () => (loggedIn ? { sessionCookie: 'c' } : null);
+  h.ctx.saveAuth = () => { loggedIn = false; };
+  h.handlers['request-submit']({}, Object.assign({}, shortKill, { batches: ['a'] }));
+  await h.flush();
+  assert.equal(h.ctx.loginQueue.length, 1);
+  assert.equal(h.popup.at(-1).data.needsLogin, true);
+});

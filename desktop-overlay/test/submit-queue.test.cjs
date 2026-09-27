@@ -74,3 +74,11 @@ test('kills that finish while logged out are all kept for after login', () => {
   assert.equal(h.shown.at(-1).needsLogin, true);
   assert.equal(h.shown.at(-1).waiting, 2);
 });
+
+test('a fight too large to upload is explained instead of silently dropped', () => {
+  const h = harness();
+  h.ctx.normalizeSubmitPayload = () => null;
+  const res = h.kill('Lady Vox', 9);
+  assert.equal(res.ok, false);
+  assert.match(h.shown.at(-1).error, /too large to upload/);
+});

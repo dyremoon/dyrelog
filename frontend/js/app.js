@@ -68,12 +68,19 @@ function showServerNotice(atLimit) {
     : "Dyrelog's leaderboards are temporarily unavailable. Check your connection or try again in a little while.";
 }
 
+// Several parts of a page need the signed-in user; they share one request.
+let mePromise = null;
+function getMe() {
+  if (!mePromise) mePromise = api('/api/me').catch((err) => { mePromise = null; throw err; });
+  return mePromise;
+}
+
 async function renderAuthNav() {
   const slot = document.getElementById('auth-slot');
   if (!slot) return;
   const adminLink = document.getElementById('nav-admin-link');
   try {
-    const { user, isAdmin } = await api('/api/me');
+    const { user, isAdmin } = await getMe();
     if (adminLink) adminLink.hidden = !isAdmin;
     slot.innerHTML = user
       ? `<a href="./profile.html">My Profile (${esc(capitalizeName(user.username))})</a>`

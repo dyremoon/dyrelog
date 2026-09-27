@@ -809,7 +809,8 @@ async function performSubmit(payload) {
 
 // Renderer-supplied payloads are checked before anything reaches the network.
 var MAX_SUBMIT_BATCHES = 1000;
-var MAX_SUBMIT_CHARS = 20 * 1024 * 1024;
+// Stays under the server's 16 MB per-fight cap.
+var MAX_SUBMIT_CHARS = 15 * 1024 * 1024;
 function normalizeSubmitPayload(p) {
   if (!isPlainObject(p)) return null;
   if (p.mode !== "ask" && p.mode !== "auto") return null;
@@ -932,6 +933,13 @@ function runSubmit(payload) {
       sendPopupResult(Object.assign({ waiting: askQueue.length }, savePendingKill(payload)));
       return;
     }
+    // Login expired mid-upload: keep the kill and send it once the player logs back in.
+    if (err && err.code === "unauthorized" && !loadAuth()) {
+      loginQueue.push(payload);
+      popupState = "login";
+      sendToSubmitPopup("submit-popup:show", { needsLogin: true, waiting: loginQueue.length });
+      return;
+    }
     console.error("Submit failed:", err);
     sendPopupResult({ ok: false, error: friendlyNetworkError(err), waiting: askQueue.length });
   });
@@ -1033,7 +1041,14 @@ function beginSubmitFlow(payload) {
 ipcMain.handle("request-submit", function (evt, rawPayload) {
   if (!FirstRunPolicy.permitsSubmission(loadSettings())) return { ok: false, error: "submissions_disabled" };
   var payload = normalizeSubmitPayload(rawPayload);
-  if (!payload) return { ok: false, error: "bad_request" };
+  if (!payload) {
+    // Only reachable for a fight too large to upload; say so rather than dropping it silently.
+    if (popupState === null) {
+      popupState = "busy";
+      sendToSubmitPopup("submit-popup:result", { ok: false, error: "This fight's log is too large to upload, so it can't go on the leaderboard. It's still in your fight history." });
+    }
+    return { ok: false, error: "bad_request" };
+  }
   if (!loadAuth()) {
     loginQueue.push(payload);
     popupState = "login";

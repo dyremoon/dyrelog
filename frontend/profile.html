@@ -163,7 +163,7 @@
     async function loadProfile() {
       const listEl = document.getElementById('char-list');
       try {
-        const { user, characters } = await api('/api/me');
+        const { user, characters } = await getMe();
         if (user) {
           document.getElementById('profile-username').textContent = capitalizeName(user.username);
           document.getElementById('logout-btn').hidden = false;
@@ -264,7 +264,7 @@
     async function loadPersonalHistory() {
       const listEl = document.getElementById('personal-list');
       try {
-        const { user } = await api('/api/me');
+        const { user } = await getMe();
         if (!user) {
           listEl.innerHTML = `<p class="empty-state">Log in with Discord to see your kills.</p>`;
           return;
