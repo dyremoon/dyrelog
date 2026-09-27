@@ -234,7 +234,7 @@
     var lines = rawLineBuffer
       .filter(function (r) { return r.time >= enc.startTime - padMs && r.time <= enc.endTime + padMs; })
       .map(function (r) { return r.line.replace(/\r$/, ""); });
-    return EQP.encounterRawText(enc, lines);
+    return EQP.encounterRawText(enc, LiveStream.combatLines(lines, EQP.parseLine));
   }
 
   function setActiveView(view) {
@@ -527,7 +527,7 @@
     if (!enc || !isKnownBoss(enc.mobName)) return;
     if ((enc.endTime - enc.startTime) < STREAM_MIN_MS_BEFORE_START) return;
     var stream = liveStreams[enc.startTime];
-    if (!stream) stream = liveStreams[enc.startTime] = { submissionId: null, sent: LiveStream.newSentLines(), inFlight: null, retryAt: 0, accepted: 0, limited: false };
+    if (!stream) stream = liveStreams[enc.startTime] = { submissionId: null, sent: LiveStream.newSentLines(), inFlight: null, retryAt: 0, nextPushAt: 0, accepted: 0, limited: false };
     // Once the server reports its limit, stop streaming this fight; the kill is handled when it ends.
     if (stream.limited || stream.inFlight || Date.now() < stream.retryAt) return;
     if (!stream.submissionId) {
@@ -538,11 +538,14 @@
       }, function () { stream.retryAt = Date.now() + STREAM_RETRY_MS; }).then(function () { stream.inFlight = null; });
       return;
     }
+    if (Date.now() < stream.nextPushAt) return;
     // Uploads run one at a time, and lines only count as sent once the server accepted them.
-    var batches = LiveStream.planBatches(rawTextForEncounter(enc), stream.sent, lineTime);
+    var batches = LiveStream.planBatches(rawTextForEncounter(enc), stream.sent, lineTime, { firstSpanMs: LiveStream.LIVE_FIRST_BATCH_GAME_SPAN_MS });
     if (!batches.length) return;
     stream.inFlight = pushBatchesInOrder(stream, batches).then(function (ok) {
       if (!ok) stream.retryAt = Date.now() + STREAM_RETRY_MS;
+      // Timed from when the push finished, so the server always sees at least this real gap between pushes.
+      stream.nextPushAt = Date.now() + LiveStream.LIVE_PUSH_INTERVAL_MS;
       stream.inFlight = null;
     });
   }

@@ -3,6 +3,18 @@
 (function (root) {
   var MAX_BATCH_GAME_SPAN_MS = 4000;
   var MAX_BATCH_CHARS = 150000;
+  // Live uploads go out every 5 s. The server allows a batch to span its real gap since the previous batch
+  // plus 5 s, so the first batch of each push may span 8 s; batches sent right behind it stay at 4 s.
+  var LIVE_PUSH_INTERVAL_MS = 5000;
+  var LIVE_FIRST_BATCH_GAME_SPAN_MS = 8000;
+
+  // Only lines the server's parser uses leave the PC; chat, tells and other log lines never do.
+  function combatLines(lines, parseLine) {
+    return lines.filter(function (line) {
+      var ev = parseLine(line);
+      return !!ev && ev.type !== "unmatched";
+    });
+  }
 
   function newSentLines() {
     return new Map();
@@ -29,7 +41,8 @@
 
   // timeOf(line) returns the line's in-game time in ms, or null for lines without one.
   function planBatches(fullText, sent, timeOf, opts) {
-    var maxSpan = (opts && opts.maxSpanMs) || MAX_BATCH_GAME_SPAN_MS;
+    var restSpan = (opts && opts.maxSpanMs) || MAX_BATCH_GAME_SPAN_MS;
+    var firstSpan = (opts && opts.firstSpanMs) || restSpan;
     var maxChars = (opts && opts.maxChars) || MAX_BATCH_CHARS;
     var batches = [];
     var lines = [], size = 0, lo = null, hi = null;
@@ -42,6 +55,7 @@
       var t = timeOf(line);
       var nextLo = t == null ? lo : (lo == null ? t : Math.min(lo, t));
       var nextHi = t == null ? hi : (hi == null ? t : Math.max(hi, t));
+      var maxSpan = batches.length ? restSpan : firstSpan;
       var tooWide = nextLo != null && nextHi - nextLo > maxSpan;
       if (lines.length && (tooWide || size + 1 + line.length > maxChars)) {
         flush();
@@ -57,6 +71,9 @@
 
   var api = {
     MAX_BATCH_GAME_SPAN_MS: MAX_BATCH_GAME_SPAN_MS,
+    LIVE_PUSH_INTERVAL_MS: LIVE_PUSH_INTERVAL_MS,
+    LIVE_FIRST_BATCH_GAME_SPAN_MS: LIVE_FIRST_BATCH_GAME_SPAN_MS,
+    combatLines: combatLines,
     newSentLines: newSentLines,
     unsentLines: unsentLines,
     markSent: markSent,

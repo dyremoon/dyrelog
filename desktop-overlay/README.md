@@ -86,8 +86,8 @@ Fonts are bundled with the app (SIL Open Font License, in `renderer/fonts`), so 
 
 ## What the app sends
 
-- To `dyrelog-api.dyremoon.workers.dev`, only after you log in and a known boss fight is being submitted:
-  the raw log lines for that fight, your character name and server (from the log file's name), and your
+- To `dyrelog-api.dyremoon.workers.dev`, only after you log in, with submission on, during a known boss
+  fight (every 5 seconds while it runs) and when it's submitted: that fight's combat lines (no chat, tells or loot), your character name and server (from the log file's name), and your
   session cookie. Also the Discord login itself, and a status check for your own past submissions.
 - Public leaderboard data is read from the same API (boss list, leaderboards) with no login needed.
 - If you allow usage statistics: a random install ID, the app version and platform, at start and every

@@ -56,8 +56,8 @@ own. You can also check in **Settings → What's New**.
 
 ## Privacy
 
-The meter works entirely on your PC. Dyrelog only sends data when you submit a kill (the fight's log lines,
-your character name and server) or if you turn on optional usage statistics (a random install ID, the app
+The meter works entirely on your PC. Dyrelog only sends data during and after leaderboard boss fights when
+submission is on (the fight's combat lines, never chat, plus your character name and server) or if you turn on optional usage statistics (a random install ID, the app
 version and platform). Full details: [Privacy](https://dyrelog.pages.dev/privacy.html).
 
 ## Problems and feedback

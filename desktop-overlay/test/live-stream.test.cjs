@@ -69,3 +69,66 @@ test('batches respect the character cap', () => {
   assert.ok(batches.every(b => b.length <= 1000));
   assert.equal(batches.join('\n'), lines.join('\n'));
 });
+
+test('only combat lines are uploaded; chat and other log lines stay on the PC', () => {
+  const lines = [
+    `${stamp(1)} You slash Lady Vox for 120 points of damage.`,
+    `${stamp(1)} Bob tells you, 'meet me at the bank'`,
+    `${stamp(1)} Bob tells the guild, 'nice damage everyone'`,
+    `${stamp(2)} Fido told you, 'Attacking Lady Vox Master.'`,
+    `${stamp(2)} You say, 'hello'`,
+    `${stamp(3)} You have slain Lady Vox!`,
+    `${stamp(3)} --You have looted a Shiny Ring.--`,
+  ];
+  assert.deepEqual(LiveStream.combatLines(lines, EQP.parseLine), [lines[0], lines[3], lines[5]]);
+});
+
+// Plays a real-time fight through the app's 5 s push schedule and runs the server's own streaming check on the result.
+async function simulateLiveFight({ seconds, linesPerSecond = 15, latencyMs = 150, startAfterMs = 5000, remainderDelayMs = 0 }) {
+  const { checkStreamingPattern } = await import('../../worker/src/anticheat.js');
+  const all = [];
+  for (let s = 0; s <= seconds; s++) {
+    for (let k = 0; k < linesPerSecond; k++) all.push({ at: s * 1000, line: `${stamp(s)} You slash Lady Vox for ${100 + ((s * 7 + k * 13) % 90)} points of damage.` });
+  }
+  all.push({ at: seconds * 1000, line: `${stamp(seconds)} You have slain Lady Vox!` });
+  const T0 = Date.UTC(2026, 8, 1, 20, 0, 0);
+  const sent = LiveStream.newSentLines();
+  const received = [];
+  let clock = startAfterMs + latencyMs; // stream start request
+  let nextPushAt = 0;
+  const upload = (chunk) => { clock += latencyMs; received.push({ received_at: new Date(T0 + clock).toISOString(), raw_chunk_text: chunk }); LiveStream.markSent(chunk, sent); };
+  // Render ticks every second while the fight runs.
+  for (; clock < seconds * 1000; clock = Math.ceil((clock + 1) / 1000) * 1000) {
+    if (clock < nextPushAt) continue;
+    const text = all.filter((l) => l.at <= clock).map((l) => l.line).join('\n');
+    const batches = LiveStream.planBatches(text, sent, lineTime, { firstSpanMs: LiveStream.LIVE_FIRST_BATCH_GAME_SPAN_MS });
+    batches.forEach(upload);
+    nextPushAt = clock + LiveStream.LIVE_PUSH_INTERVAL_MS;
+  }
+  // Kill: the remaining lines go up at the default span, back to back.
+  clock = seconds * 1000 + remainderDelayMs;
+  LiveStream.planBatches(all.map((l) => l.line).join('\n'), sent, lineTime).forEach(upload);
+  const spans = received.map((b) => {
+    const times = b.raw_chunk_text.split('\n').map(lineTime).filter((t) => t != null);
+    return times.length ? { min: Math.min(...times), max: Math.max(...times) } : null;
+  });
+  return { batches: received.length, check: checkStreamingPattern(received, seconds * 1000, spans) };
+}
+
+test('a 3-minute fight at the 5 s cadence passes the server streaming check with about a fifth of the uploads', async () => {
+  const r = await simulateLiveFight({ seconds: 180 });
+  assert.equal(r.check.flagged, false, r.check.reason);
+  assert.ok(r.batches <= 40, `${r.batches} uploads`);
+});
+
+test('short, slow-network and ask-mode fights still pass the server streaming check', async () => {
+  for (const opts of [{ seconds: 20 }, { seconds: 25 }, { seconds: 60, latencyMs: 900 }, { seconds: 90, linesPerSecond: 60 }, { seconds: 120, remainderDelayMs: 30000 }]) {
+    const r = await simulateLiveFight(opts);
+    assert.equal(r.check.flagged, false, JSON.stringify(opts) + ' ' + r.check.reason);
+  }
+});
+
+test('the simulation can fail: a fight uploaded only after the kill is still flagged', async () => {
+  const r = await simulateLiveFight({ seconds: 60, startAfterMs: 60000 });
+  assert.equal(r.check.flagged, true);
+});

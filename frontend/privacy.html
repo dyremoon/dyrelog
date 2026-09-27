@@ -51,8 +51,9 @@
       <div class="plate plate-gold" style="margin-bottom:24px;">
         <h3>Combat logs and submissions</h3>
         <p class="muted" style="margin-top:-6px;">
-          When you submit a fight, the raw combat log text for that capture is stored so it can be checked for
-          obviously fabricated numbers and so you can look back at your own past submissions. Your in-game character
+          When you submit a fight, its combat lines (damage, heals, deaths, spell casts, and your pet's "Attacking"
+          reply) are stored so they can be checked for fabricated numbers and so you can look back at your own past
+          submissions. Chat, tells, loot and other log lines are never uploaded. Your in-game character
           name and realm are stored too, since that's how a leaderboard entry is identified, but Dyrelog never
           collects your real name, email, or any other personal information from the game client itself.
         </p>
@@ -67,8 +68,12 @@
       <div class="plate plate-highlight" style="margin-bottom:24px;">
         <h3>The desktop overlay</h3>
         <p class="muted" style="margin-top:-6px;">
-          The overlay runs on your own machine and reads your local combat log file directly. It doesn't send
-          anything anywhere unless you submit a kill or turn on usage statistics.
+          The overlay runs on your own machine and reads your local combat log file directly. When submission is
+          on (Ask or Auto) and you're logged in, it uploads a boss fight's combat lines every few seconds while the
+          fight is happening, so the server can see the fight was recorded live. That's part of the cheat checks.
+          Fights against anything other than a leaderboard boss are never sent. If you discard the kill or the
+          fight doesn't end in a kill, those lines are never put on the leaderboard, and the server deletes them
+          the next time you start a boss fight at least 6 hours later. Nothing else is sent unless you turn on usage statistics.
         </p>
         <p class="muted">
           Usage statistics are off by default. If you turn it on in Settings, the app sends a random installation ID,
