@@ -232,3 +232,18 @@ test('the right-click menu works in Bars, Mini and Circle and always offers Quit
   const menu = mainSource.slice(mainSource.indexOf('ipcMain.on("show-watch-menu"'), mainSource.indexOf('ipcMain.on("window-close"'));
   for (const label of ['Switch to Bars', 'Switch to Mini', 'Switch to Circle', 'Quit Dyrelog']) assert.ok(menu.includes(label), label);
 });
+
+test('log tailer catches up on a large reappearing log in pieces, without losing or splitting text', async () => {
+  const dir = tmpDir();
+  const file = path.join(dir, 'eqlog_Tester_legends.txt');
+  const chunks = [];
+  const tailer = createLogTailer({ filePath: file, intervalMs: 10, maxReadBytes: 1000, onChunk: c => chunks.push(c), onStatus() {} });
+  await wait(30);
+  const big = Array.from({ length: 300 }, (_, i) => `line ${i} ünïcödé\n`).join('');
+  fs.writeFileSync(file, big);
+  for (let i = 0; i < 100 && chunks.join('').length < big.length; i++) await wait(20);
+  tailer.stop();
+  assert.ok(chunks.length > 3, 'read in several pieces');
+  assert.ok(chunks.every(c => Buffer.byteLength(c) <= 1003), 'each piece is about the read size (plus a carried-over partial character)');
+  assert.equal(chunks.join(''), big);
+});

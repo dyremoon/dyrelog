@@ -36,7 +36,7 @@
   function difficultyColumnFilter(selected) {
     if (selected === undefined) selected = boardDifficulty;
     return '<select class="column-difficulty" aria-label="Filter by difficulty">' + ['', 'D0', 'D1', 'D2', 'D3', 'D4'].map(function (value) {
-      return '<option value="' + value + '"' + (value === selected ? ' selected' : '') + '>' + (value === 'D0' ? 'Base' : value || 'All') + '</option>';
+      return '<option value="' + value + '"' + (value === selected ? ' selected' : '') + '>' + (value || 'All') + '</option>';
     }).join('') + '</select>';
   }
   function sortRows(rows, key, dir) { return rows.slice().sort(function (a, b) { var av = key === 'difficulty' ? Number((a.difficulty || 'D0').slice(1)) : key === 'character' ? String(a.character_name || a.name).toLowerCase() : key === 'name' ? String(a.name || '').toLowerCase() : key === 'date' ? Number(a.startTime || a.start_time || 0) : key === 'visibility' ? String(a.sortVisibility || a.visibility || '').toLowerCase() : key === 'review' ? String(a.sortReview || a.status || '').toLowerCase() : Number(a[key] || 0); var bv = key === 'difficulty' ? Number((b.difficulty || 'D0').slice(1)) : key === 'character' ? String(b.character_name || b.name).toLowerCase() : key === 'name' ? String(b.name || '').toLowerCase() : key === 'date' ? Number(b.startTime || b.start_time || 0) : key === 'visibility' ? String(b.sortVisibility || b.visibility || '').toLowerCase() : key === 'review' ? String(b.sortReview || b.status || '').toLowerCase() : Number(b[key] || 0); return typeof av === 'string' ? av.localeCompare(bv) * dir : (av - bv) * dir; }); }
@@ -47,8 +47,8 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
-  function fmtDifficulty(d) { return d && d !== 'D0' ? (DIFFICULTY_LABELS[d] || d) : 'Base'; }
-  function shortDifficulty(d) { return d && d !== 'D0' ? d : 'Base'; }
+  function fmtDifficulty(d) { return d && d !== 'D0' ? (DIFFICULTY_LABELS[d] || d) : 'D0'; }
+  function shortDifficulty(d) { return d || 'D0'; }
   function fmtNum(n) { return Math.round(n).toLocaleString(); }
   function fmtDateOnly(ms) {
     if (!ms) return "—";
@@ -169,7 +169,7 @@
     var detail = document.getElementById('boss-detail');
     detail.innerHTML = '<h3>' + esc(boss.name) + ' <button class="view-lb-link" id="boss-wiki">Wiki ↗</button></h3>' +
       '<div class="lb-picker-row">' +
-      '<label for="board-sort">Sort</label><select id="board-sort"><option value="dps">Highest DPS</option><option value="difficulty">Difficulty: D4 to Base</option></select></div>' +
+      '<label for="board-sort">Sort</label><select id="board-sort"><option value="dps">Highest DPS</option><option value="difficulty">Difficulty: D4 to D0</option></select></div>' +
       '<p class="muted">Best kill per character and difficulty.</p><div id="board-rows"></div>';
     document.getElementById('boss-wiki').addEventListener('click', function () { window.dyrelog.openExternal(BossBrowser.wikiUrl(boss.name)); });
     function update() {

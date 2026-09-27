@@ -656,7 +656,7 @@
     var merged = EQP.mergeEncounters(members);
     var stats = EQP.computeStats(merged);
     var self = selfSummary(stats);
-    els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base");
+    els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[merged.difficulty] || "D0");
     els.fightTotal.textContent = fmtNum(self.damage);
     els.fightTimer.textContent = fmtDur((merged.endTime - merged.startTime) / 1000);
     lastRenderedRows = stats.rows;
@@ -706,7 +706,7 @@
       var merged = EQP.mergeEncounters(extended);
       var stats = EQP.computeStats(merged);
       var self = selfSummary(stats);
-    els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[merged.difficulty] || "Base");
+    els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[merged.difficulty] || "D0");
       els.fightTotal.textContent = fmtNum(self.damage);
       els.fightTimer.textContent = fmtDur((merged.endTime - merged.startTime) / 1000);
       lastRenderedRows = stats.rows;
@@ -724,7 +724,7 @@
       var lastMerged = EQP.mergeEncounters(lastMembers);
       var lastStats = EQP.computeStats(lastMerged);
       var lastSelf = selfSummary(lastStats);
-      els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[lastMerged.difficulty] || "Base");
+      els.mobDiff.textContent = "· " + (DIFFICULTY_LABELS[lastMerged.difficulty] || "D0");
       els.fightTotal.textContent = fmtNum(lastSelf.damage);
       els.fightTimer.textContent = fmtDur(lastStats.duration);
       lastRenderedRows = lastStats.rows;

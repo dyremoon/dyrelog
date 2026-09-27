@@ -2,7 +2,10 @@
 const fs = require('node:fs');
 const { StringDecoder } = require('node:string_decoder');
 
-function createLogTailer({ filePath, onChunk, onStatus, intervalMs = 1000, fsImpl = fs }) {
+// Reads at most this much per poll, so a large log that reappears is caught up gradually instead of all at once.
+const MAX_READ_BYTES = 4 * 1024 * 1024;
+
+function createLogTailer({ filePath, onChunk, onStatus, intervalMs = 1000, fsImpl = fs, maxReadBytes = MAX_READ_BYTES }) {
   let stopped = false;
   let reading = false;
   let offset = null;
@@ -30,7 +33,7 @@ function createLogTailer({ filePath, onChunk, onStatus, intervalMs = 1000, fsImp
       }
       if (st.size < offset) { offset = 0; decoder = new StringDecoder('utf8'); }
       if (st.size <= offset) { reading = false; return; }
-      const end = st.size;
+      const end = Math.min(st.size, offset + maxReadBytes);
       const chunks = [];
       const stream = fsImpl.createReadStream(filePath, { start: offset, end: end - 1 });
       stream.on('data', function (c) { chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)); });

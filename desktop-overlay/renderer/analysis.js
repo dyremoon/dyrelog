@@ -217,9 +217,9 @@
       var data = sessionData(session, now);
       var lastMember = session.members[session.members.length - 1];
       // No zone-in line seen for this fight (started mid-zone, or before
-      // the app was tailing) — assumed Base rather than shown as
+      // the app was tailing) — assumed D0 rather than shown as
       // "unknown," same fallback an explicitly-detected base zone gets.
-      var diff = DIFFICULTY_LABELS[lastMember.difficulty] || "Base";
+      var diff = DIFFICULTY_LABELS[lastMember.difficulty] || "D0";
       return (
         '<div class="enc-row' + (k === selectedKey ? " active" : "") + '" data-key="' + esc(k) + '">' +
           '<div class="mob" title="The number in parentheses is which spawn of this mob name this is in your whole loaded log — not a kill count.">' + esc(sessionLabel(session)) + "</div>" +
@@ -249,8 +249,8 @@
     if (!session) { els.detail.innerHTML = '<p class="muted">Select a fight on the left to see its full breakdown.</p>'; return; }
     var data = sessionData(session, now);
     var merged = data.merged, stats = data.stats;
-    // Same "assume Base when no zone-in line was seen" fallback as the list above.
-    var diff = DIFFICULTY_LABELS[merged.difficulty] || "Base";
+    // Same "assume D0 when no zone-in line was seen" fallback as the list above.
+    var diff = DIFFICULTY_LABELS[merged.difficulty] || "D0";
 
     var activeStats, activeEnc, activeLabel, viewKey;
     if (selectedMemberIndex === null || !session.members[selectedMemberIndex]) {

@@ -19,15 +19,15 @@ function assertNone(pattern, why) {
   assert.deepEqual(hits, [], why);
 }
 
-test('no-difficulty kills are always called "Base", never "D0"', () => {
-  assertNone(/>D0<|to D0\b|'D0'\)\s*\+\s*['"]<\/td>|\|\| ['"]D0['"]\}?<\/td>/, 'D0 is an internal key only');
+test('no-difficulty kills are called "D0", the community name, never "Base"', () => {
+  assertNone(/['">]Base['"<]|D4 to Base/, 'the no-difficulty tier is shown as D0');
   const ctx = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'frontend', 'js', 'leaderboard-sort.js'), 'utf8'), ctx);
   const sort = ctx.LeaderboardSort || ctx.window.LeaderboardSort;
   if (sort && sort.difficultyFilter) {
     const html = sort.difficultyFilter('');
-    assert.match(html, />Base</);
-    assert.doesNotMatch(html, />D0</);
+    assert.match(html, />D0</);
+    assert.doesNotMatch(html, />Base</);
   }
 });
 

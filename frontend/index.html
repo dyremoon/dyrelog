@@ -144,7 +144,7 @@
         <p class="muted" style="margin-top:-6px;">Best DPS this week, one entry per character per boss and difficulty. Resets every Tuesday at 00:00 UTC.</p>
         <div class="leaderboard-controls">
           <label for="highlights-boss">Boss</label><select id="highlights-boss"><option value="">All bosses</option></select>
-          <label for="highlights-difficulty">Difficulty</label><select id="highlights-difficulty"><option value="">All</option><option value="D0">Base</option><option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option><option value="D4">D4</option></select>
+          <label for="highlights-difficulty">Difficulty</label><select id="highlights-difficulty"><option value="">All</option><option value="D0">D0</option><option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option><option value="D4">D4</option></select>
         </div>
         <div id="highlights-list" aria-live="polite">
           <p class="muted">Loading…</p>
@@ -157,7 +157,7 @@
           <select id="boss-picker">
             <option value="">Loading…</option>
           </select>
-          <label for="board-sort">Sort</label><select id="board-sort"><option value="dps">Highest DPS</option><option value="difficulty">Difficulty: D4 to Base</option></select>
+          <label for="board-sort">Sort</label><select id="board-sort"><option value="dps">Highest DPS</option><option value="difficulty">Difficulty: D4 to D0</option></select>
         </div>
         <div id="boss-leaderboard">
           <p class="muted">Loading…</p>
@@ -207,7 +207,7 @@
                   <td><a href="./parse.html?id=${h.encounter_id}">${esc(h.character_name)}</a> <span class="muted">(${esc(h.realm)})</span></td>
                   <td class="muted">${esc(h.class_combo) || '—'}</td>
                   <td><a href="./boss.html?id=${h.boss_id}">${esc(h.boss_name)}</a></td>
-                  <td>${esc(h.difficulty) || 'Base'}</td><td class="num tabular">${fmtNumber(h.dps)}</td>
+                  <td>${esc(h.difficulty) || 'D0'}</td><td class="num tabular">${fmtNumber(h.dps)}</td>
                 </tr>`
                 )
                 .join('')}
@@ -231,7 +231,7 @@
           <td class="mono">${i + 1}</td>
           <td><a href="./parse.html?id=${p.encounter_id}">${esc(p.character_name)}</a> <span class="muted">(${esc(p.realm)})</span></td>
           <td class="muted">${esc(p.class_combo) || '—'}</td>
-          <td class="muted">${p.difficulty && p.difficulty !== 'D0' ? esc(p.difficulty) : 'Base'}</td>
+          <td class="muted">${p.difficulty && p.difficulty !== 'D0' ? esc(p.difficulty) : 'D0'}</td>
           <td class="num tabular">${fmtNumber(p.dps)}</td>
           <td class="num tabular">${fmtNumber(p.damage)}</td>
           <td class="muted">${fmtDateOnly(p.start_time)}</td>

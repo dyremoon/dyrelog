@@ -29,7 +29,7 @@
   }
   function difficultyFilter(selected) {
     return '<select class="column-difficulty" aria-label="Filter by difficulty">' +
-      ['', 'D0', 'D1', 'D2', 'D3', 'D4'].map(value => `<option value="${value}"${value === selected ? ' selected' : ''}>${value === 'D0' ? 'Base' : value || 'All'}</option>`).join('') + '</select>';
+      ['', 'D0', 'D1', 'D2', 'D3', 'D4'].map(value => `<option value="${value}"${value === selected ? ' selected' : ''}>${value || 'All'}</option>`).join('') + '</select>';
   }
   function filterDifficulty(rows, selected) {
     return selected ? rows.filter(row => (row.difficulty || 'D0') === selected) : rows.slice();

@@ -26,6 +26,29 @@ async function api(path, opts = {}) {
   return res.status === 204 ? null : res.json();
 }
 
+const LOGIN_PROBLEMS = {
+  cancelled: 'Discord login was cancelled. You can log in any time from the top of the page.',
+  expired: 'That login link expired. Click "Log in with Discord" to try again.',
+  failed: "Discord login didn't finish. Try again in a minute.",
+};
+
+// Shown once after the server sends a failed or cancelled login back here.
+function showLoginProblem() {
+  const params = new URLSearchParams(window.location.search);
+  const text = LOGIN_PROBLEMS[params.get('login')];
+  const main = document.querySelector('main');
+  if (!text || !main) return;
+  const notice = document.createElement('div');
+  notice.className = 'server-notice';
+  notice.setAttribute('role', 'status');
+  notice.textContent = text;
+  main.insertBefore(notice, main.firstChild);
+  params.delete('login');
+  const query = params.toString();
+  window.history.replaceState(null, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+}
+document.addEventListener('DOMContentLoaded', showLoginProblem);
+
 // One banner per page, above the content, so pages never look blank or broken when the server is limited.
 function showServerNotice(atLimit) {
   const main = document.querySelector('main');
@@ -95,7 +118,7 @@ function fmtDateOnly(iso) {
 
 const DIFFICULTY_LABELS = { D1: 'D1 · Awakened', D2: 'D2 · Adaptive', D3: 'D3 · Fused', D4: 'D4 · Refined' };
 function fmtDifficulty(difficulty) {
-  return difficulty ? (DIFFICULTY_LABELS[difficulty] || difficulty) : 'Base';
+  return difficulty ? (DIFFICULTY_LABELS[difficulty] || difficulty) : 'D0';
 }
 
 const EQ_CLASSES = [

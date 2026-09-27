@@ -117,7 +117,7 @@
       return m + ':' + (s < 10 ? '0' : '') + s;
     }
     function fmtDifficultyLabel(enc) {
-      return enc.difficulty ? EQP_DIFFICULTY_LABELS[enc.difficulty] || enc.difficulty : 'Base';
+      return enc.difficulty ? EQP_DIFFICULTY_LABELS[enc.difficulty] || enc.difficulty : 'D0';
     }
     var EQP_DIFFICULTY_LABELS = { D1: 'D1 · Awakened', D2: 'D2 · Adaptive', D3: 'D3 · Fused', D4: 'D4 · Refined' };
     // A wall-clock timestamp for the fight list and the detail header —

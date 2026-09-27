@@ -573,7 +573,8 @@ var pendingTimer = null;
 // Kills that were uploading when the app last closed are retried like saved ones; their saved
 // progress (stream ID, chunks already accepted) means nothing is sent twice.
 function loadPending() {
-  var saved = isPlainObject(readJson(PENDING_PATH)) ? readJson(PENDING_PATH) : {};
+  var raw = readJson(PENDING_PATH);
+  var saved = isPlainObject(raw) ? raw : {};
   var restore = function (list) {
     return (Array.isArray(list) ? list : []).map(normalizeSubmitPayload).filter(Boolean)
       .map(function (k) { k.mode = "auto"; return k; });
