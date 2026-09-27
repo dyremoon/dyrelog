@@ -433,7 +433,7 @@
     if (m) return m[1];
     var m2 = /^.+?'s\s+(.+)$/.exec(ev.viaSpell);
     if (m2) return m2[1];
-    // "Envenomed Bolt VI by Stoten" -> "Envenomed Bolt VI" (the "by <name>" case above).
+    // "Envenomed Bolt VI by Tester" -> "Envenomed Bolt VI" (the "by <name>" case above).
     var m3 = /^(.+?)\s+by\s+.+$/i.exec(ev.viaSpell);
     if (m3) return m3[1];
     return ev.viaSpell;
