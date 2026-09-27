@@ -4,16 +4,45 @@
 const API_BASE = window.DYRELOG_API_BASE || 'http://127.0.0.1:8787';
 
 async function api(path, opts = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-    ...opts,
-  });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+      ...opts,
+    });
+  } catch (err) {
+    // Cloudflare's own limit pages carry no CORS headers, so they surface here as network errors.
+    showServerNotice(false);
+    throw err;
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Request failed: ${res.status}`);
+    const err = new Error(body.error || `Request failed: ${res.status}`);
+    err.limit = res.status === 429 || res.status === 503;
+    if (err.limit) showServerNotice(true);
+    throw err;
   }
   return res.status === 204 ? null : res.json();
+}
+
+// One banner per page, above the content, so pages never look blank or broken when the server is limited.
+function showServerNotice(atLimit) {
+  const main = document.querySelector('main');
+  if (!main) return;
+  let notice = document.getElementById('server-notice');
+  if (notice && notice.dataset.limit === 'true') return;
+  if (!notice) {
+    notice = document.createElement('div');
+    notice.id = 'server-notice';
+    notice.className = 'server-notice';
+    notice.setAttribute('role', 'status');
+    main.insertBefore(notice, main.firstChild);
+  }
+  notice.dataset.limit = String(atLimit);
+  notice.textContent = atLimit
+    ? "Dyrelog's leaderboards are temporarily unavailable because the server is at its daily limit. They'll be back after midnight UTC. Kills from the app are saved and sent then."
+    : "Dyrelog's leaderboards are temporarily unavailable. Check your connection or try again in a little while.";
 }
 
 async function renderAuthNav() {

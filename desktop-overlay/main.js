@@ -16,6 +16,7 @@ const { readJson, writeJsonAtomic, removeJson } = require("./json-store.cjs");
 const { createLogTailer } = require("./log-tailer.cjs");
 const { isAllowedExternalUrl, isAllowedAuthNavigation } = require("./link-policy.cjs");
 const { createAuthStore } = require("./auth-store.cjs");
+const LimitPolicy = require("./limit-policy.cjs");
 let stopAnalytics = null;
 
 app.setName("Dyrelog");
@@ -560,12 +561,46 @@ function broadcastAuthUpdate(auth) {
   });
 }
 
+// Thrown instead of calling the server while it's at a limit, so nothing retries in a tight loop.
+class LimitError extends Error {
+  constructor(until) { super("server_limit"); this.name = "LimitError"; this.until = until; }
+}
+
+// Kills saved while the server is at its limit, sent once after it resets. Survives restarts.
+const PENDING_PATH = path.join(app.getPath("userData"), "dyrelog-pending-kills.json");
+var pending = { pauseUntil: 0, kills: [] };
+var pendingTimer = null;
+function loadPending() {
+  var saved = readJson(PENDING_PATH);
+  pending = {
+    pauseUntil: isPlainObject(saved) && Number.isFinite(saved.pauseUntil) ? saved.pauseUntil : 0,
+    kills: isPlainObject(saved) && Array.isArray(saved.kills) ? saved.kills.filter(isPlainObject) : []
+  };
+}
+function savePending() {
+  try { writeJsonAtomic(PENDING_PATH, pending); } catch (err) { console.error("Couldn't save pending kills:", err); }
+}
+function pauseServerUntil(until) {
+  if (until > pending.pauseUntil) pending.pauseUntil = until;
+  savePending();
+  schedulePendingRetry();
+}
+
 async function apiFetch(pathname, opts) {
+  if (Date.now() < pending.pauseUntil) throw new LimitError(pending.pauseUntil);
   var auth = loadAuth();
   var headers = Object.assign({ "Content-Type": "application/json" }, (opts && opts.headers) || {});
   if (auth && auth.sessionCookie) headers.Cookie = "dyrelog_session=" + auth.sessionCookie;
   var res = await fetch(API_BASE + pathname, Object.assign({ signal: AbortSignal.timeout(20000) }, opts, { headers: headers }));
   if (res.status === 401) { saveAuth(null); broadcastAuthUpdate(null); }
+  if (res.status === 429 || res.status === 503 || res.status === 403) {
+    var text = await res.clone().text().catch(function () { return ""; });
+    var limit = LimitPolicy.parseLimit(res.status, text, res.headers.get("Retry-After"));
+    if (limit) {
+      pauseServerUntil(limit.until);
+      throw new LimitError(pending.pauseUntil);
+    }
+  }
   return res;
 }
 
@@ -623,6 +658,7 @@ function openLoginWindow() {
             finish({ ok: true, username: auth.username });
             var resume = loginQueue;
             loginQueue = [];
+            sendPendingKills();
             if (popupState === "login") popupState = null;
             resume.forEach(beginSubmitFlow);
           }
@@ -724,6 +760,7 @@ async function readApiError(res, fallback) {
   return submitError(body.error, fallback);
 }
 
+// Records progress on the payload so a kill interrupted by a server limit resumes without resending chunks.
 async function performSubmit(payload) {
   var submissionId = payload.existingSubmissionId;
   if (!submissionId) {
@@ -735,14 +772,16 @@ async function performSubmit(payload) {
     var startBody = await startRes.json().catch(function () { return {}; });
     submissionId = startBody.submissionId;
     if (!submissionId) throw new Error("The Dyrelog server sent an unexpected answer. Try again in a few minutes.");
+    payload.existingSubmissionId = submissionId;
   }
 
-  for (var i = 0; i < payload.batches.length; i++) {
+  while (payload.batches.length) {
     var batchRes = await apiFetch("/api/streams/" + submissionId + "/batches", {
       method: "POST",
-      body: JSON.stringify({ chunk: payload.batches[i] })
+      body: JSON.stringify({ chunk: payload.batches[0] })
     });
     if (!batchRes.ok) throw await readApiError(batchRes, "Couldn't upload the fight log. Try again in a few minutes.");
+    payload.batches.shift();
   }
 
   var finalizeRes = await apiFetch("/api/streams/" + submissionId + "/finalize", {
@@ -775,6 +814,8 @@ function normalizeSubmitPayload(p) {
     damage: Number(p.damage) || 0,
     difficulty: ["D1", "D2", "D3", "D4"].indexOf(p.difficulty) !== -1 ? p.difficulty : null,
     startTime: Number.isFinite(p.startTime) ? p.startTime : null,
+    endTime: Number.isFinite(p.endTime) ? p.endTime : null,
+    liveBatches: Number.isSafeInteger(p.liveBatches) && p.liveBatches > 0 ? p.liveBatches : 0,
     existingSubmissionId: p.existingSubmissionId || null,
     batches: batches
   };
@@ -784,6 +825,9 @@ ipcMain.handle("start-live-stream", async function (evt, payload) {
   if (!FirstRunPolicy.permitsSubmission(loadSettings())) return { ok: false, error: "submissions_disabled" };
   if (!loadAuth()) return { ok: false, error: "not_logged_in" };
   if (!isPlainObject(payload) || typeof payload.characterName !== "string" || typeof payload.realm !== "string") return { ok: false, error: "bad_request" };
+  if (Date.now() < pending.pauseUntil) return { ok: false, error: "server_limit" };
+  // Saved kills go first: starting a stream makes the server clear this player's old unfinished uploads.
+  if (pending.kills.length) await sendPendingKills();
   try {
     var res = await apiFetch("/api/streams", {
       method: "POST",
@@ -793,6 +837,7 @@ ipcMain.handle("start-live-stream", async function (evt, payload) {
     if (!res.ok) return { ok: false, error: body.error || "Couldn't start streaming" };
     return { ok: true, submissionId: body.submissionId };
   } catch (err) {
+    if (err && err.name === "LimitError") return { ok: false, error: "server_limit" };
     return { ok: false, error: String((err && err.message) || err) };
   }
 });
@@ -811,6 +856,7 @@ ipcMain.handle("push-live-batch", async function (evt, submissionId, chunk) {
     }
     return { ok: true };
   } catch (err) {
+    if (err && err.name === "LimitError") return { ok: false, error: "server_limit" };
     return { ok: false, error: String((err && err.message) || err) };
   }
 });
@@ -860,9 +906,78 @@ function runSubmit(payload) {
   }).catch(function (err) {
     // A failed attempt can be retried by the next request for the same kill.
     if (payload.startTime != null) submittedStartTimes.delete(payload.startTime);
+    if (err && err.name === "LimitError") {
+      sendPopupResult(Object.assign({ waiting: askQueue.length }, savePendingKill(payload)));
+      return;
+    }
     console.error("Submit failed:", err);
     sendPopupResult({ ok: false, error: friendlyNetworkError(err), waiting: askQueue.length });
   });
+}
+
+// Keeps a kill for after the server resets, or explains why it can't be sent later.
+function savePendingKill(payload) {
+  var check = LimitPolicy.canSubmitLater(payload);
+  if (!check.ok) return { ok: false, title: "Couldn't submit", error: check.reason };
+  if (!pending.kills.some(function (k) { return k.startTime != null && k.startTime === payload.startTime; })) {
+    pending.kills.push(Object.assign({}, payload, { mode: "auto" }));
+    if (pending.kills.length > 50) pending.kills.shift();
+    savePending();
+  }
+  schedulePendingRetry();
+  return {
+    ok: false, queued: true, title: "Saved for later",
+    error: "Dyrelog's server is at its daily limit. Your kill is saved and will be sent after " + LimitPolicy.formatResetTime(pending.pauseUntil) + "."
+  };
+}
+
+function schedulePendingRetry() {
+  clearTimeout(pendingTimer);
+  pendingTimer = null;
+  if (!pending.kills.length) return;
+  var wait = Math.max(5000, pending.pauseUntil - Date.now());
+  pendingTimer = setTimeout(sendPendingKills, Math.min(wait, 2147483000));
+}
+
+// Sends saved kills one at a time; stops at the first sign the server is still limited or unreachable.
+var sendingPending = null;
+function sendPendingKills() {
+  if (!sendingPending) sendingPending = sendPendingKillsNow().finally(function () { sendingPending = null; });
+  return sendingPending;
+}
+async function sendPendingKillsNow() {
+  clearTimeout(pendingTimer);
+  pendingTimer = null;
+  if (!pending.kills.length || !loadAuth()) return;
+  if (Date.now() < pending.pauseUntil) { schedulePendingRetry(); return; }
+  var sent = 0, failed = [];
+  while (pending.kills.length) {
+    var kill = pending.kills[0];
+    try {
+      var result = await performSubmit(kill);
+      recordSubmission(kill.startTime, result.submissionId, result.status, result.visibility);
+      submissionSounds.notify(result);
+      sent++;
+    } catch (err) {
+      if (err && err.name === "LimitError") { savePending(); schedulePendingRetry(); break; }
+      if (err && (err.name === "TimeoutError" || err.name === "AbortError" || /fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT/i.test(String(err.message)))) {
+        savePending();
+        clearTimeout(pendingTimer);
+        pendingTimer = setTimeout(sendPendingKills, 30 * 60000);
+        break;
+      }
+      failed.push((kill.mobName || "A saved kill") + ": " + friendlyNetworkError(err));
+    }
+    pending.kills.shift();
+    savePending();
+  }
+  // Only interrupt an idle popup; results are in My Kills either way.
+  if ((sent || failed.length) && popupState === null) {
+    popupState = "busy";
+    sendToSubmitPopup("submit-popup:result", failed.length
+      ? { ok: false, title: "Some saved kills weren't sent", error: failed.join(" ") }
+      : { ok: true, title: sent === 1 ? "Saved kill sent" : sent + " saved kills sent", message: "Check My Kills for the result." });
+  }
 }
 
 function closeSubmitPopup() {
@@ -1057,6 +1172,8 @@ app.whenReady().then(function () {
   }
   // Converts a login saved in plain text by an older version right away, not on first use.
   loadAuth();
+  loadPending();
+  schedulePendingRetry();
   migrateSubmissionSound();
   createWindow();
   showFirstRunSetup();

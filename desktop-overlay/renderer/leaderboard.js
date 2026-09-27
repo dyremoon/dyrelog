@@ -17,6 +17,22 @@
   var personalDifficulty = '';
   var highlightsDifficulty = '';
   var highlightsRequest = 0;
+
+  // 429/503 mean the server is at its limit (see limit handling in the Worker), not that it's down.
+  async function apiGet(pathname) {
+    var res = await fetch(API_BASE + pathname);
+    if (!res.ok) {
+      var err = new Error("HTTP " + res.status);
+      err.limit = res.status === 429 || res.status === 503;
+      throw err;
+    }
+    return res.json();
+  }
+  function serverErrorHtml(err) {
+    return err && err.limit
+      ? '<p class="muted">Leaderboards are temporarily unavailable because Dyrelog’s server is at its daily limit. They’ll be back after midnight UTC. Your own fights are unaffected.</p>'
+      : '<p class="muted">Can’t reach the Dyrelog server right now.</p>';
+  }
   function difficultyColumnFilter(selected) {
     if (selected === undefined) selected = boardDifficulty;
     return '<select class="column-difficulty" aria-label="Filter by difficulty">' + ['', 'D0', 'D1', 'D2', 'D3', 'D4'].map(function (value) {
@@ -69,9 +85,7 @@
     var filter = document.getElementById('highlights-difficulty');
     highlightsDifficulty = filter.value;
     try {
-      var res = await fetch(API_BASE + "/api/leaderboard/highlights" + (highlightsDifficulty ? "?difficulty=" + encodeURIComponent(highlightsDifficulty) : ""));
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      var data = await res.json();
+      var data = await apiGet("/api/leaderboard/highlights" + (highlightsDifficulty ? "?difficulty=" + encodeURIComponent(highlightsDifficulty) : ""));
       if (request !== highlightsRequest) return;
       var highlights = data.highlights || [];
       if (!highlights.length) {
@@ -93,7 +107,7 @@
         }).join("") +
         "</tbody></table>";
     } catch (err) {
-      el.innerHTML = '<p class="muted">Can’t reach the Dyrelog server right now.</p>';
+      el.innerHTML = serverErrorHtml(err);
     }
   }
 
@@ -132,9 +146,7 @@
     try {
       var boss = bossesById[selectedId];
       var results = await Promise.all(boss.tiers.map(async function (tier) {
-        var res = await fetch(API_BASE + "/api/bosses/" + tier.id + "/leaderboard");
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        var data = await res.json();
+        var data = await apiGet("/api/bosses/" + tier.id + "/leaderboard");
         return (data.parses || []).map(function (row) { return Object.assign({}, row, { difficulty: tier.difficulty || 'D0' }); });
       }));
       if (generation !== bossRequest) return;
@@ -144,7 +156,7 @@
       document.getElementById('boss-picker').value = selectedId;
       renderBossDetail(boss, currentBoard.rows, 0);
     } catch (err) {
-      if (generation === bossRequest) detailEl.innerHTML = '<p class="muted">Can’t reach the Dyrelog server right now.</p>';
+      if (generation === bossRequest) detailEl.innerHTML = serverErrorHtml(err);
     }
   }
   function updateOpenSiteButton() {
@@ -224,9 +236,7 @@
   async function load() {
     var picker = document.getElementById("boss-picker");
     try {
-      var res = await fetch(API_BASE + "/api/bosses");
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      var data = await res.json();
+      var data = await apiGet("/api/bosses");
       bosses = BossBrowser.groupBosses(data.bosses || []);
       bossesById = {};
       bossNames = new Set();
@@ -248,9 +258,9 @@
         document.getElementById("boss-detail").innerHTML = '<p class="muted">No bosses yet.</p>';
       }
     } catch (err) {
-      document.getElementById("empty").hidden = false;
+      document.getElementById("empty").hidden = !!(err && err.limit);
       picker.innerHTML = '<option value="">Can’t load bosses</option>';
-      document.getElementById("boss-detail").innerHTML = "";
+      document.getElementById("boss-detail").innerHTML = err && err.limit ? serverErrorHtml(err) : "";
     }
   }
 

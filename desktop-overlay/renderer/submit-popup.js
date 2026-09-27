@@ -68,17 +68,18 @@
     clearActions();
     var next = result.waiting > 0;
     if (result.ok) {
-      els.title.textContent = result.status === "verified" && result.visibility !== "private" ? "On the leaderboard!" : "Submitted";
-      els.sub.textContent = result.status === "verified" && result.visibility !== "private" ? "Your kill is live."
+      els.title.textContent = result.title || (result.status === "verified" && result.visibility !== "private" ? "On the leaderboard!" : "Submitted");
+      els.sub.textContent = result.message ? result.message
+        : result.status === "verified" && result.visibility !== "private" ? "Your kill is live."
         : result.status === "verified" ? "Saved as private. Only you can see it."
         : result.status === "pending_review" || result.status === "flagged" ? "Waiting for review. Check My Kills for the result."
         : "Saved to My Kills.";
       els.sub.className = "sub ok";
       autoCloseTimer = setTimeout(function () { window.dyrelog.submitPopupDone(); }, next ? 1800 : 2500);
     } else {
-      els.title.textContent = "Couldn't submit";
+      els.title.textContent = result.title || "Couldn't submit";
       els.sub.textContent = result.error || "Something went wrong. Try again in a minute.";
-      els.sub.className = "sub err";
+      els.sub.className = result.queued ? "sub" : "sub err";
       addButton(next ? "Next kill" : "Close", "btn-secondary", function () { window.dyrelog.submitPopupDone(); });
     }
   }

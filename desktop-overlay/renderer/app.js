@@ -484,7 +484,9 @@
       dps: youRow ? youRow.dps : 0,
       damage: youRow ? youRow.damage : 0,
       difficulty: finishedEnc.difficultyKnown ? finishedEnc.difficulty : null,
-      startTime: finishedEnc.startTime
+      startTime: finishedEnc.startTime,
+      endTime: finishedEnc.endTime,
+      liveBatches: stream ? stream.accepted : 0
     };
     if (stream && stream.submissionId) {
       payload.existingSubmissionId = stream.submissionId;
@@ -509,8 +511,10 @@
       return prev.then(function (ok) {
         if (!ok) return false;
         return window.dyrelog.pushLiveBatch(stream.submissionId, chunk).then(function (res) {
+          if (res && res.error === "server_limit") stream.limited = true;
           if (!res || !res.ok) return false;
           LiveStream.markSent(chunk, stream.sent);
+          stream.accepted++;
           return true;
         }, function () { return false; });
       });
@@ -523,11 +527,13 @@
     if (!enc || !isKnownBoss(enc.mobName)) return;
     if ((enc.endTime - enc.startTime) < STREAM_MIN_MS_BEFORE_START) return;
     var stream = liveStreams[enc.startTime];
-    if (!stream) stream = liveStreams[enc.startTime] = { submissionId: null, sent: LiveStream.newSentLines(), inFlight: null, retryAt: 0 };
-    if (stream.inFlight || Date.now() < stream.retryAt) return;
+    if (!stream) stream = liveStreams[enc.startTime] = { submissionId: null, sent: LiveStream.newSentLines(), inFlight: null, retryAt: 0, accepted: 0, limited: false };
+    // Once the server reports its limit, stop streaming this fight; the kill is handled when it ends.
+    if (stream.limited || stream.inFlight || Date.now() < stream.retryAt) return;
     if (!stream.submissionId) {
       stream.inFlight = window.dyrelog.startLiveStream({ characterName: characterName, realm: realm, soloMode: false }).then(function (res) {
         if (res && res.ok) stream.submissionId = res.submissionId;
+        else if (res && res.error === "server_limit") stream.limited = true;
         else stream.retryAt = Date.now() + STREAM_RETRY_MS;
       }, function () { stream.retryAt = Date.now() + STREAM_RETRY_MS; }).then(function () { stream.inFlight = null; });
       return;

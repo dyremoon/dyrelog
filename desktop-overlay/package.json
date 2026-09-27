@@ -28,6 +28,7 @@
       "analytics.cjs",
       "link-policy.cjs",
       "auth-store.cjs",
+      "limit-policy.cjs",
       "log-tailer.cjs",
       "json-store.cjs",
       "preload.js",
