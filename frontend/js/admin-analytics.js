@@ -5,13 +5,39 @@
   const button = document.getElementById('analytics-refresh');
   const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const number = value => new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(value);
+  const dayLabel = date => new Date(date + 'T00:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
+  // Each day is a full-height column so days with zero can still be hovered or focused.
   function chart(days, key, title) {
     const max = Math.max(1, ...days.map(day => day[key]));
+    const unit = key === 'downloads' ? ['download request', 'download requests'] : ['active install', 'active installs'];
     return `<div><h3>${title}</h3><p class="muted">Peak: ${number(Math.max(...days.map(day => day[key])))}</p>
-      <div class="analytics-bars" role="img" aria-label="${title}; exact values in the daily table below">${days.map(day =>
-        `<div class="analytics-bar ${key === 'downloads' ? 'analytics-download-bar' : ''}" style="height:${day[key] / max * 100}%" title="${day.date}: ${day[key]}"></div>`).join('')}</div>
+      <div class="analytics-bars" role="img" aria-label="${title}; exact values in the daily table below">${days.map(day => {
+        const n = day[key];
+        const tip = `${dayLabel(day.date)}: ${number(n)} ${n === 1 ? unit[0] : unit[1]}`;
+        return `<div class="analytics-col" tabindex="0" data-tip="${escape(tip)}" aria-label="${escape(tip)}"><div class="analytics-bar ${key === 'downloads' ? 'analytics-download-bar' : ''}" style="height:${n / max * 100}%"></div></div>`;
+      }).join('')}<div class="analytics-tip" hidden></div></div>
       <div class="analytics-axis"><span>${days[0].date}</span><span>${days.at(-1).date}</span></div></div>`;
   }
+  function showTip(col) {
+    const bars = col.closest('.analytics-bars');
+    const tip = bars.querySelector('.analytics-tip');
+    tip.textContent = col.dataset.tip;
+    tip.hidden = false;
+    const center = col.offsetLeft + col.offsetWidth / 2;
+    tip.style.left = Math.max(tip.offsetWidth / 2, Math.min(bars.clientWidth - tip.offsetWidth / 2, center)) + 'px';
+  }
+  function hideTip(col) {
+    const tip = col.closest('.analytics-bars').querySelector('.analytics-tip');
+    tip.hidden = true;
+  }
+  ['mouseover', 'focusin'].forEach(type => content.addEventListener(type, event => {
+    const col = event.target.closest && event.target.closest('.analytics-col');
+    if (col) showTip(col);
+  }));
+  ['mouseout', 'focusout'].forEach(type => content.addEventListener(type, event => {
+    const col = event.target.closest && event.target.closest('.analytics-col');
+    if (col && !col.contains(event.relatedTarget)) hideTip(col);
+  }));
   async function refresh() {
     button.disabled = true;
     status.textContent = 'Loading analytics…';
