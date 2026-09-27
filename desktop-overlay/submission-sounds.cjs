@@ -3,7 +3,23 @@ const path = require('node:path');
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
-function createSubmissionSounds({ userDir, presetDir, getSettings, saveSettings, send }) {
+// EverQuest sounds are played from the player's own game install (EverQuest\sounds), never shipped with Dyrelog.
+const GAME_SOUNDS = [
+  ['arxmentis_one_shot_01', 'EQ Arx Mentis 1'], ['arxmentis_one_shot_03', 'EQ Arx Mentis 3'],
+  ['cave_drips_02', 'EQ Cave Drips 2'], ['cave_drips_04', 'EQ Cave Drips 4'], ['cave_drips_05', 'EQ Cave Drips 5'],
+  ['sfx_emt_bird_blackbird_01', 'EQ Blackbird 1'], ['sfx_emt_bird_blackbird_02', 'EQ Blackbird 2'],
+  ['sfx_emt_bird_robin_01', 'EQ Robin 1'], ['sfx_emt_bird_robin_02', 'EQ Robin 2'], ['sfx_emt_bird_robin_03', 'EQ Robin 3'],
+  ['sfx_emt_crow_01', 'EQ Crow 1'], ['sfx_emt_crow_02', 'EQ Crow 2'], ['sfx_emt_crow_03', 'EQ Crow 3'],
+  ['sfx_emt_fart_01', 'EQ Fart 1'], ['sfx_emt_fart_02', 'EQ Fart 2'], ['sfx_emt_fart_03', 'EQ Fart 3'],
+].map(([id, name]) => ({ id, name, file: id + '.wav' }));
+
+// Earlier versions shipped these EverQuest sounds as "preset:EQ_<id>"; the same sounds now come from the game.
+function migrateChoice(choice) {
+  const old = /^preset:EQ_(.+)$/.exec(choice || '');
+  return old && GAME_SOUNDS.some(s => s.id === old[1]) ? 'eq:' + old[1] : choice;
+}
+
+function createSubmissionSounds({ userDir, presetDir, getSettings, saveSettings, send, getGameSoundsDir = () => null }) {
   const customFile = path.join(userDir, 'submission-sound.mp3');
   const played = new Set();
 
@@ -14,9 +30,16 @@ function createSubmissionSounds({ userDir, presetDir, getSettings, saveSettings,
       fs.existsSync(path.join(presetDir, entry.file)));
   }
 
+  function gameSounds() {
+    const dir = getGameSoundsDir();
+    if (!dir) return [];
+    return GAME_SOUNDS.filter(sound => fs.existsSync(path.join(dir, sound.file)));
+  }
+
   function list() {
     const choices = [{ id: 'none', name: 'No sound' }];
     for (const preset of presets()) choices.push({ id: 'preset:' + preset.id, name: preset.name });
+    for (const sound of gameSounds()) choices.push({ id: 'eq:' + sound.id, name: sound.name });
     if (fs.existsSync(customFile)) choices.push({ id: 'custom', name: getSettings().submissionSoundName || 'Custom MP3' });
     return choices;
   }
@@ -35,13 +58,23 @@ function createSubmissionSounds({ userDir, presetDir, getSettings, saveSettings,
     return saveSettings({ submissionSound: 'custom', submissionSoundName: path.basename(file) });
   }
 
+  function fileFor(choice) {
+    if (choice === 'custom') return customFile;
+    if (choice.startsWith('eq:')) {
+      const sound = GAME_SOUNDS.find(s => 'eq:' + s.id === choice);
+      const dir = getGameSoundsDir();
+      return sound && dir && fs.existsSync(path.join(dir, sound.file)) ? path.join(dir, sound.file) : null;
+    }
+    const preset = presets().find(entry => 'preset:' + entry.id === choice);
+    return preset ? path.join(presetDir, preset.file) : null;
+  }
+
   function audio() {
     const settings = getSettings();
-    const choice = settings.submissionSound || 'none';
+    const choice = migrateChoice(settings.submissionSound || 'none');
     const volume = Number.isFinite(settings.submissionSoundVolume) ? Math.max(0, Math.min(100, settings.submissionSoundVolume)) / 100 : 0.7;
     if (choice === 'none' || volume === 0) return null;
-    const preset = presets().find(entry => 'preset:' + entry.id === choice);
-    const file = choice === 'custom' ? customFile : preset ? path.join(presetDir, preset.file) : null;
+    const file = fileFor(choice);
     if (!file) return null;
     const mime = /\.wav$/i.test(file) ? 'audio/wav' : 'audio/mpeg';
     return { src: 'data:' + mime + ';base64,' + readAudio(file).toString('base64'), volume };
@@ -64,4 +97,4 @@ function createSubmissionSounds({ userDir, presetDir, getSettings, saveSettings,
   return { list, importFile, audio, notify };
 }
 
-module.exports = { createSubmissionSounds };
+module.exports = { createSubmissionSounds, migrateChoice, GAME_SOUNDS };

@@ -1,15 +1,13 @@
-Submission sound presets
-=======================
+Submission sounds
+=================
 
-Add MP3 or WAV files to the repository's `Audio` folder. Running `npm start`
-or `npm run dist` copies them here and rebuilds `presets.json` automatically.
-The catalog format is:
+Sounds Dyrelog can play when a kill goes live on the leaderboard. No sound is selected by default.
 
-```json
-[{ "id": "level-up", "name": "EverQuest — Level Up", "file": "level-up.mp3" }]
-```
+**Bundled sounds** come from the repository's `Audio` folder. `npm start` and `npm run dist` copy them here
+and rebuild `presets.json`. Only add a sound if you made it, have the maker's permission, or it has a license
+that allows redistribution in an app (for example CC0). Write down where each one came from.
 
-Filenames become stable IDs and readable labels. The Options sound selector
-loads this catalog automatically. The desktop build includes this folder.
-No sound is selected by default. Custom MP3s are copied into the user's
-Dyrelog application data folder so moving the original file does not break playback.
+**EverQuest sounds** are not shipped. Dyrelog plays them from the player's own game install
+(`EverQuest\sounds`), found from the location of their log file. The list is in `submission-sounds.cjs`.
+
+**Custom MP3s** a player picks in Settings are copied into their own Dyrelog data folder and stay on their PC.

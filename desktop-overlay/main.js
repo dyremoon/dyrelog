@@ -9,7 +9,7 @@ let gameForeground = false;
 let stopForegroundWatch = null;
 const Appearance = require("./renderer/appearance.js");
 const FirstRunPolicy = require("./renderer/first-run-policy.js");
-const { createSubmissionSounds } = require("./submission-sounds.cjs");
+const { createSubmissionSounds, migrateChoice } = require("./submission-sounds.cjs");
 const { autoUpdater } = require("electron-updater");
 const Analytics = require('./analytics.cjs');
 const { readJson, writeJsonAtomic, removeJson } = require("./json-store.cjs");
@@ -1057,6 +1057,7 @@ app.whenReady().then(function () {
   }
   // Converts a login saved in plain text by an older version right away, not on first use.
   loadAuth();
+  migrateSubmissionSound();
   createWindow();
   showFirstRunSetup();
   syncAnalyticsConsent();
@@ -1200,8 +1201,31 @@ const submissionSounds = createSubmissionSounds({
   presetDir: path.join(__dirname, 'renderer', 'sounds'),
   getSettings: loadSettings,
   saveSettings: applySettingsPartial,
-  send: function(payload) { if (win && !win.isDestroyed()) win.webContents.send('submission-sound', payload); }
+  send: function(payload) { if (win && !win.isDestroyed()) win.webContents.send('submission-sound', payload); },
+  getGameSoundsDir: findGameSoundsDir
 });
+
+// The EverQuest install is the folder above Logs (or the folder the player picked).
+function findGameSoundsDir() {
+  var cfg = loadConfig();
+  if (!cfg) return null;
+  var candidates = [];
+  if (cfg.path) candidates.push(path.join(path.dirname(path.dirname(cfg.path)), "sounds"), path.join(path.dirname(cfg.path), "sounds"));
+  if (cfg.dir) candidates.push(path.join(cfg.dir, "sounds"), path.join(path.dirname(cfg.dir), "sounds"));
+  for (var i = 0; i < candidates.length; i++) {
+    try { if (fs.statSync(candidates[i]).isDirectory()) return candidates[i]; } catch (_err) { /* not here */ }
+  }
+  return null;
+}
+
+// Moves a saved sound choice to its current ID; a sound that no longer exists becomes "No sound".
+function migrateSubmissionSound() {
+  var current = loadSettings().submissionSound;
+  if (!current || current === "none") return;
+  var next = migrateChoice(current);
+  if (/^preset:/.test(next) && !submissionSounds.list().some(function (c) { return c.id === next; })) next = "none";
+  if (next !== current) applySettingsPartial({ submissionSound: next });
+}
 ipcMain.handle('get-submission-sounds', function() { return submissionSounds.list(); });
 ipcMain.handle('pick-submission-sound', async function() {
   var picked = await dialog.showOpenDialog({ title: 'Choose submission sound', properties: ['openFile'], filters: [{ name: 'MP3 audio', extensions: ['mp3'] }] });
