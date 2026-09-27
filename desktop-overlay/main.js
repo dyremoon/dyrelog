@@ -745,6 +745,7 @@ var SUBMIT_ERROR_MESSAGES = {
   nothing_captured: "Nothing from this fight was captured.",
   no_you_lines_found: "The log for this fight has no lines from you, so there's nothing to submit.",
   already_finalized: "This kill was already submitted.",
+  already_submitted: "This kill was already submitted.",
   submission_not_streaming: "This kill was already submitted.",
   chunk_too_large: "This fight's log is too large to upload.",
   too_many_batches: "This fight's log is too large to upload.",
@@ -1020,7 +1021,7 @@ async function sendPendingKillsNow() {
     } catch (err) {
       if (err && err.name === "LimitError") { savePending(); schedulePendingRetry(); break; }
       // The server already has this kill (the app closed after it finished uploading).
-      if (err && (err.code === "already_finalized" || err.code === "submission_not_streaming")) { pending.kills.shift(); savePending(); continue; }
+      if (err && (err.code === "already_finalized" || err.code === "already_submitted" || err.code === "submission_not_streaming")) { pending.kills.shift(); savePending(); continue; }
       if (isTemporaryFailure(err)) {
         savePending();
         scheduleOfflineRetry();
