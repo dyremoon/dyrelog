@@ -29,7 +29,10 @@
   <div class="plate plate-gold" style="margin-top:0; margin-bottom:20px;">
     <div class="analyze-detail-head">
       <h2 style="margin:0;">My Profile</h2>
-      <button class="btn" id="logout-btn" type="button" hidden>Log out</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="logout-everywhere-btn" type="button" hidden title="Logs you out in the desktop app and every browser">Log out everywhere</button>
+        <button class="btn" id="logout-btn" type="button" hidden>Log out</button>
+      </div>
     </div>
 
     <p
@@ -164,6 +167,7 @@
         if (user) {
           document.getElementById('profile-username').textContent = capitalizeName(user.username);
           document.getElementById('logout-btn').hidden = false;
+          document.getElementById('logout-everywhere-btn').hidden = false;
           initBio(user.bio);
         } else {
           document.getElementById('profile-username').textContent = 'Not logged in.';
@@ -377,6 +381,16 @@
     document.getElementById('logout-btn').addEventListener('click', async () => {
       await api('/api/auth/logout', { method: 'POST' });
       window.location.reload();
+    });
+
+    document.getElementById('logout-everywhere-btn').addEventListener('click', async () => {
+      if (!confirm('Log out of Dyrelog everywhere, including the desktop app? You can log back in any time.')) return;
+      try {
+        await api('/api/auth/logout-everywhere', { method: 'POST' });
+        window.location.reload();
+      } catch (err) {
+        alert("Couldn't do that right now. Try again in a minute.");
+      }
     });
 
     document.addEventListener('DOMContentLoaded', loadProfile);

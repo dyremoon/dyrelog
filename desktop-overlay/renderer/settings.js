@@ -356,6 +356,8 @@
       choices.forEach(function(choice) { soundSelect.add(new Option(choice.name, choice.id)); });
       soundSelect.value = s.submissionSound || 'none';
       if (!soundSelect.value) soundSelect.value = 'none';
+      var hasGameSounds = choices.some(function(choice) { return choice.id.indexOf('eq:') === 0; });
+      soundStatus.textContent = hasGameSounds ? '' : 'EverQuest sounds show up here once Dyrelog is reading a log from your EverQuest folder.';
       document.getElementById('test-submission-sound').disabled = soundSelect.value === 'none';
     }).catch(function(err) { soundStatus.textContent = err.message; });
   }

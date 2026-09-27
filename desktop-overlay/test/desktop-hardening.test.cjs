@@ -201,3 +201,27 @@ test('a plain-text login from an older version is converted at startup', () => {
   const ready = mainSource.slice(mainSource.indexOf('app.whenReady().then(function () {'));
   assert.ok(ready.indexOf('loadAuth();') !== -1 && ready.indexOf('loadAuth();') < ready.indexOf('createWindow();'));
 });
+
+test('every app page has a Content-Security-Policy and loads nothing from the internet but the Dyrelog API', () => {
+  const dir = path.join(__dirname, '../renderer');
+  for (const page of fs.readdirSync(dir).filter((f) => f.endsWith('.html'))) {
+    const html = fs.readFileSync(path.join(dir, page), 'utf8');
+    const csp = /http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html);
+    assert.ok(csp, page + ' has a CSP');
+    assert.match(csp[1], /script-src 'self'/);
+    assert.doesNotMatch(csp[1], /unsafe-eval/);
+    assert.ok(!/https?:\/\/(?!dyrelog-api\.dyremoon\.workers\.dev)[a-z]/.test(csp[1]), page + ' CSP only allows the Dyrelog API');
+    assert.ok(!/fonts\.googleapis|fonts\.gstatic/.test(html), page + ' does not load Google Fonts');
+    assert.ok(!/<script>[\s\S]*?<\/script>/.test(html), page + ' has no inline scripts');
+  }
+});
+
+test('bundled fonts each ship with their Open Font License', () => {
+  const dir = path.join(__dirname, '../renderer/fonts');
+  const css = fs.readFileSync(path.join(dir, 'fonts.css'), 'utf8');
+  for (const [, file] of css.matchAll(/url\("([^"]+)"\)/g)) {
+    assert.ok(fs.existsSync(path.join(dir, file)), file);
+    const family = file.replace(/-latin-.*$/, '');
+    assert.ok(fs.existsSync(path.join(dir, family + '-OFL.txt')), family + ' license');
+  }
+});

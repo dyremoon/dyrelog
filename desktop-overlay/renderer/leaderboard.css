@@ -86,3 +86,6 @@ th .column-difficulty { display: block; margin-top: 6px; max-width: 150px; font:
 .lb-panel-gold, .lb-panel-highlight { border-color: var(--accent); box-shadow: none; }
 .lb-panel-gold h2, .lb-panel-highlight h2, #lb-tabs .detail-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 button.boss-name-link { background: none; border: 0; padding: 0; font: inherit; }
+
+/* Sortable headers are buttons, which do not inherit the header text style by default. */
+table th button.table-sort { text-transform: inherit; letter-spacing: inherit; font-weight: inherit; }

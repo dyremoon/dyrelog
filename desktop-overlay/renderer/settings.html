@@ -1,8 +1,10 @@
 <!doctype html>
 <html>
 <head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self' data:; connect-src 'self' https://dyrelog-api.dyremoon.workers.dev; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
 <title>Dyrelog Settings</title>
+<link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="settings.css">
 </head>
 <body>
@@ -349,7 +351,7 @@
       <div class="settings-section" data-searchable="submission sound audio mp3 volume mute">
         <p class="section-label">Submit sound</p>
         <div class="row"><label for="submission-sound">Sound</label><select id="submission-sound"><option value="none">No sound</option></select></div>
-        <div class="row"><button type="button" class="btn-link" id="upload-submission-sound">Upload MP3</button><button type="button" class="btn-link" id="test-submission-sound">Test sound</button></div>
+        <div class="row"><button type="button" class="btn-link" id="upload-submission-sound">Use my own MP3&hellip;</button><button type="button" class="btn-link" id="test-submission-sound">Play</button></div>
         <div class="row"><label for="submission-volume">Volume</label><input id="submission-volume" type="range" min="0" max="100" step="1"><output id="submission-volume-value" class="range-val"></output></div>
         <p id="submission-sound-status" role="status"></p>
       </div>

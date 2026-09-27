@@ -1,6 +1,6 @@
 {
   "name": "dyrelog-desktop",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": true,
   "description": "Dyrelog: a free DPS meter overlay and kill leaderboard uploader for EverQuest Legends (unofficial fan project).",
   "main": "main.js",
@@ -13,11 +13,11 @@
     "release:check": "node scripts/release-check.js"
   },
   "dependencies": {
-    "electron-updater": "^6.3.9"
+    "electron-updater": "^6.8.10"
   },
   "devDependencies": {
-    "electron": "^32.0.0",
-    "electron-builder": "^25.0.0"
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "com.dyrelog.desktop",

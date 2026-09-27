@@ -57,6 +57,7 @@ them. The version lives only in `package.json` (and its lock file); the app read
 - `log-tailer.cjs`: reads new lines from the log file once a second and waits if the file doesn't exist yet.
 - `json-store.cjs`: saves settings and history with a temp file and rename, so a crash can't truncate them.
 - `link-policy.cjs`: the exact list of sites the app will open in your browser.
+- `auth-store.cjs`: keeps the Discord login, with the session cookie encrypted by Windows.
 - `analytics.cjs`: optional usage statistics (off unless the player allows it).
 - `renderer/`: the pages. `app.js` is the meter, `live-stream.js` plans fight uploads.
 
@@ -70,11 +71,18 @@ In `%APPDATA%\Dyrelog\`:
 | `dyrelog-settings.json` | Your settings and submission choice |
 | `dyrelog-window.json` | Window positions and sizes |
 | `dyrelog-history.json` | Your last 50 fights (parsed stats, plus any pet-ownership log lines) |
-| `dyrelog-auth.json` | Discord username, avatar URL and the login session cookie (after you log in) |
+| `dyrelog-auth.json` | Discord username, avatar URL and the login session cookie, encrypted by Windows (after you log in) |
 | `dyrelog-install-id` | Random ID, only created if you allow usage statistics |
 | `submission-sound.mp3` | A custom submit sound, if you picked one |
 
 Each JSON file may have a `.bak` copy next to it (the previous good version).
+
+## What the app reads
+
+- Your EverQuest log file (the one you pick), from the end of the file onward.
+- If you choose an "EQ" submit sound, that sound file from your own EverQuest folder (`EverQuest\sounds`). Dyrelog doesn't ship EverQuest's sounds.
+
+Fonts are bundled with the app (SIL Open Font License, in `renderer/fonts`), so nothing is fetched to draw the meter.
 
 ## What the app sends
 
@@ -85,4 +93,3 @@ Each JSON file may have a `.bak` copy next to it (the previous good version).
 - If you allow usage statistics: a random install ID, the app version and platform, at start and every
   15 minutes.
 - To `api.github.com` and GitHub Releases: update checks and downloads.
-- To Google Fonts: the meter's display fonts are loaded from `fonts.googleapis.com`.
