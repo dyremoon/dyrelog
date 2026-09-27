@@ -26,10 +26,14 @@
     return b;
   }
 
+  function waitingText(n) {
+    return n > 0 ? " · " + n + " more " + (n === 1 ? "kill" : "kills") + " waiting" : "";
+  }
+
   function showAsk(payload) {
     if (autoCloseTimer) { clearTimeout(autoCloseTimer); autoCloseTimer = null; }
     els.title.textContent = "Submit " + (payload.mobName || "this kill") + "?";
-    els.sub.textContent = fmtNum(payload.dps) + " dps · " + fmtAbbrev(payload.damage) + " total damage";
+    els.sub.textContent = fmtNum(payload.dps) + " dps · " + fmtAbbrev(payload.damage) + " damage" + waitingText(payload.waiting);
     els.sub.className = "sub";
     clearActions();
     addButton("Discard", "btn-secondary", function () { window.dyrelog.discardSubmit(); });
@@ -39,19 +43,22 @@
   function showPending(payload) {
     if (autoCloseTimer) { clearTimeout(autoCloseTimer); autoCloseTimer = null; }
     els.title.textContent = "Submitting " + (payload.mobName || "your kill") + "…";
-    els.sub.innerHTML = '<span class="spinner"></span>Talking to the leaderboard';
+    els.sub.innerHTML = '<span class="spinner"></span>Uploading';
     els.sub.className = "sub";
     clearActions();
   }
 
-  function showNeedsLogin() {
+  function showNeedsLogin(payload) {
     if (autoCloseTimer) { clearTimeout(autoCloseTimer); autoCloseTimer = null; }
-    els.title.textContent = "Log in to submit kills";
-    els.sub.textContent = "Log in with Discord to send this kill. It waits while you log in.";
+    var n = payload.waiting || 1;
+    els.title.textContent = "Log in to submit";
+    els.sub.textContent = n > 1
+      ? "Log in with Discord to submit your " + n + " kills. They'll wait while you log in."
+      : "Log in with Discord to submit this kill. It'll wait while you log in.";
     els.sub.className = "sub";
     clearActions();
-    addButton("Dismiss", "btn-secondary", function () { window.dyrelog.discardSubmit(); });
-    addButton("Log In", "btn-primary", function () {
+    addButton("Not now", "btn-secondary", function () { window.dyrelog.discardSubmit(); });
+    addButton("Log in", "btn-primary", function () {
       window.dyrelog.loginWithDiscord();
       window.close();
     });
@@ -59,24 +66,25 @@
 
   function showResult(result) {
     clearActions();
+    var next = result.waiting > 0;
     if (result.ok) {
-      els.title.textContent = "Submitted!";
-      els.sub.textContent = result.status === "verified" && result.visibility !== "private" ? "Live on the leaderboard now."
+      els.title.textContent = result.status === "verified" && result.visibility !== "private" ? "On the leaderboard!" : "Submitted";
+      els.sub.textContent = result.status === "verified" && result.visibility !== "private" ? "Your kill is live."
         : result.status === "verified" ? "Saved as private. Only you can see it."
-        : result.status === "pending_review" || result.status === "flagged" ? "Sent for a manual review. Check My Kills for the result."
-        : "Saved to your history.";
+        : result.status === "pending_review" || result.status === "flagged" ? "Waiting for review. Check My Kills for the result."
+        : "Saved to My Kills.";
       els.sub.className = "sub ok";
-      autoCloseTimer = setTimeout(function () { window.close(); }, 2500);
+      autoCloseTimer = setTimeout(function () { window.dyrelog.submitPopupDone(); }, next ? 1800 : 2500);
     } else {
       els.title.textContent = "Couldn't submit";
-      els.sub.textContent = result.error || "Something went wrong.";
+      els.sub.textContent = result.error || "Something went wrong. Try again in a minute.";
       els.sub.className = "sub err";
-      addButton("Dismiss", "btn-secondary", function () { window.close(); });
+      addButton(next ? "Next kill" : "Close", "btn-secondary", function () { window.dyrelog.submitPopupDone(); });
     }
   }
 
   window.dyrelog.onSubmitPopupShow(function (payload) {
-    if (payload.needsLogin) showNeedsLogin();
+    if (payload.needsLogin) showNeedsLogin(payload);
     else if (payload.pending) showPending(payload);
     else showAsk(payload);
   });

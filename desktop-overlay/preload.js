@@ -63,5 +63,6 @@ contextBridge.exposeInMainWorld("dyrelog", {
   onSubmitPopupShow: (cb) => ipcRenderer.on("submit-popup:show", (_evt, payload) => cb(payload)),
   onSubmitPopupResult: (cb) => ipcRenderer.on("submit-popup:result", (_evt, result) => cb(result)),
   confirmSubmit: () => ipcRenderer.send("submit-popup:confirm"),
-  discardSubmit: () => ipcRenderer.send("submit-popup:discard")
+  discardSubmit: () => ipcRenderer.send("submit-popup:discard"),
+  submitPopupDone: () => ipcRenderer.send("submit-popup:done")
 });

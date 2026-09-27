@@ -1,6 +1,6 @@
-# Private application analytics
+# Usage analytics
 
-Implemented in the existing Electron app, plain JavaScript admin page, and Cloudflare Worker/D1 stack. No analytics service, chart library, or database dependency was added. R2 and combat-log processing are unaffected. The Worker is a separate Git submodule; review its working tree separately.
+How Dyrelog's optional usage statistics and the website's download counter work, what they store, and how the admin dashboard reads them.
 
 ## Metric definitions
 
@@ -39,109 +39,20 @@ Aggregate responses and redirects use `Cache-Control: no-store`. The existing st
 
 Only the UUID, app version, platform (`win32`, `darwin`, `linux`), and server observation dates/times are collected for usage. There are no Discord IDs, Windows usernames, machine names, hardware IDs, locations, IP addresses, personal files, or game data in analytics storage. No request payloads are logged by the analytics handlers. Hosting providers still process ordinary network traffic; this does not change their infrastructure logging configuration.
 
-Native Cloudflare rate limits allow six requests per minute per installation, plus separate global keys allowing 600 activity requests and 600 download requests per minute per Cloudflare location. Namespace IDs are 1010 and 1011; confirm they do not collide with another Worker in this account before deployment. These limits are approximate and intentionally avoid collecting IPs. They bound traffic but cannot establish authenticity: someone can fabricate UUIDs or exhaust a shared limit. Public claims must acknowledge this limitation. Daily uniqueness itself is enforced exactly by D1.
+Native Cloudflare rate limits allow six requests per minute per installation, plus separate global keys allowing 600 activity requests and 600 download requests per minute per Cloudflare location. These limits are approximate and intentionally avoid collecting IPs. They bound traffic but cannot establish authenticity: someone can fabricate UUIDs or exhaust a shared limit. Public claims must acknowledge this limitation. Daily uniqueness itself is enforced exactly by D1.
 
 Usage analytics is off until explicit consent. A one-time in-app prompt explains the purpose, fields, recipient, frequency, retention, and withdrawal behavior for new and existing users. “No thanks” is the default and cancellation choice. Declining does not affect features or cause repeated prompts. The choice, notice version, and decision timestamp are stored locally in `analyticsConsent`; they are not uploaded. No installation ID is created before consent. The choice can be changed in Settings → Options → Usage analytics through a dedicated, sender-checked IPC handler. Ordinary settings saves cannot enable analytics.
 
 Reporting has a five-second network timeout and never waits in the startup path. Failures are swallowed and retried on the next 15-minute interval. Withdrawal clears the timer and aborts an in-flight request; it cannot undo a request already received by the server and does not erase existing records. There is no historical backfill for offline or declined days. Invalid/unwritable local ID storage suppresses reporting instead of generating new IDs repeatedly. The environment override `DYRELOG_DISABLE_ANALYTICS=1` remains available in addition to the Settings control. The website separately discloses its aggregate download-request counter; it stores no visitor identifier.
 
-GitHub release requests are server-side. Public releases work without credentials. If needed, configure `GITHUB_TOKEN` as a Worker secret; never put it in frontend code or Wrangler vars. When GitHub lookup fails, the download route falls back to the releases page; when D1 fails after resolving the asset, it still redirects to the asset. A complete Worker outage still makes its redirect unavailable; users can use the GitHub releases page directly.
+GitHub release requests are server-side. Public releases work without credentials. If needed, configure `GITHUB_TOKEN` as a Worker secret; never put it in frontend code or Wrangler vars. When the GitHub API lookup fails, the download route reads the release's `latest.yml` to find the installer; only if GitHub is unreachable does it fall back to the Releases page. When D1 fails after resolving the installer, it still redirects to the installer. A complete Worker outage still makes its redirect unavailable; users can use the GitHub releases page directly.
 
-## Files changed for analytics
+## Preview the admin dashboard locally
 
-- `worker/migrations/0010_analytics.sql`
-- `worker/src/analytics.js`, `worker/src/analytics-downloads.js`, `worker/src/index.js`
-- `worker/wrangler.toml`, `worker/test/analytics.test.mjs`
-- `desktop-overlay/analytics.cjs`, `desktop-overlay/main.js`, `desktop-overlay/package.json`
-- `desktop-overlay/preload.js`, `desktop-overlay/renderer/settings.html`, `desktop-overlay/renderer/analytics-settings.js`
-- `desktop-overlay/test/analytics.test.cjs`, `desktop-overlay/test/admin-analytics.test.cjs`
-- `desktop-overlay/test/analytics-consent.test.cjs`
-- `frontend/admin.html`, `frontend/js/admin-analytics.js`, `frontend/css/admin-analytics.css`, `frontend/download.html`
-- `scripts/preview-admin-analytics.cjs`, this guide
+Uses synthetic data only, binds to 127.0.0.1, and touches no real analytics or database.
 
-Pre-existing version changes, moderation-note work, and other local edits were preserved. No commits or pushes were made.
-
-## Local preview and launch commands (PowerShell)
-
-Preview the real admin UI using explicitly synthetic data. This binds only to loopback and does not access production analytics, authenticate real users, or write a database. Do not deploy this preview server.
-
-```powershell
-Set-Location '<path-to>\dyrelog'
+```
 node scripts/preview-admin-analytics.cjs
 ```
 
-Open `http://127.0.0.1:8788/admin.html`. Stop with Ctrl+C. If the agent's preview is still running, use its existing page instead of starting a second copy.
-
-The dashboard uses the site's dark plates and gold accents, six cards in a responsive grid, gold activity bars, teal download bars, version share meters, and download/daily tables. Exact chart values are available in the daily table. Empty, unavailable, and unauthorized states are handled.
-
-Local Worker and database:
-
-```powershell
-Set-Location '<path-to>\dyrelog\worker'
-npx wrangler d1 migrations apply dyrelog-db --local
-npm run dev
-```
-
-This starts the API at `http://127.0.0.1:8787`. Real local Discord authentication requires the existing `.dev.vars` secrets, a Discord-registered local callback URI, and matching `SITE_URL`/`DISCORD_REDIRECT_URI` values. The synthetic preview does not test Discord login or use this API. Automated tests exercise signed sessions and the actual Worker routes without modifying your Discord application.
-
-Local desktop launch (the consent prompt and Settings control work, but analytics is deliberately disabled for unpackaged development). If a choice was already saved, use Settings → Options → Usage analytics instead of expecting another prompt:
-
-```powershell
-Set-Location '<path-to>\dyrelog\desktop-overlay'
-npm start
-```
-
-## Production migration and deployment (not executed)
-
-Apply migrations before deploying the Worker. Wrangler applies all pending migrations, including the pre-existing moderation-note migration if it has not yet been applied. Inspect the pending list first.
-
-```powershell
-Set-Location '<path-to>\dyrelog\worker'
-npx wrangler d1 migrations list dyrelog-db --remote
-npx wrangler d1 migrations apply dyrelog-db --remote
-npm run deploy
-```
-
-Optional server-side GitHub token, only if public API limits require one:
-
-```powershell
-Set-Location '<path-to>\dyrelog\worker'
-npx wrangler secret put GITHUB_TOKEN
-```
-
-Deploy the static website after the API:
-
-```powershell
-Set-Location '<path-to>\dyrelog\worker'
-npx wrangler pages deploy ..\frontend --project-name dyrelog --branch main --commit-dirty=true
-```
-
-This publishes the current frontend working tree, including other existing edits. The command assumes `main` is the Pages project's configured production branch; verify that setting before executing. Then sign in using an allowlisted Discord account and open `https://dyrelog.pages.dev/admin.html`.
-
-## Installer build (not executed; does not publish)
-
-```powershell
-Set-Location '<path-to>\dyrelog\desktop-overlay'
-npm run dist -- --win nsis --publish never
-```
-
-The installer is written under `desktop-overlay\dist`. The existing package version was retained. Choose a fresh release version before publishing if that version already exists. Releasing the new installer through the normal GitHub Release process is a separate step; only upgraded packaged clients send analytics.
-
-## Verification
-
-```powershell
-Set-Location '<path-to>\dyrelog\worker'
-npm test
-npx wrangler deploy --dry-run --outdir .wrangler/analytics-build
-Set-Location '<path-to>\dyrelog'
-node --test desktop-overlay/test/*.test.cjs
-node --check frontend/js/admin-analytics.js
-node --check desktop-overlay/main.js
-node --check desktop-overlay/analytics.cjs
-git diff --check
-git -C worker diff --check
-```
-
-Tests cover duplicate activity, multiple installations, UTC rollover, ignored client dates, malformed IDs and oversized bodies, rate limits, database/network failures, persistent client identity, nonblocking startup, ordinary-user rejection, signed admin access, version shares, zero-filled averages, redirect counting/fallback, GitHub pagination, frontend escaping, authorization revocation, and empty/unavailable UI states. No lint script or frontend build step exists; JavaScript syntax checks and the Worker bundle dry run provide the applicable build checks. The existing `eqp-core.js` CommonJS-in-ESM warning remains unrelated to analytics.
-
-Verification completed: 130 Worker tests and 40 desktop/frontend tests passed; syntax checks, diff checks, and the Worker dry-run build passed. Consent tests also cover existing users, default rejection, persistence, withdrawal, aborting requests, failed preference storage, authorized Settings IPC, and creating no identifier before opt-in. No production migration, deployment, installer build, commit, or push was performed by this task. Tests use temporary/in-memory storage. The browser preview uses synthetic metrics, not real usage data.
+Then open `http://127.0.0.1:8788/admin.html`.

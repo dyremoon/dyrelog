@@ -16,8 +16,8 @@
 </head>
 <body>
   <h1>Welcome to Dyrelog</h1>
-  <p class="setup-copy">Would you like to submit your fights to the public leaderboards?</p>
-  <p class="setup-copy">You can use the damage meter and local history without submitting. You can change this later in Settings → Options.</p>
+  <p class="setup-copy">Put your boss kills on the leaderboard?</p>
+  <p class="setup-copy">The meter works either way. You can change this later in Settings → Options.</p>
   <div class="setup-actions">
     <button class="btn-link" id="setup-yes" type="button">Yes, join the leaderboards</button>
     <button class="link-btn" id="setup-no" type="button">No, keep my fights local</button>
@@ -26,11 +26,11 @@
     <div class="row-stack">
       <label for="setup-submit-mode">When a boss fight ends</label>
       <select id="setup-submit-mode">
-        <option value="ask">Ask me before each submission</option>
-        <option value="auto">Automatically submit my boss fights</option>
+        <option value="ask">Ask me after each boss kill</option>
+        <option value="auto">Submit automatically</option>
       </select>
     </div>
-    <div class="setup-actions"><button class="btn-link" id="setup-discord" type="button">Sign in with Discord</button></div>
+    <div class="setup-actions"><button class="btn-link" id="setup-discord" type="button">Log in with Discord</button></div>
   </section>
   <p id="setup-status" role="status" aria-live="polite"></p>
   <script src="setup.js"></script>

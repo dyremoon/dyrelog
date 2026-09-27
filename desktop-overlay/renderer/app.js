@@ -1084,7 +1084,7 @@
     } else if (state === "downloading") {
       els.updateBannerText.textContent = "Downloading update… " + Math.round(payload.percent || 0) + "%";
     } else if (state === "ready") {
-      els.updateBannerText.textContent = "Update downloaded — relaunching…";
+      els.updateBannerText.textContent = "Installing update… Dyrelog will restart.";
     } else if (state === "up-to-date") {
       // Shouldn't normally happen (the banner only shows once the lighter
       // GitHub-poll check already found something newer), but handle it

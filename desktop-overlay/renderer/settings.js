@@ -423,8 +423,8 @@
     els.fadeIdleOpacityVal.textContent = Math.round(Number(els.fadeIdleOpacity.value) * 100) + "%";
     els.keepInTray.checked = !!s.keepInTrayOnClose;
     els.keepInTrayHint.textContent = s.keepInTrayOnClose
-      ? "Closing the window keeps Dyrelog running in the system tray, use its icon to reopen or quit for real."
-      : "Closing the window quits Dyrelog and closes its overlays.";
+      ? "Closing the meter keeps Dyrelog in the tray. Use the tray icon to reopen or quit."
+      : "Closing the meter quits Dyrelog.";
     els.launchAtStartup.checked = !!s.launchAtStartup;
     document.querySelectorAll(".theme-swatch").forEach(function (b) {
       b.classList.toggle("active", b.dataset.theme === (s.theme || "blue"));
@@ -510,7 +510,7 @@
   function applySourceHint(cfg) {
     var active = !!(cfg && cfg.path);
     var name = active ? (cfg.fileName || String(cfg.path).split(/[\\/]/).pop()) : null;
-    els.sourceHintText.textContent = active ? "Currently reading: " + name : "No log source set yet.";
+    els.sourceHintText.textContent = active ? "Currently reading: " + name : "No log file picked yet.";
     els.sourceHint.classList.toggle("ok", active);
   }
   window.dyrelog.getSavedSource().then(applySourceHint);
@@ -554,7 +554,7 @@
       els.btnLogin.hidden = true;
       els.btnLogout.hidden = false;
     } else {
-      els.accountHint.textContent = "Not logged in — required before any kill can be submitted to the leaderboard.";
+      els.accountHint.textContent = "Not logged in. Log in to submit kills.";
       els.btnLogin.hidden = false;
       els.btnLogout.hidden = true;
     }
@@ -566,7 +566,7 @@
     var result = await window.dyrelog.loginWithDiscord();
     els.btnLogin.disabled = false;
     if (!result.ok && !result.cancelled && !result.alreadyOpen) {
-      els.accountHint.textContent = "Login failed — try again.";
+      els.accountHint.textContent = "Couldn't log in. Try again.";
     }
   });
   els.btnLogout.addEventListener("click", function () { window.dyrelog.logout(); });
@@ -591,8 +591,7 @@
   });
 
   var FALLBACK_ITEMS = [
-    "Couldn't load the real patch notes just now (offline, or GitHub is " +
-      "rate-limiting) — see github.com/dyremoon/dyrelog/releases directly, or try again in a moment."
+    "Couldn't load the release notes right now. Try again in a minute, or see the Releases page on GitHub."
   ];
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -677,7 +676,7 @@
       btnCheck.disabled = false;
     }
     function renderDevMode() {
-      statusEl.innerHTML = '<span style="color:var(--ink-3);">Only checks in the installed app &mdash; not while running from source.</span>';
+      statusEl.innerHTML = '<span style="color:var(--ink-3);">Updates only work in the installed app.</span>';
       btnCheck.disabled = false;
     }
 

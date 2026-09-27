@@ -7,7 +7,7 @@
   }
   function completion(mode, authenticated) {
     if (!['off', 'ask', 'auto'].includes(mode)) throw new Error('Choose a submission option.');
-    if (mode !== 'off' && !authenticated) throw new Error('Sign in with Discord to enable public submissions.');
+    if (mode !== 'off' && !authenticated) throw new Error('Log in with Discord to submit kills.');
     return { firstRunSetupComplete: true, autoSubmitChosen: true, autoSubmitMode: mode };
   }
   const api = { needsSetup, permitsSubmission, completion };

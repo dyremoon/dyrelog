@@ -853,8 +853,8 @@
       api('/api/me/submissions/' + submissionId + '/log')
         .then(function (data) {
           encounters = parseLogText(data.rawLogText, characterName).slice().reverse();
-          document.getElementById('loaded-title').textContent = 'Log imported from your personal history';
-          finishLoad('Loaded from your personal history');
+          document.getElementById('loaded-title').textContent = 'Loaded from My Kills';
+          finishLoad('Loaded from My Kills');
         })
         .catch(function () {
           showError("Couldn't load that parse — it may not be yours, or may no longer be available.");

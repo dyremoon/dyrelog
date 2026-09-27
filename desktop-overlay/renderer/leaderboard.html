@@ -21,11 +21,11 @@
     <button class="detail-tab active" type="button" data-view="public">Public Leaderboards</button>
     <button class="detail-tab" type="button" data-view="personal">My Kills</button>
   </div>
-  <div class="empty" id="empty" hidden>Can't reach the leaderboard API right now.</div>
+  <div class="empty" id="empty" hidden>Can't reach the Dyrelog server right now.</div>
   <div id="lb-body">
     <section class="lb-panel lb-panel-gold" id="highlights-panel">
       <h2>Top 10 of the week</h2>
-      <label class="difficulty-control">Difficulty <select id="highlights-difficulty" class="column-difficulty" aria-label="Weekly difficulty"><option value="">All</option><option>D0</option><option>D1</option><option>D2</option><option>D3</option><option>D4</option></select></label>
+      <label class="difficulty-control">Difficulty <select id="highlights-difficulty" class="column-difficulty" aria-label="Weekly difficulty"><option value="">All</option><option value="D0">Base</option><option>D1</option><option>D2</option><option>D3</option><option>D4</option></select></label>
       <div id="highlights-list"><p class="muted">Loading&hellip;</p></div>
     </section>
 

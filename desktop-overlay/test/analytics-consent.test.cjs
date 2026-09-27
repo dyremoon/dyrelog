@@ -31,7 +31,7 @@ test('existing installs with no consent stay off; declining is persisted and nev
   h.context.syncAnalyticsConsent();
   assert.equal(h.state.starts, 0);
   await h.context.showAnalyticsConsent();
-  assert.equal(h.state.options.defaultId, 0);
+  assert.equal(h.state.options.defaultId, 2, 'Enter must decline, not opt in');
   assert.equal(h.state.options.cancelId, 2);
   assert.equal(h.stored().analyticsConsent.enabled, false);
   await h.context.showAnalyticsConsent();
@@ -89,7 +89,8 @@ test('Learn More shows the full notice without consenting, then returns to the s
   };
   await h.context.showAnalyticsConsent();
   assert.equal(prompts.length, 3);
-  assert.equal(prompts[0].message, 'Allow Usage Statistics?');
+  assert.equal(prompts[0].message, 'Share usage statistics?');
+  assert.match(prompts[0].detail, /random install ID/);
   assert.ok(prompts[0].detail.length < 300);
   assert.ok(prompts[0].buttons.includes('Learn More'));
   assert.equal(JSON.stringify(prompts[0].buttons), JSON.stringify(['Allow', 'Learn More', 'No thanks']));

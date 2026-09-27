@@ -1,6 +1,6 @@
 // The main process tails logs and relays raw text to the renderer, which owns parsing.
 
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage, session, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage, session, screen, safeStorage } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { watchGameForeground } = require("./game-window-policy.cjs");
@@ -15,6 +15,7 @@ const Analytics = require('./analytics.cjs');
 const { readJson, writeJsonAtomic, removeJson } = require("./json-store.cjs");
 const { createLogTailer } = require("./log-tailer.cjs");
 const { isAllowedExternalUrl, isAllowedAuthNavigation } = require("./link-policy.cjs");
+const { createAuthStore } = require("./auth-store.cjs");
 let stopAnalytics = null;
 
 app.setName("Dyrelog");
@@ -107,8 +108,13 @@ let settingsWin = null;
 let setupWin = null;
 let authWin = null;
 let submitPopupWin = null;
-let pendingSubmitPayload = null;
-let pendingLoginSubmitPayload = null;
+// Ask-mode kills wait here in order so a new kill never replaces one the player hasn't answered.
+let askQueue = [];
+// Kills that finished while logged out; offered once login succeeds.
+let loginQueue = [];
+// What the submit popup is showing: "ask", "login", "busy" (uploading or showing a result), or null.
+let popupState = null;
+let uploadsInFlight = 0;
 let tray = null;
 let appIsQuitting = false;
 let tailState = null;
@@ -537,13 +543,13 @@ function createLeaderboardWindow() {
   leaderboardWin.on("closed", function () { leaderboardWin = null; });
 }
 
+var authStore = createAuthStore({ file: AUTH_PATH, safeStorage: safeStorage });
+// safeStorage only works once the app is ready; nothing reads the login before then.
 function loadAuth() {
-  var auth = readJson(AUTH_PATH);
-  return isPlainObject(auth) && typeof auth.sessionCookie === "string" && auth.sessionCookie ? auth : null;
+  return app.isReady() ? authStore.load() : null;
 }
 function saveAuth(auth) {
-  if (auth) writeJsonAtomic(AUTH_PATH, auth, 2);
-  else removeJson(AUTH_PATH);
+  authStore.save(auth);
 }
 // Only ever sends username/avatarUrl out to renderers — sessionCookie stays
 // main-process-only, no reason for any web content to ever see it.
@@ -615,11 +621,10 @@ function openLoginWindow() {
             saveAuth(auth);
             broadcastAuthUpdate(auth);
             finish({ ok: true, username: auth.username });
-            if (pendingLoginSubmitPayload) {
-              var resumePayload = pendingLoginSubmitPayload;
-              pendingLoginSubmitPayload = null;
-              beginSubmitFlow(resumePayload);
-            }
+            var resume = loginQueue;
+            loginQueue = [];
+            if (popupState === "login") popupState = null;
+            resume.forEach(beginSubmitFlow);
           }
         }
       } catch (err) {
@@ -641,7 +646,7 @@ function logout() {
   var auth = loadAuth();
   saveAuth(null);
   broadcastAuthUpdate(null);
-  pendingLoginSubmitPayload = null;
+  loginQueue = [];
 
 
 
@@ -678,7 +683,7 @@ function ensureSubmitPopupWindow() {
   submitPopupWin.webContents.on("before-input-event", function (event, input) {
     if (input.type === "keyDown" && input.key === "F12") submitPopupWin.webContents.toggleDevTools();
   });
-  submitPopupWin.on("closed", function () { submitPopupWin = null; pendingSubmitPayload = null; });
+  submitPopupWin.on("closed", function () { submitPopupWin = null; popupState = null; });
   return submitPopupWin;
 }
 function sendToSubmitPopup(channel, data) {
@@ -835,44 +840,65 @@ ipcMain.handle("get-auth-state", function () {
 // startTimes already sent this session, so a repeated request can't create a duplicate submission.
 var submittedStartTimes = new Set();
 
+function sendPopupResult(result) {
+  if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", result);
+}
+
 function runSubmit(payload) {
   if (payload.startTime != null) {
-    if (submittedStartTimes.has(payload.startTime)) return;
+    if (submittedStartTimes.has(payload.startTime)) {
+      sendPopupResult({ ok: false, error: "This kill was already submitted." });
+      return;
+    }
     submittedStartTimes.add(payload.startTime);
   }
-  performSubmit(payload).then(function (result) {
+  uploadsInFlight++;
+  performSubmit(payload).finally(function () { uploadsInFlight--; }).then(function (result) {
     recordSubmission(payload.startTime, result.submissionId, result.status, result.visibility);
     submissionSounds.notify(result);
-    if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: true, status: result.status, visibility: result.visibility });
+    sendPopupResult({ ok: true, status: result.status, visibility: result.visibility, waiting: askQueue.length });
   }).catch(function (err) {
     // A failed attempt can be retried by the next request for the same kill.
     if (payload.startTime != null) submittedStartTimes.delete(payload.startTime);
     console.error("Submit failed:", err);
-    if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:result", { ok: false, error: friendlyNetworkError(err) });
+    sendPopupResult({ ok: false, error: friendlyNetworkError(err), waiting: askQueue.length });
   });
+}
+
+function closeSubmitPopup() {
+  popupState = null;
+  if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.close();
+}
+
+function showNextAsk() {
+  if (!askQueue.length) { closeSubmitPopup(); return; }
+  var next = askQueue[0];
+  popupState = "ask";
+  sendToSubmitPopup("submit-popup:show", { mobName: next.mobName, dps: next.dps, damage: next.damage, waiting: askQueue.length - 1 });
 }
 
 function beginSubmitFlow(payload) {
   if (payload.mode === "auto") {
+    popupState = "busy";
     sendToSubmitPopup("submit-popup:show", { pending: true, mobName: payload.mobName });
     runSubmit(payload);
     return;
   }
-
-  pendingSubmitPayload = payload;
-  sendToSubmitPopup("submit-popup:show", { mobName: payload.mobName, dps: payload.dps, damage: payload.damage });
+  askQueue.push(payload);
+  // Only refresh the popup if it's idle or already asking (to update the waiting count).
+  if (popupState === null || popupState === "ask") showNextAsk();
 }
 
-// Single entry point the mini-mode renderer calls for every eligible kill,
-// regardless of which display mode (bars/mini/circle) it's currently in —
-// app.js never calls this at all when autoSubmitMode is "off".
+// Single entry point the meter calls for every eligible kill in any display mode;
+// it's never called when submission is set to Off.
 ipcMain.handle("request-submit", function (evt, rawPayload) {
   if (!FirstRunPolicy.permitsSubmission(loadSettings())) return { ok: false, error: "submissions_disabled" };
   var payload = normalizeSubmitPayload(rawPayload);
   if (!payload) return { ok: false, error: "bad_request" };
   if (!loadAuth()) {
-    pendingLoginSubmitPayload = payload;
-    sendToSubmitPopup("submit-popup:show", { needsLogin: true });
+    loginQueue.push(payload);
+    popupState = "login";
+    sendToSubmitPopup("submit-popup:show", { needsLogin: true, waiting: loginQueue.length });
     return { ok: false, error: "not_logged_in" };
   }
 
@@ -881,17 +907,24 @@ ipcMain.handle("request-submit", function (evt, rawPayload) {
 });
 
 ipcMain.on("submit-popup:confirm", function () {
-  if (!pendingSubmitPayload) return;
-  var payload = pendingSubmitPayload;
-  pendingSubmitPayload = null;
-  if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.webContents.send("submit-popup:show", { pending: true, mobName: payload.mobName });
+  if (popupState !== "ask" || !askQueue.length) return;
+  var payload = askQueue.shift();
+  popupState = "busy";
+  sendToSubmitPopup("submit-popup:show", { pending: true, mobName: payload.mobName });
   runSubmit(payload);
 });
 
 ipcMain.on("submit-popup:discard", function () {
-  pendingSubmitPayload = null;
-  pendingLoginSubmitPayload = null;
-  if (submitPopupWin && !submitPopupWin.isDestroyed()) submitPopupWin.close();
+  if (popupState === "login") { loginQueue = []; closeSubmitPopup(); return; }
+  if (popupState === "ask") askQueue.shift();
+  showNextAsk();
+});
+
+// The popup finished showing a result; move on to the next waiting kill, if any.
+ipcMain.on("submit-popup:done", function () {
+  if (popupState !== "busy" || uploadsInFlight > 0) return;
+  popupState = null;
+  showNextAsk();
 });
 
 function createSettingsWindow(initialTab) {
@@ -952,7 +985,7 @@ function syncAnalyticsConsent() {
 }
 
 function saveAnalyticsConsent(enabled) {
-  if (typeof enabled !== 'boolean') throw new Error('Choose whether to allow usage analytics.');
+  if (typeof enabled !== 'boolean') throw new Error('Choose whether to share usage statistics.');
   const settings = loadSettings();
   settings.analyticsConsent = { version: Analytics.CONSENT_VERSION, enabled, decidedAt: new Date().toISOString() };
   saveSettings(settings);
@@ -969,14 +1002,14 @@ async function showAnalyticsConsent() {
     do {
       result = await dialog.showMessageBox(win, {
         type: 'question', title: 'Usage statistics',
-        message: 'Allow Usage Statistics?',
-        detail: 'Help improve Dyrelog by sharing basic usage statistics under a random installation ID. No account identity, location, personal files, game data, or other identifying data is collected. You can change this any time in Settings. Thank you!',
-        buttons: ['Allow', 'Learn More', 'No thanks'], defaultId: 0, cancelId: 2, noLink: true,
+        message: 'Share usage statistics?',
+        detail: 'If you allow it, Dyrelog sends a random install ID, the app version and your platform when it starts and every 15 minutes. Nothing else: no account, character, game data or files. It is off unless you choose Allow, and you can change it in Settings.',
+        buttons: ['Allow', 'Learn More', 'No thanks'], defaultId: 2, cancelId: 2, noLink: true,
       });
       if (result.response === 1) {
         await dialog.showMessageBox(win, {
           type: 'info', title: 'About usage statistics', message: 'What you’re opting into',
-          detail: 'If you allow it, Dyrelog sends a random installation ID, app version, and platform to Dyrelog’s Cloudflare-hosted service when the app starts and every 15 minutes while running, including idle time. Server observation dates are recorded. This helps measure active installations and supported versions.\n\nNo account identity, Windows username, machine name, hardware ID, location, game data, or personal files are sent by usage analytics. Dyrelog does not store IP addresses in analytics. The hosting provider processes normal network traffic. Records currently have no automatic expiry.\n\nYour choice does not affect app features. Change it any time in Settings → Options → Usage analytics. Turning it off stops future reports; it does not erase records already received.',
+          detail: 'If you allow it, Dyrelog sends a random installation ID, app version, and platform to Dyrelog’s Cloudflare-hosted service when the app starts and every 15 minutes while running, including idle time. Server observation dates are recorded. This helps measure active installations and supported versions.\n\nNo account identity, Windows username, machine name, hardware ID, location, game data, or personal files are sent. Dyrelog does not store IP addresses. The hosting provider processes normal network traffic. Records currently have no automatic expiry.\n\nYour choice does not affect app features. Change it any time in Settings → Options → Usage statistics. Turning it off stops future reports; it does not erase records already received.',
           buttons: ['Back'], defaultId: 0, cancelId: 0, noLink: true,
         });
       }
@@ -1022,6 +1055,8 @@ app.whenReady().then(function () {
       onError(message) { console.error('EverQuest foreground detection:', message); }
     });
   }
+  // Converts a login saved in plain text by an older version right away, not on first use.
+  loadAuth();
   createWindow();
   showFirstRunSetup();
   syncAnalyticsConsent();
@@ -1266,7 +1301,7 @@ ipcMain.on("show-watch-menu", function (evt, sessions) {
       })
     : [{ label: "Waiting for a fight…", enabled: false }];
   var menu = Menu.buildFromTemplate([
-    { label: "Change Fight", submenu: fightItems },
+    { label: "Switch fight", submenu: fightItems },
     { type: "separator" },
     { label: "Combat Analysis", click: function () { createAnalysisWindow(); } },
     { label: "Leaderboards", click: function () { createLeaderboardWindow(); } },
@@ -1274,7 +1309,7 @@ ipcMain.on("show-watch-menu", function (evt, sessions) {
     { type: "separator" },
     { label: "Switch to Bars", click: function () { applySettingsPartial({ displayStyle: "bars" }); } },
     { type: "separator" },
-    { label: "Close Dyrelog", click: function () { win.close(); } }
+    { label: "Quit Dyrelog", click: function () { win.close(); } }
   ]);
   menu.popup({ window: win });
 });

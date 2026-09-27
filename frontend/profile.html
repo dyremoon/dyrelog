@@ -74,7 +74,7 @@
 
 
   <div class="plate plate-gold" style="margin-top:24px; margin-bottom:20px;">
-    <h2>Personal history</h2>
+    <h2>My Kills</h2>
 
     <p class="muted" style="margin-top:-6px;">
       Kills you've submitted from the app. Shows your best verified run per boss and difficulty,
@@ -262,7 +262,7 @@
       try {
         const { user } = await api('/api/me');
         if (!user) {
-          listEl.innerHTML = `<p class="empty-state">Log in with Discord to see your personal history.</p>`;
+          listEl.innerHTML = `<p class="empty-state">Log in with Discord to see your kills.</p>`;
           return;
         }
         const { bests } = await api('/api/me/personal-bests');

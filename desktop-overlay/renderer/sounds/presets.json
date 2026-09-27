@@ -1,87 +1,87 @@
 [
   {
     "id": "EQ_arxmentis_one_shot_01",
-    "name": "EQ Arxmentis One Shot 01",
+    "name": "EQ Arx Mentis 1",
     "file": "EQ_arxmentis_one_shot_01.wav"
   },
   {
     "id": "EQ_arxmentis_one_shot_03",
-    "name": "EQ Arxmentis One Shot 03",
+    "name": "EQ Arx Mentis 3",
     "file": "EQ_arxmentis_one_shot_03.wav"
   },
   {
     "id": "EQ_cave_drips_02",
-    "name": "EQ Cave Drips 02",
+    "name": "EQ Cave Drips 2",
     "file": "EQ_cave_drips_02.wav"
   },
   {
     "id": "EQ_cave_drips_04",
-    "name": "EQ Cave Drips 04",
+    "name": "EQ Cave Drips 4",
     "file": "EQ_cave_drips_04.wav"
   },
   {
     "id": "EQ_cave_drips_05",
-    "name": "EQ Cave Drips 05",
+    "name": "EQ Cave Drips 5",
     "file": "EQ_cave_drips_05.wav"
   },
   {
     "id": "EQ_sfx_emt_bird_blackbird_01",
-    "name": "EQ Sfx Emt Bird Blackbird 01",
+    "name": "EQ Blackbird 1",
     "file": "EQ_sfx_emt_bird_blackbird_01.wav"
   },
   {
     "id": "EQ_sfx_emt_bird_blackbird_02",
-    "name": "EQ Sfx Emt Bird Blackbird 02",
+    "name": "EQ Blackbird 2",
     "file": "EQ_sfx_emt_bird_blackbird_02.wav"
   },
   {
     "id": "EQ_sfx_emt_bird_robin_01",
-    "name": "EQ Sfx Emt Bird Robin 01",
+    "name": "EQ Robin 1",
     "file": "EQ_sfx_emt_bird_robin_01.wav"
   },
   {
     "id": "EQ_sfx_emt_bird_robin_02",
-    "name": "EQ Sfx Emt Bird Robin 02",
+    "name": "EQ Robin 2",
     "file": "EQ_sfx_emt_bird_robin_02.wav"
   },
   {
     "id": "EQ_sfx_emt_bird_robin_03",
-    "name": "EQ Sfx Emt Bird Robin 03",
+    "name": "EQ Robin 3",
     "file": "EQ_sfx_emt_bird_robin_03.wav"
   },
   {
     "id": "EQ_sfx_emt_crow_01",
-    "name": "EQ Sfx Emt Crow 01",
+    "name": "EQ Crow 1",
     "file": "EQ_sfx_emt_crow_01.wav"
   },
   {
     "id": "EQ_sfx_emt_crow_02",
-    "name": "EQ Sfx Emt Crow 02",
+    "name": "EQ Crow 2",
     "file": "EQ_sfx_emt_crow_02.wav"
   },
   {
     "id": "EQ_sfx_emt_crow_03",
-    "name": "EQ Sfx Emt Crow 03",
+    "name": "EQ Crow 3",
     "file": "EQ_sfx_emt_crow_03.wav"
   },
   {
     "id": "EQ_sfx_emt_fart_01",
-    "name": "EQ Sfx Emt Fart 01",
+    "name": "EQ Fart 1",
     "file": "EQ_sfx_emt_fart_01.wav"
   },
   {
     "id": "EQ_sfx_emt_fart_02",
-    "name": "EQ Sfx Emt Fart 02",
+    "name": "EQ Fart 2",
     "file": "EQ_sfx_emt_fart_02.wav"
   },
   {
     "id": "EQ_sfx_emt_fart_03",
-    "name": "EQ Sfx Emt Fart 03",
+    "name": "EQ Fart 3",
     "file": "EQ_sfx_emt_fart_03.wav"
   },
   {
     "id": "Fart 04",
-    "name": "Fart 04",
+    "name": "Fart 4",
     "file": "Fart 04.mp3"
   },
   {
@@ -91,7 +91,7 @@
   },
   {
     "id": "OSRS_Bind.ogg",
-    "name": "OSRS Bind.Ogg",
+    "name": "OSRS Bind",
     "file": "OSRS_Bind.ogg.mp3"
   },
   {
@@ -101,12 +101,12 @@
   },
   {
     "id": "OSRS_Enfeeble.ogg",
-    "name": "OSRS Enfeeble.Ogg",
+    "name": "OSRS Enfeeble",
     "file": "OSRS_Enfeeble.ogg.mp3"
   },
   {
     "id": "OSRS_Low_Level_Alchemy.ogg",
-    "name": "OSRS Low Level Alchemy.Ogg",
+    "name": "OSRS Low Level Alchemy",
     "file": "OSRS_Low_Level_Alchemy.ogg.mp3"
   },
   {

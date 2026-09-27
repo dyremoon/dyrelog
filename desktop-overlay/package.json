@@ -1,6 +1,6 @@
 {
   "name": "dyrelog-desktop",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "private": true,
   "description": "Dyrelog: a free DPS meter overlay and kill leaderboard uploader for EverQuest Legends (unofficial fan project).",
   "main": "main.js",
@@ -27,6 +27,7 @@
       "main.js",
       "analytics.cjs",
       "link-policy.cjs",
+      "auth-store.cjs",
       "log-tailer.cjs",
       "json-store.cjs",
       "preload.js",

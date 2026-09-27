@@ -5,7 +5,7 @@
   let busy = false;
   function applyAuth(auth) {
     authenticated = !!auth;
-    discord.textContent = authenticated ? 'Finish setup' : 'Sign in with Discord';
+    discord.textContent = authenticated ? 'Finish setup' : 'Log in with Discord';
   }
   window.dyrelog.getAuthState().then(applyAuth).catch(() => {});
   window.dyrelog.onAuthUpdate(applyAuth);
@@ -30,7 +30,7 @@
       if (!authenticated) {
         const result = await window.dyrelog.loginWithDiscord();
         if (!result.ok) {
-          status.textContent = result.cancelled ? 'Sign-in cancelled. You can try again or keep your fights local.' : 'Finish signing in with Discord, then try again.';
+          status.textContent = result.cancelled ? 'Login cancelled. Try again, or keep your fights local.' : 'Finish logging in with Discord, then try again.';
           return;
         }
       }

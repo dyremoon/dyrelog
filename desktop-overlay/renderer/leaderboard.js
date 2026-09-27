@@ -20,7 +20,7 @@
   function difficultyColumnFilter(selected) {
     if (selected === undefined) selected = boardDifficulty;
     return '<select class="column-difficulty" aria-label="Filter by difficulty">' + ['', 'D0', 'D1', 'D2', 'D3', 'D4'].map(function (value) {
-      return '<option value="' + value + '"' + (value === selected ? ' selected' : '') + '>' + (value || 'All') + '</option>';
+      return '<option value="' + value + '"' + (value === selected ? ' selected' : '') + '>' + (value === 'D0' ? 'Base' : value || 'All') + '</option>';
     }).join('') + '</select>';
   }
   function sortRows(rows, key, dir) { return rows.slice().sort(function (a, b) { var av = key === 'difficulty' ? Number((a.difficulty || 'D0').slice(1)) : key === 'character' ? String(a.character_name || a.name).toLowerCase() : key === 'name' ? String(a.name || '').toLowerCase() : key === 'date' ? Number(a.startTime || a.start_time || 0) : key === 'visibility' ? String(a.sortVisibility || a.visibility || '').toLowerCase() : key === 'review' ? String(a.sortReview || a.status || '').toLowerCase() : Number(a[key] || 0); var bv = key === 'difficulty' ? Number((b.difficulty || 'D0').slice(1)) : key === 'character' ? String(b.character_name || b.name).toLowerCase() : key === 'name' ? String(b.name || '').toLowerCase() : key === 'date' ? Number(b.startTime || b.start_time || 0) : key === 'visibility' ? String(b.sortVisibility || b.visibility || '').toLowerCase() : key === 'review' ? String(b.sortReview || b.status || '').toLowerCase() : Number(b[key] || 0); return typeof av === 'string' ? av.localeCompare(bv) * dir : (av - bv) * dir; }); }
@@ -31,7 +31,8 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
-  function fmtDifficulty(d) { return d ? (DIFFICULTY_LABELS[d] || d) : "D0"; }
+  function fmtDifficulty(d) { return d && d !== 'D0' ? (DIFFICULTY_LABELS[d] || d) : 'Base'; }
+  function shortDifficulty(d) { return d && d !== 'D0' ? d : 'Base'; }
   function fmtNum(n) { return Math.round(n).toLocaleString(); }
   function fmtDateOnly(ms) {
     if (!ms) return "—";
@@ -74,7 +75,7 @@
       if (request !== highlightsRequest) return;
       var highlights = data.highlights || [];
       if (!highlights.length) {
-        el.innerHTML = '<p class="muted">No public verified parses this week yet.</p>';
+        el.innerHTML = '<p class="muted">No kills on the board this week yet.</p>';
         return;
       }
       el.innerHTML =
@@ -85,14 +86,14 @@
               '<td class="num">' + (i + 1) + "</td>" +
               "<td>" + esc(h.character_name) + ' <span class="muted">(' + esc(h.realm) + ")</span></td>" +
               '<td class="muted">' + esc(h.class_combo || "—") + "</td>" +
-              '<td><button class="boss-name-link" data-highlight-boss="' + Number(h.boss_id) + '" data-difficulty="' + esc(h.difficulty || 'D0') + '">' + esc(h.boss_name) + '</button></td><td>' + esc(h.difficulty || "D0") + "</td>" +
+              '<td><button class="boss-name-link" data-highlight-boss="' + Number(h.boss_id) + '" data-difficulty="' + esc(h.difficulty || 'D0') + '">' + esc(h.boss_name) + '</button></td><td>' + esc(shortDifficulty(h.difficulty)) + "</td>" +
               '<td class="num">' + fmtNum(h.dps) + "</td>" +
             "</tr>"
           );
         }).join("") +
         "</tbody></table>";
     } catch (err) {
-      el.innerHTML = '<p class="muted">Can’t reach the leaderboard API right now.</p>';
+      el.innerHTML = '<p class="muted">Can’t reach the Dyrelog server right now.</p>';
     }
   }
 
@@ -143,7 +144,7 @@
       document.getElementById('boss-picker').value = selectedId;
       renderBossDetail(boss, currentBoard.rows, 0);
     } catch (err) {
-      if (generation === bossRequest) detailEl.innerHTML = '<p class="muted">Can’t reach the leaderboard API right now.</p>';
+      if (generation === bossRequest) detailEl.innerHTML = '<p class="muted">Can’t reach the Dyrelog server right now.</p>';
     }
   }
   function updateOpenSiteButton() {
@@ -156,8 +157,8 @@
     var detail = document.getElementById('boss-detail');
     detail.innerHTML = '<h3>' + esc(boss.name) + ' <button class="view-lb-link" id="boss-wiki">Wiki ↗</button></h3>' +
       '<div class="lb-picker-row">' +
-      '<label for="board-sort">Sort</label><select id="board-sort"><option value="dps">Highest DPS</option><option value="difficulty">Difficulty: D4 to D0</option></select></div>' +
-      '<p class="muted">Best parses per character and difficulty; up to 50 entries per boss tier.</p><div id="board-rows"></div>';
+      '<label for="board-sort">Sort</label><select id="board-sort"><option value="dps">Highest DPS</option><option value="difficulty">Difficulty: D4 to Base</option></select></div>' +
+      '<p class="muted">Best kill per character and difficulty.</p><div id="board-rows"></div>';
     document.getElementById('boss-wiki').addEventListener('click', function () { window.dyrelog.openExternal(BossBrowser.wikiUrl(boss.name)); });
     function update() {
       var difficulties = boardDifficulty ? [boardDifficulty] : ['D0', 'D1', 'D2', 'D3', 'D4'];
@@ -176,15 +177,15 @@
   }
 
   function renderFightRows(rows, showDifficulty) {
-    if (!rows.length && !showDifficulty) return '<p class="muted">No public verified parses for this selection.</p>';
+    if (!rows.length && !showDifficulty) return '<p class="muted">No kills here yet.</p>';
     var state = boardSort;
     rows = sortRows(rows, state.key, state.dir);
     return '<table><thead><tr><th>#</th><th>' + sortHeader('Character', 'character', state) + '</th><th>Class</th>' + (showDifficulty ? '<th>' + '<span class="difficulty-control">Difficulty ' + difficultyColumnFilter() + '</span>' + '</th>' : '') +
       '<th>' + sortHeader('DPS', 'dps', state) + '</th><th>' + sortHeader('Damage', 'damage', state) + '</th><th></th></tr></thead><tbody>' + rows.map(function (p, i) {
         return '<tr><td>' + (i + 1) + '</td><td>' + esc(p.character_name) + ' <span class="muted">(' + esc(p.realm) + ')</span></td><td>' + esc(p.class_combo || '—') + '</td>' +
-          (showDifficulty ? '<td>' + esc(p.difficulty || 'D0') + '</td>' : '') + '<td>' + fmtNum(p.dps) + '</td><td>' + fmtNum(p.damage) + '</td><td>' +
+          (showDifficulty ? '<td>' + esc(shortDifficulty(p.difficulty)) + '</td>' : '') + '<td>' + fmtNum(p.dps) + '</td><td>' + fmtNum(p.damage) + '</td><td>' +
           (showDifficulty ? '<button class="view-lb-link" data-encounter-id="' + Number(p.encounter_id) + '">Analyze</button>' : '') + '</td></tr>';
-      }).join('') + (rows.length ? '' : '<tr><td colspan="7" class="muted">No public verified parses for this difficulty.</td></tr>') + '</tbody></table>';
+      }).join('') + (rows.length ? '' : '<tr><td colspan="7" class="muted">No kills at this difficulty yet.</td></tr>') + '</tbody></table>';
   }
 
   async function openFight(id) {
@@ -205,7 +206,7 @@
         esc(new Date(data.encounter.start_time).toLocaleString()) + ' · ' + (data.encounter.killed ? 'Killed' : 'Not killed') + ' · ' +
         fmtNum(data.encounter.raid_dps) + ' raid DPS</p>' + renderFightRows(data.parses || [], false);
     } catch (_err) {
-      if (generation === fightRequest) detail.innerHTML = '<p class="muted">This fight is unavailable. It may be private, under review, removed, or temporarily unreachable.</p>';
+      if (generation === fightRequest) detail.innerHTML = '<p class="muted">This kill isn’t available. It may be private, waiting for review, or removed.</p>';
     }
   }
 
@@ -244,7 +245,7 @@
         picker.value = defaultBoss.id;
         selectBoss(defaultBoss.id);
       } else {
-        document.getElementById("boss-detail").innerHTML = '<p class="muted">No bosses in the curated list yet.</p>';
+        document.getElementById("boss-detail").innerHTML = '<p class="muted">No bosses yet.</p>';
       }
     } catch (err) {
       document.getElementById("empty").hidden = false;
@@ -346,7 +347,7 @@
     var el = document.getElementById("personal-list");
     var bests = buildPersonalBests(latestState.encounters);
     if (!bests.length) {
-      el.innerHTML = '<p class="muted">No boss kills saved yet — kill something in the mini-mode overlay and your best parse against it will show up here.</p>';
+      el.innerHTML = '<p class="muted">No boss kills yet. Your best kill against each boss shows up here.</p>';
       return;
     }
     var visibleBests = bests.filter(function (b) { return !personalDifficulty || b.difficulty === personalDifficulty; });

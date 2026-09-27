@@ -57,7 +57,8 @@ test('json store writes atomically, keeps a backup and survives a corrupted file
 
 test('main.js persists every settings/history/auth/window file through the atomic store', () => {
   assert.ok(!/fs\.writeFileSync\((CONFIG|SETTINGS|WINDOW|HISTORY|AUTH)_PATH/.test(mainSource));
-  for (const call of ['writeJsonAtomic(CONFIG_PATH', 'writeJsonAtomic(SETTINGS_PATH', 'writeJsonAtomic(HISTORY_PATH', 'writeJsonAtomic(AUTH_PATH', 'writeJsonAtomic(WINDOW_PATH']) {
+  assert.ok(mainSource.includes('createAuthStore({ file: AUTH_PATH'), 'login goes through the encrypted auth store');
+  for (const call of ['writeJsonAtomic(CONFIG_PATH', 'writeJsonAtomic(SETTINGS_PATH', 'writeJsonAtomic(HISTORY_PATH', 'writeJsonAtomic(WINDOW_PATH']) {
     assert.ok(mainSource.includes(call), call);
   }
 });
@@ -194,4 +195,9 @@ test('package.json has a public description and ships the new main-process modul
   assert.match(pkg.description, /EverQuest Legends/);
   for (const f of ['json-store.cjs', 'log-tailer.cjs', 'link-policy.cjs']) assert.ok(pkg.build.files.includes(f), f);
   assert.equal(pkg.build.artifactName, '${productName}-Setup-${version}.${ext}');
+});
+
+test('a plain-text login from an older version is converted at startup', () => {
+  const ready = mainSource.slice(mainSource.indexOf('app.whenReady().then(function () {'));
+  assert.ok(ready.indexOf('loadAuth();') !== -1 && ready.indexOf('loadAuth();') < ready.indexOf('createWindow();'));
 });
