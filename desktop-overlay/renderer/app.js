@@ -985,9 +985,15 @@
     });
   }
   els.watchBadge.addEventListener("click", function () { window.dyrelog.openSettings(); });
-  els.watchBadge.addEventListener("contextmenu", function (evt) {
+  function currentMode() { return currentDisplayStyle === "circle" ? "circle" : miniMode ? "mini" : "bars"; }
+  // One right-click menu for Bars, Mini and Circle (Mini has no close button of its own).
+  document.addEventListener("contextmenu", function (evt) {
+    if (evt.target.closest("input, textarea, select")) return;
     evt.preventDefault();
-    window.dyrelog.showWatchMenu(fightMenuSessions());
+    window.dyrelog.showWatchMenu(fightMenuSessions(), currentMode());
+  });
+  window.dyrelog.onMeterMenuAction(function (target) {
+    if (["bars", "mini", "circle"].indexOf(target) !== -1 && target !== currentMode()) switchMode(target);
   });
   function applyIconAngles(angles) {
     [["menu", els.watchMenuBtn], ["mini", els.watchMiniBtn], ["bars", els.watchBarsBtn], ["pets", els.watchPetsBtn]].forEach(function (pair) {
@@ -1036,7 +1042,7 @@
       }
     });
   }
-  wireBadgeIcon(els.watchMenuBtn, "menu", function () { window.dyrelog.showWatchMenu(fightMenuSessions()); });
+  wireBadgeIcon(els.watchMenuBtn, "menu", function () { window.dyrelog.showWatchMenu(fightMenuSessions(), currentMode()); });
   wireBadgeIcon(els.watchMiniBtn, "mini", function () { switchMode("mini"); });
   wireBadgeIcon(els.watchBarsBtn, "bars", function () { switchMode("bars"); });
   window.dyrelog.onFightPicked(function (key) {

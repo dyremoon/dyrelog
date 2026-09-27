@@ -1311,8 +1311,14 @@ ipcMain.handle("get-mini-size", function () {
 ipcMain.on("set-mini-mode", function (evt, val) { isMiniMode = !!val; });
 ipcMain.on("set-watch-mode", function (evt, val) { isWatchMode = !!val; });
 
-ipcMain.on("show-watch-menu", function (evt, sessions) {
-  if (!win) return;
+// Right-click menu for the meter in every display style; mode switches run in the meter itself.
+ipcMain.on("show-watch-menu", function (evt, sessions, mode) {
+  if (!win || evt.sender !== win.webContents) return;
+  mode = ["bars", "mini", "circle"].indexOf(mode) === -1 ? "bars" : mode;
+  var switchTo = function (target) { win.webContents.send("meter-menu-action", target); };
+  var modeItems = [["bars", "Switch to Bars"], ["mini", "Switch to Mini"], ["circle", "Switch to Circle"]]
+    .filter(function (m) { return m[0] !== mode; })
+    .map(function (m) { return { label: m[1], click: function () { switchTo(m[0]); } }; });
   sessions = Array.isArray(sessions) ? sessions : [];
   var fightItems = sessions.length
     ? sessions.map(function (s) {
@@ -1331,7 +1337,7 @@ ipcMain.on("show-watch-menu", function (evt, sessions) {
     { label: "Leaderboards", click: function () { createLeaderboardWindow(); } },
     { label: "Settings…", click: function () { createSettingsWindow(); } },
     { type: "separator" },
-    { label: "Switch to Bars", click: function () { applySettingsPartial({ displayStyle: "bars" }); } },
+    ...modeItems,
     { type: "separator" },
     { label: "Quit Dyrelog", click: function () { win.close(); } }
   ]);

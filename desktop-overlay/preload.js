@@ -42,7 +42,8 @@ contextBridge.exposeInMainWorld("dyrelog", {
   openLeaderboard: () => ipcRenderer.send("open-leaderboard"),
   openSettings: (tab) => ipcRenderer.send("open-settings", tab),
   openExternal: (url) => ipcRenderer.send("open-external", url),
-  showWatchMenu: (sessions) => ipcRenderer.send("show-watch-menu", sessions),
+  showWatchMenu: (sessions, mode) => ipcRenderer.send("show-watch-menu", sessions, mode),
+  onMeterMenuAction: (cb) => ipcRenderer.on("meter-menu-action", (_evt, target) => cb(target)),
   onFightPicked: (cb) => ipcRenderer.on("fight-picked", (_evt, key) => cb(key)),
 
   pushState: (data) => ipcRenderer.send("push-state", data),

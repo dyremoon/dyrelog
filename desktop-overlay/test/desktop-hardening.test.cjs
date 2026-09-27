@@ -225,3 +225,10 @@ test('bundled fonts each ship with their Open Font License', () => {
     assert.ok(fs.existsSync(path.join(dir, family + '-OFL.txt')), family + ' license');
   }
 });
+
+test('the right-click menu works in Bars, Mini and Circle and always offers Quit', () => {
+  const app = fs.readFileSync(path.join(__dirname, '../renderer/app.js'), 'utf8');
+  assert.match(app, /document\.addEventListener\("contextmenu"/, 'menu is on the whole meter, not only the Circle badge');
+  const menu = mainSource.slice(mainSource.indexOf('ipcMain.on("show-watch-menu"'), mainSource.indexOf('ipcMain.on("window-close"'));
+  for (const label of ['Switch to Bars', 'Switch to Mini', 'Switch to Circle', 'Quit Dyrelog']) assert.ok(menu.includes(label), label);
+});
