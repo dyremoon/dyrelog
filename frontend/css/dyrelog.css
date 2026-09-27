@@ -144,6 +144,9 @@ nav.site-nav a {
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 nav.site-nav a:hover { color: var(--ink); border-color: var(--gold); background: var(--surface-2); }
+nav.site-nav a.btn-brass { color: var(--gold-ink); font-weight: 700; background: linear-gradient(160deg, var(--gold-2), var(--ember)); border-color: var(--gold); }
+/* Explicit display rules above would otherwise override the hidden attribute (e.g. the admin link). */
+[hidden] { display: none !important; }
 nav.site-nav a.active {
   color: var(--gold-ink);
   font-weight: 700;

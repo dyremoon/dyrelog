@@ -10,6 +10,15 @@
   <link rel="stylesheet" href="./css/dyrelog.css" />
   <link rel="icon" type="image/png" href="./assets/favicon-32.png" />
   <link rel="apple-touch-icon" href="./assets/logo-180.png" />
+  <script>
+    // Shows a labeled placeholder until the screenshot file exists.
+    function screenshotMissing(img) {
+      var box = img.closest('.mode-shot');
+      if (!box) return;
+      box.classList.add('mode-shot-missing');
+      box.textContent = 'Screenshot coming soon';
+    }
+  </script>
 </head>
 <body>
   <div class="container">
@@ -48,7 +57,7 @@
       </div>
 
       <div class="plate plate-highlight" style="margin-bottom:24px;">
-        <h2>What it looks like</h2>
+        <h2>What's included</h2>
         <p class="muted" style="margin-top:-6px; margin-bottom:0;">
           There's the standard bars, a mini-mode for minimalists, and a circle for weirdos who like circles.
           There's also a deep-dive analysis tool and a leaderboard system for fun, and just to
@@ -62,7 +71,7 @@
           The Main Standard "Bars" dps meter that can track your performance
           and your pet or party in a familiar style.
         </p>
-        <div class="mode-shot"><img src="./assets/screenshots/overlay-bars.png" alt="Dyrelog overlay in Bars display style, showing a ranked dps meter for a boss fight."></div>
+        <div class="mode-shot"><img src="./assets/screenshots/app-bars.png" onerror="screenshotMissing(this)" alt="Dyrelog meter in Bars style during a boss fight, listing each player's DPS."></div>
       </div>
 
       <div class="plate plate-highlight mode-banner" style="margin-bottom:24px;">
@@ -70,15 +79,14 @@
         <p class="pitch">Mini mode is smaller, simpler, and lets you put your dps in a small window to keep your screen clean. It's best
           for people who prefer a minimal approach and just want to know their dps without it being the entire reason they play. The circle, again,
           is for weirdos.
-
         </p>
         <div class="mode-shot-row">
           <div class="mode-shot-item">
-            <div class="mode-shot mode-shot-missing">Screenshot coming soon</div>
+            <div class="mode-shot"><img src="./assets/screenshots/app-mini.png" onerror="screenshotMissing(this)" alt="Dyrelog in Mini mode: your DPS and your pet's DPS in a small window."></div>
             <div class="cap">Mini mode</div>
           </div>
           <div class="mode-shot-item">
-            <div class="mode-shot"><img src="./assets/screenshots/overlay-circle.png" alt="Dyrelog overlay in Circle display style, a small round badge showing dps and fight timer."></div>
+            <div class="mode-shot"><img src="./assets/screenshots/app-circle.png" onerror="screenshotMissing(this)" alt="Dyrelog in Circle mode: a round badge with your DPS and fight timer."></div>
             <div class="cap">Circle</div>
           </div>
         </div>
@@ -90,7 +98,16 @@
           healing, etc. all within the same overlay or website if you'd prefer. I'm looking at ways to add more depth to the analysis tool,
           so keep a look out for some version updates.
         </p>
-        <div class="mode-shot"><img src="./assets/screenshots/combat-analysis.png" alt="Dyrelog's Combat Analysis window, showing a dps-over-time graph, a combatant table, and an ability breakdown."></div>
+        <div class="mode-shot"><img src="./assets/screenshots/app-analysis.png" onerror="screenshotMissing(this)" alt="Dyrelog's Combat Analysis window with a DPS-over-time graph, combatant table and ability breakdown."></div>
+      </div>
+
+      <div class="plate plate-highlight mode-banner" style="margin-bottom:24px;">
+        <h3>Submitting a kill</h3>
+        <p class="pitch">
+          Kill a boss and a small popup asks if you want to submit it, or it goes up on its own if you picked Auto.
+          It tells you right away if the kill is live or waiting for a quick review.
+        </p>
+        <div class="mode-shot"><img src="./assets/screenshots/app-submit-popup.png" onerror="screenshotMissing(this)" alt="The small popup Dyrelog shows after a boss kill, with Submit and Discard buttons."></div>
       </div>
 
       <div class="plate plate-gold" style="margin-bottom:24px;">
@@ -102,15 +119,41 @@
         </p>
         <div class="mode-shot-row">
           <div class="mode-shot-item">
-            <div class="mode-shot"><img src="./assets/screenshots/leaderboard-overlay-mock.png" alt="Mockup of the Dyrelog overlay's Leaderboards window, showing a top parses list and a boss leaderboard table with sample character names."></div>
+            <div class="mode-shot"><img src="./assets/screenshots/app-leaderboards.png" onerror="screenshotMissing(this)" alt="The Leaderboards window inside the Dyrelog app, showing the top kills for a boss."></div>
             <div class="cap">You can view leaderboards even from within the overlay</div>
           </div>
           <div class="mode-shot-item">
-            <div class="mode-shot"><img src="./assets/screenshots/leaderboard-website-mock.png" alt="Mockup of the Dyrelog website's leaderboard page, showing a top-10-of-the-week table and a boss leaderboard table with sample character names."></div>
+            <div class="mode-shot"><img src="./assets/screenshots/site-leaderboard.png" onerror="screenshotMissing(this)" alt="A boss leaderboard page on the Dyrelog website."></div>
             <div class="cap">Or you can view the leaderboards on the website if you wanna show off to your partner how cool you are in <strong class="brand-highlight">EverQuest Legends</strong>.
               Why else do you think I built this?</div>
           </div>
         </div>
+      </div>
+
+      <div class="plate plate-highlight mode-banner" style="margin-bottom:24px;">
+        <h3>Your profile</h3>
+        <p class="pitch">
+          Log in with Discord on the site to see your characters and every kill you've submitted, with its review status.
+          You can also add a short bio.
+        </p>
+        <div class="mode-shot"><img src="./assets/screenshots/site-profile.png" onerror="screenshotMissing(this)" alt="The My Profile page on the Dyrelog website, with characters and personal kill history."></div>
+      </div>
+
+      <div class="plate plate-gold mode-banner" style="margin-bottom:24px;">
+        <h3>Analyze a log in your browser</h3>
+        <p class="pitch">
+          No install needed for this one. Drop a log file on the <a href="./analyze.html">Analyze Log</a> page and get
+          the same fight breakdown. The file never leaves your computer.
+        </p>
+        <div class="mode-shot"><img src="./assets/screenshots/site-analyze.png" onerror="screenshotMissing(this)" alt="The Analyze Log page on the Dyrelog website, ready for a log file to be dropped in."></div>
+      </div>
+
+      <div class="plate plate-highlight mode-banner" style="margin-bottom:24px;">
+        <h3>Updates</h3>
+        <p class="pitch">
+          When a new version is out, a banner shows up on the meter. Click it and Dyrelog updates itself and restarts.
+        </p>
+        <div class="mode-shot"><img src="./assets/screenshots/app-update-banner.png" onerror="screenshotMissing(this)" alt="The update banner at the top of the Dyrelog meter."></div>
       </div>
 
       <div class="plate plate-gold" style="margin-bottom:24px;">
@@ -122,7 +165,7 @@
       <div class="plate plate-highlight">
         <h2>Credits</h2>
         <p class="muted" style="margin-top:-6px;">Boss and zone data draws on research from these community sites, run by
-        people who've spent years documenting this game. Neither is affiliated with
+        people who've spent years documenting this game. None of them are affiliated with
         Dyrelog. Thank you to all the incredible community members who care about the game and each other.
         </p>
         <ul class="credits-list">

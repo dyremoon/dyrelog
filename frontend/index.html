@@ -141,7 +141,7 @@
       <!-- Weekly highlights reset each Tuesday at 00:00 UTC. -->
       <div class="plate plate-highlight" style="margin-bottom:24px;">
         <h2>Top 10 of the week</h2>
-        <p class="muted" style="margin-top:-6px;">The highest DPS across all difficulties this week, with one entry per character per boss and difficulty.</p>
+        <p class="muted" style="margin-top:-6px;">Best DPS this week, one entry per character per boss and difficulty. Resets every Tuesday at 00:00 UTC.</p>
         <div class="leaderboard-controls">
           <label for="highlights-boss">Boss</label><select id="highlights-boss"><option value="">All bosses</option></select>
           <label for="highlights-difficulty">Difficulty</label><select id="highlights-difficulty"><option value="">All</option><option value="D0">D0</option><option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option><option value="D4">D4</option></select>
@@ -190,7 +190,7 @@
         const { highlights } = await api('/api/leaderboard/highlights?' + query);
         if (request !== highlightsRequest) return;
         if (highlights.length === 0) {
-          el.innerHTML = '<p class="empty-state">No public verified parses match these filters this week.</p>';
+          el.innerHTML = '<p class="empty-state">No verified kills match these filters this week yet.</p>';
           return;
         }
         el.innerHTML = `
@@ -270,7 +270,7 @@
           </h3>`;
         const render = () => {
           const visible = rankRows(parses);
-          el.innerHTML = heading + `<table><thead><tr><th>#</th><th>${sortHeader('Character','character')}</th><th>${sortHeader('Class','class')}</th><th><span class="difficulty-control">Difficulty ${LeaderboardSort.difficultyFilter(publicDifficulty)}</span></th><th class="num">${sortHeader('DPS','dps')}</th><th class="num">${sortHeader('Damage','damage')}</th><th>${sortHeader('Date','date')}</th><th></th></tr></thead><tbody>${visible.map((p, i) => parseRow(p, i)).join('') || '<tr><td colspan="8" class="empty-state">No public verified parses for this difficulty.</td></tr>'}</tbody></table>`;
+          el.innerHTML = heading + `<table><thead><tr><th>#</th><th>${sortHeader('Character','character')}</th><th>${sortHeader('Class','class')}</th><th><span class="difficulty-control">Difficulty ${LeaderboardSort.difficultyFilter(publicDifficulty)}</span></th><th class="num">${sortHeader('DPS','dps')}</th><th class="num">${sortHeader('Damage','damage')}</th><th>${sortHeader('Date','date')}</th><th></th></tr></thead><tbody>${visible.map((p, i) => parseRow(p, i)).join('') || '<tr><td colspan="8" class="empty-state">No verified kills at this difficulty yet.</td></tr>'}</tbody></table>`;
           document.getElementById('board-entry-count').textContent = '(' + visible.length + (visible.length === 1 ? ' entry)' : ' entries)');
           const selectedOption = document.querySelector('#boss-picker option:checked');
           if (selectedOption) selectedOption.textContent = boss.name + ' (' + visible.length + ')';

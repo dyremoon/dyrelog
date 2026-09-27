@@ -27,73 +27,40 @@
 
     <main>
       <div class="plate plate-gold" style="margin-bottom:24px;">
-        <h2>Download the overlay</h2>
-        <p class="muted" style="margin-top:-6px;">
-          Dyrelog overlay is a free, always-on-top desktop app for
-          EverQuest Legends. It runs entirely on your own machine, reads
-          your combat log, and shows you a live dps meter while you play.
-        </p>
-        <a class="btn btn-brass" id="releases-link" href="https://dyrelog-api.dyremoon.workers.dev/api/download/latest" target="_blank" rel="noopener">Download for Windows &#8595;</a>
+        <h2>Download Dyrelog</h2>
+        <p class="muted" style="margin-top:-6px;">Free DPS meter for EverQuest Legends. Windows 10 or 11.</p>
+        <a class="btn btn-brass" id="releases-link" href="https://dyrelog-api.dyremoon.workers.dev/api/download/latest" rel="noopener">Download for Windows &#8595;</a>
         <p class="muted" id="download-version" style="margin:8px 0 0;"></p>
-        <p class="muted">This button records an aggregate download request by day and app version before redirecting to GitHub. No visitor ID or IP address is stored in download analytics. This is separate from optional in-app usage analytics.</p>
-        <p class="muted">If the download does not start, <a href="https://github.com/dyremoon/dyrelog/releases/latest" target="_blank" rel="noopener">open GitHub Releases</a>.</p>
-        <p class="muted" style="margin-top:14px; margin-bottom:0; font-size:0.85rem;">
-          The installer comes straight from GitHub. It isn't code-signed yet (signing costs money a small
-          fan project doesn't have), so <strong>Windows SmartScreen may warn you the first time you run it.
-          That's expected.</strong> Choose "More info", then "Run anyway".
+        <p class="muted" style="margin-bottom:0; font-size:0.85rem;">
+          Download not starting? Get <code>Dyrelog-Setup-&lt;version&gt;.exe</code> from
+          <a href="https://github.com/dyremoon/dyrelog/releases/latest" target="_blank" rel="noopener">GitHub Releases</a>.
         </p>
-      </div>
-
-      <div class="plate plate-highlight" style="margin-bottom:24px;">
-        <h2>What it looks like</h2>
-        <p class="muted" style="margin-top:-6px;">
-          A standard bar meter, a mini-mode for minimalists, and a circle for weirdos who like circles.
-          Comes with a deep-dive analysis tool and a leaderboard system for fun.
-        </p>
-        <div class="screenshot-grid">
-          <div class="screenshot-card">
-            <div class="frame"><img src="./assets/screenshots/overlay-bars.png" alt="Dyrelog overlay in Bars display style, showing a ranked dps meter for a boss fight."></div>
-            <div class="cap">Standard bars - for the normal people</div>
-          </div>
-          <div class="screenshot-card">
-            <div class="frame"><img src="./assets/screenshots/overlay-circle.png" alt="Dyrelog overlay in Circle display style, a small round badge showing dps and fight timer."></div>
-            <div class="cap">Circle - for the circle lovers</div>
-          </div>
-          <div class="screenshot-card">
-            <div class="frame"><img src="./assets/screenshots/combat-analysis.png" alt="Dyrelog's Combat Analysis window, showing a dps-over-time graph, a combatant table, and an ability breakdown."></div>
-            <div class="cap">Combat Analysis - for the nerds</div>
-          </div>
-        </div>
       </div>
 
       <div class="plate plate-gold" style="margin-bottom:24px;">
-        <h2>Setup</h2>
+        <h2>Install and set up</h2>
         <ol class="download-steps">
-          <li>Click the download button above to grab the installer.</li>
-          <li>Run it and follow the prompts. If Windows SmartScreen shows a
-            warning, choose "More info" then "Run anyway".</li>
-          <li>In EverQuest, type <code>/log on</code> so the game writes a combat log.</li>
-          <li>Launch Dyrelog and pick your EverQuest folder (or its <code>Logs</code> folder). Dyrelog finds your
-            <code>eqlog_&lt;Character&gt;_&lt;Server&gt;.txt</code> file and remembers it.</li>
-          <li>To put kills on the leaderboard, log in with Discord when the app asks (or later in
-            Settings &rarr; Options). Only kills of known bosses can be submitted.</li>
-          <li>Open Settings from the gear icon to pick a theme, adjust sizing, and change submission options.</li>
+          <li>Run the installer. Windows SmartScreen may warn you because the installer isn't code-signed
+            (that costs money a small fan project doesn't have). Choose <strong>More info</strong>, then <strong>Run anyway</strong>.</li>
+          <li>Open Dyrelog. It asks if you want to put your boss kills on the leaderboard. Say yes and sign in with
+            Discord, or keep everything local. You can change this later in Settings.</li>
+          <li>Pick your EverQuest Legends folder. Dyrelog finds your log file and remembers it.</li>
+          <li>If you've never turned on logging, type <code>/log on</code> in game.</li>
         </ol>
-        <h3 style="margin-top:18px;">Updates</h3>
-        <p class="muted" style="margin-bottom:0;">
-          Dyrelog checks for a new version about once an hour while it's open. When one is out, a banner
-          appears at the top of the meter. Click it and Dyrelog downloads the update, installs it and restarts.
-          You can also check any time in Settings &rarr; What's New.
+      </div>
+
+      <div class="plate plate-highlight" style="margin-bottom:24px;">
+        <h2>Updates</h2>
+        <p class="muted" style="margin-top:-6px; margin-bottom:0;">
+          Once it's installed, you don't need to come back here. When a new version is out, a banner shows up at the
+          top of the meter. Click it and Dyrelog updates itself and restarts.
         </p>
       </div>
 
-      <p class="muted">Usage analytics is optional and off until you choose “Allow” in the app. If allowed, the packaged app sends a random installation ID, app version, and platform to Dyrelog’s Cloudflare-hosted service on startup and every 15 minutes while running; the server records observation dates. No account identity, game data, or personal files are sent by usage analytics. Records currently have no automatic expiry. Change your choice in Settings → Options → Usage analytics. Turning it off stops future reports, but does not erase records already received.</p>
-      <div class="plate plate-highlight">
-        <h2>System requirements</h2>
-        <p class="muted" style="margin-top:-6px; margin-bottom:0;">
-          Windows 10 or 11. Mac and Linux aren't supported yet.
-        </p>
-      </div>
+      <p class="muted" style="font-size:0.85rem;">
+        Want to see it first? Check the <a href="./about.html">About</a> page. The download button counts downloads per
+        version and nothing else; see <a href="./privacy.html">Privacy</a> for what the app sends.
+      </p>
     </main>
 
     <footer class="site-footer">

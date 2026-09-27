@@ -106,7 +106,7 @@
         `;
       } catch (err) {
         document.getElementById('boss-name').textContent = "Can't load this boss";
-        listEl.innerHTML = `<p class="empty-state">Can't reach the API right now.</p>`;
+        listEl.innerHTML = `<p class="empty-state">Can't reach the Dyrelog server right now. Try again in a minute.</p>`;
       }
     }
     document.addEventListener('DOMContentLoaded', loadLeaderboard);

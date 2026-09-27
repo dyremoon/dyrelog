@@ -77,9 +77,8 @@
     <h2>Personal history</h2>
 
     <p class="muted" style="margin-top:-6px;">
-      Every boss kill you submit from the desktop app shows up here, with its review status.
-      Your best verified run per boss and difficulty is shown, plus anything still in review.
-      Verified kills go on the public leaderboard. A private run shows a <strong>Publish</strong> button.
+      Kills you've submitted from the app. Shows your best verified run per boss and difficulty,
+      plus anything still in review.
     </p>
 
     <div id="personal-list">
@@ -174,7 +173,7 @@
           return;
         }
         if (characters.length === 0) {
-          listEl.innerHTML = `<p class="empty-state">No characters linked yet — a character links automatically the first time you submit a fight from the overlay.</p>`;
+          listEl.innerHTML = `<p class="empty-state">No characters yet. Your character is added the first time you submit a kill from the Dyrelog app.</p>`;
           return;
         }
         listEl.innerHTML = `
@@ -244,7 +243,7 @@
           });
         });
       } catch (err) {
-        listEl.innerHTML = `<p class="empty-state">Can't reach the API right now.</p>`;
+        listEl.innerHTML = `<p class="empty-state">Can't reach the Dyrelog server right now. Try again in a minute.</p>`;
       }
     }
 
@@ -268,7 +267,7 @@
         }
         const { bests } = await api('/api/me/personal-bests');
         if (bests.length === 0) {
-          listEl.innerHTML = `<p class="empty-state">No boss kills tracked yet — this fills in automatically the next time the overlay sees you fight one, streaming on.</p>`;
+          listEl.innerHTML = `<p class="empty-state">No kills yet. Boss kills you submit from the Dyrelog app show up here.</p>`;
           return;
         }
         const render = () => {
@@ -359,7 +358,7 @@
         render();
         highlightDeepLinkedSubmission();
       } catch (err) {
-        listEl.innerHTML = `<p class="empty-state">Can't reach the API right now.</p>`;
+        listEl.innerHTML = `<p class="empty-state">Can't reach the Dyrelog server right now. Try again in a minute.</p>`;
       }
     }
 

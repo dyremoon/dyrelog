@@ -44,6 +44,8 @@ npm run release:check
 - `Dyrelog-Setup-<version>.exe.blockmap`
 - `latest.yml` (what installed copies read to find updates)
 
+Write the release notes from `docs/release-notes/TEMPLATE.md` (keep its "How to install and update" section at the bottom).
+
 `npm run release:check` fails if the version numbers disagree, a file is missing, or `latest.yml` doesn't
 match the installer's name, size and SHA-512. Upload all three files to the GitHub Release without renaming
 them. The version lives only in `package.json` (and its lock file); the app reads it at runtime.

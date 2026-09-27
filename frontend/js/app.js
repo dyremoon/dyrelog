@@ -30,7 +30,7 @@ async function renderAuthNav() {
         <a class="btn btn-brass" href="${API_BASE}/api/auth/login">Log in with Discord</a>
       `;
   } catch (err) {
-    slot.innerHTML = `<span class="muted">Can't reach the API</span>`;
+    slot.innerHTML = `<span class="muted">Can't reach the server</span>`;
   }
 }
 
