@@ -325,6 +325,17 @@ table tbody tr:hover { background: var(--surface-2); }
   font-size: 0.85rem;
 }
 
+.install-note {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--hair-strong);
+  border-left: 3px solid var(--gold);
+  border-radius: 8px;
+  background: var(--surface-2);
+  line-height: 1.5;
+}
+.install-note p { margin: 6px 0 0; color: var(--ink-2); }
+
 .server-notice {
   margin: 16px auto 0;
   max-width: 900px;
