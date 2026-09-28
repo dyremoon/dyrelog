@@ -672,7 +672,7 @@
   });
 
   var FALLBACK_ITEMS = [
-    "Couldn't load the release notes right now. Try again in a minute, or see the Releases page on GitHub."
+    { kind: "item", text: "Couldn't load the release notes right now. Try again in a minute, or see the Releases page on GitHub." }
   ];
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -690,19 +690,9 @@
     }
     return "Current";
   }
-  function parseReleaseItems(body) {
-    var text = String(body || "")
-      .replace(/<\/(p|li|div)>/gi, "\n")
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<[^>]+>/g, "");
-    return text
-      .split("\n")
-      .map(function (line) { return line.replace(/^[\s*\-•]+/, "").trim(); })
-      .filter(Boolean);
-  }
   function renderChangelog(releases, currentVersion) {
     var blocks = (releases || [])
-      .map(function (r) { return { version: r.version, tag: releaseTag(r.version, currentVersion), items: parseReleaseItems(r.body) }; })
+      .map(function (r) { return { version: r.version, tag: releaseTag(r.version, currentVersion), items: ReleaseNotes.parseReleaseNotes(r.body) }; })
       .filter(function (b) { return b.items.length; });
     if (!blocks.length) blocks = [{ version: currentVersion, tag: "Current", items: FALLBACK_ITEMS }];
     els.changelog.innerHTML = blocks.map(function (block) {
@@ -712,7 +702,12 @@
             (block.version ? '<span class="changelog-title">v' + esc(block.version) + "</span>" : "") +
             '<span class="changelog-tag">' + esc(block.tag) + "</span>" +
           "</div>" +
-          '<ul class="changelog-list">' + block.items.map(function (item) { return "<li>" + esc(item) + "</li>"; }).join("") + "</ul>" +
+          block.items.filter(function (item) { return item.kind === "intro"; }).map(function (item) {
+            return '<p class="changelog-intro">' + esc(item.text) + "</p>";
+          }).join("") +
+          '<ul class="changelog-list">' + block.items.filter(function (item) { return item.kind !== "intro"; }).map(function (item) {
+            return item.kind === "heading" ? '<li class="changelog-subhead">' + esc(item.text) + "</li>" : "<li>" + esc(item.text) + "</li>";
+          }).join("") + "</ul>" +
         "</div>"
       );
     }).join("");
@@ -737,10 +732,19 @@
       statusEl.innerHTML = '<span class="update-dot ok"></span>You&rsquo;re up to date';
       btnCheck.disabled = false;
     }
+    // Checking never installs anything; the player chooses when to update.
     function renderAvailable(version) {
       statusEl.innerHTML =
-        '<span>Update available' + (version ? " &mdash; v" + version : "") + " &mdash; downloading&hellip;</span>";
-      window.dyrelog.downloadAndInstallUpdate();
+        '<span>Version <span id="update-version"></span> is available.</span>' +
+        '<button class="btn-link" id="btn-install-update" type="button">Install and restart</button>' +
+        '<span class="update-later">or keep playing and update later.</span>';
+      document.getElementById("update-version").textContent = version || "";
+      document.getElementById("btn-install-update").addEventListener("click", function () {
+        this.disabled = true;
+        renderDownloading(0);
+        window.dyrelog.downloadAndInstallUpdate();
+      });
+      btnCheck.disabled = false;
     }
     function renderDownloading(percent) {
       var pct = Math.max(0, Math.min(100, percent || 0));
@@ -771,10 +775,7 @@
       var state = payload && payload.state;
       if (state === "checking") renderChecking();
       else if (state === "up-to-date") renderUpToDate();
-      else if (state === "available") {
-        renderAvailable(payload.version);
-        btnCheck.disabled = true;
-      }
+      else if (state === "available") renderAvailable(payload.version);
       else if (state === "downloading") renderDownloading(payload.percent);
       else if (state === "ready") renderReady();
       else if (state === "error") renderError(payload && payload.message);
