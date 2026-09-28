@@ -41,6 +41,30 @@
     <section class="tab-panel tab-panel-appearance" data-tab-panel="appearance">
     <div class="appearance-main">
 
+      <div class="settings-section presets" data-searchable="presets preset save load import export share code look community">
+        <p class="section-label">Presets</p>
+        <p class="hint" style="margin-top:0;">Save your whole look (colors, theme, font, sizes and style) and switch back any time. Share it as a code or a file.</p>
+        <div class="row preset-row">
+          <select id="preset-select" aria-label="Saved presets"><option value="">No saved presets yet</option></select>
+          <button type="button" class="btn-link" id="preset-apply">Use</button>
+          <button type="button" class="btn-link" id="preset-delete">Delete</button>
+        </div>
+        <div class="row preset-row">
+          <input type="text" id="preset-name" maxlength="40" placeholder="Name this look" aria-label="Preset name">
+          <button type="button" class="btn-link" id="preset-save">Save current look</button>
+        </div>
+        <div class="row preset-row">
+          <button type="button" class="btn-link" id="preset-copy">Copy share code</button>
+          <button type="button" class="btn-link" id="preset-export">Export file&hellip;</button>
+          <button type="button" class="btn-link" id="preset-import-file">Import file&hellip;</button>
+        </div>
+        <div class="row preset-row">
+          <input type="text" id="preset-code" placeholder="Paste a share code (DYRELOG-LOOK:…)" aria-label="Share code">
+          <button type="button" class="btn-link" id="preset-import-code">Import code</button>
+        </div>
+        <p class="hint" id="preset-status" role="status">Using a preset or importing one keeps your current look as "Previous look", so you can always switch back.</p>
+      </div>
+
       <div class="settings-section" data-searchable="pets show pets separate bars">
         <p class="section-label">Pets</p>
         <div class="row">
@@ -206,6 +230,7 @@
             <label class="color-field">Pet bar <input type="color" id="set-petbarcolor"></label>
             <label class="color-field">Border <input type="color" id="set-bordercolor"></label>
           </div>
+          <p class="hint" id="mybar-hint" hidden></p>
 
           <button class="link-btn" id="btn-reset-colors" type="button">Reset to default colors</button>
         </div>

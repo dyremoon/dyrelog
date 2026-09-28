@@ -1,6 +1,6 @@
 // The main process tails logs and relays raw text to the renderer, which owns parsing.
 
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage, session, screen, safeStorage } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage, session, screen, safeStorage, clipboard } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { watchGameForeground } = require("./game-window-policy.cjs");
@@ -17,6 +17,7 @@ const { createLogTailer } = require("./log-tailer.cjs");
 const { isAllowedExternalUrl, isAllowedAuthNavigation } = require("./link-policy.cjs");
 const { createAuthStore } = require("./auth-store.cjs");
 const LimitPolicy = require("./limit-policy.cjs");
+const Presets = require("./presets.cjs");
 let stopAnalytics = null;
 
 app.setName("Dyrelog");
@@ -1446,7 +1447,7 @@ function applySettingsPartial(partial) {
       console.error("Failed to update startup launch setting:", err);
     }
   }
-  [win, analysisWin, leaderboardWin].forEach(function (w) {
+  [win, analysisWin, leaderboardWin, settingsWin].forEach(function (w) {
     if (w && !w.isDestroyed()) w.webContents.send("settings-update", settings);
   });
   return settings;
@@ -1454,6 +1455,77 @@ function applySettingsPartial(partial) {
 
 ipcMain.handle("save-settings", function (evt, partial) {
   return applySettingsPartial(partial);
+});
+
+// Appearance presets. Applying one first keeps the current look as "Previous look", so a change is never lost.
+const PRESETS_PATH = path.join(app.getPath("userData"), "dyrelog-presets.json");
+const presetStore = Presets.createPresetStore({ file: PRESETS_PATH, readJson: readJson, writeJsonAtomic: writeJsonAtomic });
+const PREVIOUS_LOOK = "Previous look";
+function applyLook(look) {
+  var current = Presets.lookFromSettings(loadSettings());
+  if (JSON.stringify(current) !== JSON.stringify(Presets.sanitizeLook(look))) presetStore.save(PREVIOUS_LOOK, current);
+  return applySettingsPartial(Presets.sanitizeLook(look));
+}
+function uniquePresetName(name) {
+  var taken = presetStore.list().map(function (p) { return p.name; });
+  if (taken.indexOf(name) === -1) return name;
+  for (var i = 2; i < 100; i++) {
+    var candidate = Presets.cleanName(name.slice(0, 34) + " (" + i + ")");
+    if (taken.indexOf(candidate) === -1) return candidate;
+  }
+  return name;
+}
+function importShared(shared) {
+  if (!shared) return { ok: false, error: "That isn't a Dyrelog look. Check you copied the whole code or picked the right file." };
+  var saved = presetStore.save(uniquePresetName(shared.name), shared.look);
+  if (!saved.ok) return saved;
+  return { ok: true, name: saved.name, settings: applyLook(shared.look), presets: presetStore.list() };
+}
+ipcMain.handle("presets:list", function () { return presetStore.list(); });
+ipcMain.handle("presets:save", function (_evt, name) {
+  var result = presetStore.save(name, Presets.lookFromSettings(loadSettings()));
+  return Object.assign(result, { presets: presetStore.list() });
+});
+ipcMain.handle("presets:apply", function (_evt, name) {
+  var preset = presetStore.get(name);
+  if (!preset) return { ok: false, error: "That preset no longer exists." };
+  return { ok: true, settings: applyLook(preset.look), presets: presetStore.list() };
+});
+ipcMain.handle("presets:delete", function (_evt, name) {
+  presetStore.remove(name);
+  return { ok: true, presets: presetStore.list() };
+});
+ipcMain.handle("presets:copy-code", async function (_evt, name) {
+  var preset = name ? presetStore.get(name) : null;
+  var look = preset ? preset.look : Presets.lookFromSettings(loadSettings());
+  await clipboard.writeText(Presets.encodeShareCode(preset ? preset.name : "My look", look));
+  return { ok: true };
+});
+ipcMain.handle("presets:import-code", function (_evt, text) {
+  return importShared(Presets.decodeShared(typeof text === "string" ? text : ""));
+});
+ipcMain.handle("presets:export", async function (_evt, name) {
+  var preset = name ? presetStore.get(name) : null;
+  var label = preset ? preset.name : "My look";
+  var res = await dialog.showSaveDialog(settingsWin || win, {
+    title: "Export Dyrelog look",
+    defaultPath: path.join(app.getPath("documents"), label.replace(/[\\/:*?"|]/g, "") + ".dyrelog-look.json"),
+    filters: [{ name: "Dyrelog look", extensions: ["json"] }]
+  });
+  if (res.canceled || !res.filePath) return { ok: false, cancelled: true };
+  fs.writeFileSync(res.filePath, Presets.exportFileText(label, preset ? preset.look : Presets.lookFromSettings(loadSettings())));
+  return { ok: true };
+});
+ipcMain.handle("presets:import-file", async function () {
+  var res = await dialog.showOpenDialog(settingsWin || win, {
+    title: "Import Dyrelog look",
+    filters: [{ name: "Dyrelog look", extensions: ["json"] }],
+    properties: ["openFile"]
+  });
+  if (res.canceled || !res.filePaths[0]) return { ok: false, cancelled: true };
+  var stat = fs.statSync(res.filePaths[0]);
+  if (stat.size > 100000) return { ok: false, error: "That file is too large to be a Dyrelog look." };
+  return importShared(Presets.decodeShared(fs.readFileSync(res.filePaths[0], "utf8")));
 });
 
 // Cursor coordinates come from Electron in desktop DIPs, including mixed-DPI monitors.

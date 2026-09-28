@@ -275,6 +275,7 @@
         String(s.fadeIdleOpacity != null ? s.fadeIdleOpacity : 0.15));
       frame.style.setProperty("--preview-text", textColor);
       frame.style.setProperty("--preview-border", s.borderColor || THEME_HAIR[theme]);
+      frame.style.setProperty("--preview-hair", THEME_HAIR[theme]);
       frame.style.setProperty("--preview-my-color", myColor);
       frame.style.setProperty("--preview-pet-color", s.petBarColor || DEFAULT_PET_COLOR);
       frame.style.setProperty("--preview-my-name-color", myNameColor);
@@ -397,7 +398,14 @@
     applySoundSettings(s);
     els.bgColor.value = s.bgColor || THEME_BG[s.theme || "blue"];
     els.textColor.value = s.textColor || THEME_INK[s.theme || "blue"];
-    els.myBarColor.value = s.myBarColor || DEFAULT_MY_COLOR;
+    // With class colors on, your bar uses your class color, so this picker edits that color instead.
+    var classBar = !!(s.classColorsEnabled && s.myClass);
+    els.myBarColor.value = classBar
+      ? (s.classColorOverrides || {})[s.myClass] || EQ_CLASS_COLORS[s.myClass] || DEFAULT_MY_COLOR
+      : s.myBarColor || DEFAULT_MY_COLOR;
+    var myBarHint = document.getElementById("mybar-hint");
+    myBarHint.hidden = !classBar;
+    myBarHint.textContent = classBar ? "Class colors are on, so \"My bar\" sets your " + s.myClass + " class color." : "";
     els.petBarColor.value = s.petBarColor || DEFAULT_PET_COLOR;
     els.borderColor.value = s.borderColor || THEME_HAIR[s.theme || "blue"];
     els.secondaryTextColor.value = s.secondaryTextColor || THEME_INK2[s.theme || "blue"];
@@ -456,10 +464,81 @@
   function save(partial) {
     window.dyrelog.saveSettings(partial).then(applyToUI);
   }
+  // Changes made elsewhere (switching style on the meter, dragging circle icons) show up here too.
+  window.dyrelog.onSettingsUpdate(applyToUI);
 
   els.bgColor.addEventListener("input", function () { save({ bgColor: els.bgColor.value }); });
   els.textColor.addEventListener("input", function () { save({ textColor: els.textColor.value }); });
-  els.myBarColor.addEventListener("input", function () { save({ myBarColor: els.myBarColor.value }); });
+  els.myBarColor.addEventListener("input", function () {
+    var s = currentSettings;
+    if (s.classColorsEnabled && s.myClass) {
+      var overrides = Object.assign({}, s.classColorOverrides || {});
+      overrides[s.myClass] = els.myBarColor.value;
+      save({ classColorOverrides: overrides });
+    } else {
+      save({ myBarColor: els.myBarColor.value });
+    }
+  });
+
+  // --- Presets ---
+  var presetSelect = document.getElementById("preset-select");
+  var presetName = document.getElementById("preset-name");
+  var presetCode = document.getElementById("preset-code");
+  var presetStatus = document.getElementById("preset-status");
+  function showPresets(list, selected) {
+    presetSelect.replaceChildren();
+    if (!list || !list.length) {
+      presetSelect.add(new Option("No saved presets yet", ""));
+    } else {
+      list.forEach(function (p) { presetSelect.add(new Option(p.name, p.name)); });
+      if (selected) presetSelect.value = selected;
+    }
+    var empty = !list || !list.length;
+    document.getElementById("preset-apply").disabled = empty;
+    document.getElementById("preset-delete").disabled = empty;
+  }
+  function presetResult(result, message) {
+    if (!result) return;
+    if (result.cancelled) return;
+    if (!result.ok) { presetStatus.textContent = result.error || "Something went wrong. Try again."; return; }
+    if (result.presets) showPresets(result.presets, result.name || presetSelect.value);
+    if (result.settings) applyToUI(result.settings);
+    presetStatus.textContent = message;
+  }
+  window.dyrelog.listPresets().then(function (list) { showPresets(list); });
+  document.getElementById("preset-save").addEventListener("click", async function () {
+    var name = presetName.value.trim();
+    if (!name) { presetStatus.textContent = "Type a name for this look first."; presetName.focus(); return; }
+    var result = await window.dyrelog.savePreset(name);
+    presetResult(result, "Saved \"" + (result.name || name) + "\".");
+    if (result.ok) presetName.value = "";
+  });
+  document.getElementById("preset-apply").addEventListener("click", async function () {
+    if (!presetSelect.value) return;
+    presetResult(await window.dyrelog.applyPreset(presetSelect.value), "Now using \"" + presetSelect.value + "\".");
+  });
+  document.getElementById("preset-delete").addEventListener("click", async function () {
+    var name = presetSelect.value;
+    if (!name || !window.confirm("Delete the preset \"" + name + "\"?")) return;
+    presetResult(await window.dyrelog.deletePreset(name), "Deleted \"" + name + "\".");
+  });
+  document.getElementById("preset-copy").addEventListener("click", async function () {
+    presetResult(await window.dyrelog.copyPresetCode(presetSelect.value || null),
+      "Share code copied" + (presetSelect.value ? " for \"" + presetSelect.value + "\"" : " for your current look") + ". Paste it anywhere to share.");
+  });
+  document.getElementById("preset-export").addEventListener("click", async function () {
+    presetResult(await window.dyrelog.exportPreset(presetSelect.value || null), "Exported.");
+  });
+  document.getElementById("preset-import-file").addEventListener("click", async function () {
+    var result = await window.dyrelog.importPresetFile();
+    presetResult(result, "Imported and now using \"" + result.name + "\". Your old look is saved as \"Previous look\".");
+  });
+  document.getElementById("preset-import-code").addEventListener("click", async function () {
+    if (!presetCode.value.trim()) { presetStatus.textContent = "Paste a share code first."; presetCode.focus(); return; }
+    var result = await window.dyrelog.importPresetCode(presetCode.value);
+    presetResult(result, "Imported and now using \"" + result.name + "\". Your old look is saved as \"Previous look\".");
+    if (result.ok) presetCode.value = "";
+  });
   els.petBarColor.addEventListener("input", function () { save({ petBarColor: els.petBarColor.value }); });
   els.borderColor.addEventListener("input", function () { save({ borderColor: els.borderColor.value }); });
   els.resetColors.addEventListener("click", function () {
