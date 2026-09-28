@@ -172,6 +172,7 @@ body {
 
 .header {
   display: flex;
+  flex-wrap: wrap; /* in a very narrow meter the icons move to a second row instead of covering the name */
   align-items: center;
   justify-content: space-between;
   gap: 6px;
@@ -182,7 +183,8 @@ body {
   margin-bottom: 6px;
   flex: none;
 }
-.brand { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* The name takes whatever room the icons leave and only shortens (…) when it truly doesn't fit. */
+.brand { display: flex; align-items: center; gap: 6px; min-width: 72px; flex: 1 1 auto; }
 .brand-logo { flex: none; width: 16px; height: 16px; border-radius: 4px; }
 .status-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px color-mix(in srgb, var(--ok) 70%, transparent); }
 .status-dot.off { background: var(--ink-3); box-shadow: none; }
@@ -194,7 +196,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 108px;
+  min-width: 0;
 }
 
 .icons { display: flex; gap: 3px; -webkit-app-region: no-drag; flex: none; }
