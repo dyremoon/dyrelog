@@ -511,7 +511,7 @@
       return prev.then(function (ok) {
         if (!ok) return false;
         return window.dyrelog.pushLiveBatch(stream.submissionId, chunk).then(function (res) {
-          if (res && res.error === "server_limit") stream.limited = true;
+          if (res && (res.error === "server_limit" || res.error === "update_required")) stream.limited = true;
           if (!res || !res.ok) return false;
           LiveStream.markSent(chunk, stream.sent);
           stream.accepted++;
@@ -533,7 +533,7 @@
     if (!stream.submissionId) {
       stream.inFlight = window.dyrelog.startLiveStream({ characterName: characterName, realm: realm, soloMode: false }).then(function (res) {
         if (res && res.ok) stream.submissionId = res.submissionId;
-        else if (res && res.error === "server_limit") stream.limited = true;
+        else if (res && (res.error === "server_limit" || res.error === "update_required")) stream.limited = true;
         else stream.retryAt = Date.now() + STREAM_RETRY_MS;
       }, function () { stream.retryAt = Date.now() + STREAM_RETRY_MS; }).then(function () { stream.inFlight = null; });
       return;
