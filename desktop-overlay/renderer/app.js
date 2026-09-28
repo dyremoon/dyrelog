@@ -1096,17 +1096,28 @@
 
   var updateDismissed = false;
   var updaterBusy = false;
+  // Bars shows the banner; Mini and Circle show a small highlighted button that does the same thing.
+  var updateButtons = [document.getElementById("btn-mini-update"), document.getElementById("watch-update-btn")];
+  function setUpdateText(text) {
+    els.updateBannerText.textContent = text;
+    updateButtons.forEach(function (b) { b.title = text; });
+  }
   function showUpdateBanner(info) {
     if (!info || updateDismissed || updaterBusy) return;
-    els.updateBannerText.textContent = "Update available (v" + info.version + ") · Click to install";
+    setUpdateText("Update available (v" + info.version + ") · Click to install");
     els.updateBanner.hidden = false;
+    updateButtons.forEach(function (b) { b.hidden = false; });
   }
-  els.updateBanner.addEventListener("click", function () {
+  function startUpdate() {
     if (updaterBusy) return;
     updaterBusy = true;
     els.updateBannerDismiss.hidden = true;
-    els.updateBannerText.textContent = "Checking for update…";
+    setUpdateText("Checking for update…");
     window.dyrelog.checkForUpdatesNow();
+  }
+  els.updateBanner.addEventListener("click", startUpdate);
+  updateButtons.forEach(function (b) {
+    b.addEventListener("click", function (evt) { evt.stopPropagation(); startUpdate(); });
   });
   els.updateBannerDismiss.addEventListener("click", function (evt) {
     evt.stopPropagation();
@@ -1120,14 +1131,14 @@
     if (!updaterBusy) return;
     var state = payload && payload.state;
     if (state === "checking") {
-      els.updateBannerText.textContent = "Checking for update…";
+      setUpdateText("Checking for update…");
     } else if (state === "available") {
-      els.updateBannerText.textContent = "Downloading v" + (payload.version || "") + "…";
+      setUpdateText("Downloading v" + (payload.version || "") + "…");
       window.dyrelog.downloadAndInstallUpdate();
     } else if (state === "downloading") {
-      els.updateBannerText.textContent = "Downloading update… " + Math.round(payload.percent || 0) + "%";
+      setUpdateText("Downloading update… " + Math.round(payload.percent || 0) + "%");
     } else if (state === "ready") {
-      els.updateBannerText.textContent = "Installing update… Dyrelog will restart.";
+      setUpdateText("Installing update… Dyrelog will restart.");
     } else if (state === "up-to-date") {
       // Shouldn't normally happen (the banner only shows once the lighter
       // GitHub-poll check already found something newer), but handle it
@@ -1135,11 +1146,12 @@
       // forever if the two checks ever disagree.
       updaterBusy = false;
       els.updateBannerDismiss.hidden = false;
-      els.updateBannerText.textContent = "Already up to date";
+      setUpdateText("Already up to date");
+      updateButtons.forEach(function (b) { b.hidden = true; });
     } else if (state === "error") {
       updaterBusy = false;
       els.updateBannerDismiss.hidden = false;
-      els.updateBannerText.textContent = "Update failed. Click to try again.";
+      setUpdateText("Update failed. Click to try again.");
       els.updateBanner.title = payload.message || "";
     }
   });
