@@ -18,6 +18,20 @@
   var highlightsDifficulty = '';
   var highlightsRequest = 0;
 
+  // A character name that opens their public page on the website.
+  function playerCell(row) {
+    var name = Number.isSafeInteger(row.character_id)
+      ? '<button class="boss-name-link" data-player-id="' + row.character_id + '" title="Open their page on the website">' + esc(row.character_name) + '</button>'
+      : esc(row.character_name);
+    return name + ' <span class="muted">(' + esc(row.realm) + ')</span>';
+  }
+  ['highlights-list', 'boss-detail'].forEach(function (id) {
+    document.getElementById(id).addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('[data-player-id]');
+      if (button) window.dyrelog.openExternal(SITE_BASE + '/player.html?id=' + Number(button.dataset.playerId));
+    });
+  });
+
   // 429/503 mean the server is at its limit (see limit handling in the Worker), not that it's down.
   async function apiGet(pathname) {
     var res = await fetch(API_BASE + pathname);
@@ -98,7 +112,7 @@
           return (
             "<tr>" +
               '<td class="num">' + (i + 1) + "</td>" +
-              "<td>" + esc(h.character_name) + ' <span class="muted">(' + esc(h.realm) + ")</span></td>" +
+              "<td>" + playerCell(h) + "</td>" +
               '<td class="muted">' + esc(h.class_combo || "—") + "</td>" +
               '<td><button class="boss-name-link" data-highlight-boss="' + Number(h.boss_id) + '" data-difficulty="' + esc(h.difficulty || 'D0') + '">' + esc(h.boss_name) + '</button></td><td>' + esc(shortDifficulty(h.difficulty)) + "</td>" +
               '<td class="num">' + fmtNum(h.dps) + "</td>" +
@@ -194,7 +208,7 @@
     rows = sortRows(rows, state.key, state.dir);
     return '<table><thead><tr><th>#</th><th>' + sortHeader('Character', 'character', state) + '</th><th>Class</th>' + (showDifficulty ? '<th>' + '<span class="difficulty-control">Difficulty ' + difficultyColumnFilter() + '</span>' + '</th>' : '') +
       '<th>' + sortHeader('DPS', 'dps', state) + '</th><th>' + sortHeader('Damage', 'damage', state) + '</th><th></th></tr></thead><tbody>' + rows.map(function (p, i) {
-        return '<tr><td>' + (i + 1) + '</td><td>' + esc(p.character_name) + ' <span class="muted">(' + esc(p.realm) + ')</span></td><td>' + esc(p.class_combo || '—') + '</td>' +
+        return '<tr><td>' + (i + 1) + '</td><td>' + playerCell(p) + '</td><td>' + esc(p.class_combo || '—') + '</td>' +
           (showDifficulty ? '<td>' + esc(shortDifficulty(p.difficulty)) + '</td>' : '') + '<td>' + fmtNum(p.dps) + '</td><td>' + fmtNum(p.damage) + '</td><td>' +
           (showDifficulty ? '<button class="view-lb-link" data-encounter-id="' + Number(p.encounter_id) + '">Analyze</button>' : '') + '</td></tr>';
       }).join('') + (rows.length ? '' : '<tr><td colspan="7" class="muted">No kills at this difficulty yet.</td></tr>') + '</tbody></table>';

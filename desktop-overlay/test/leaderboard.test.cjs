@@ -62,3 +62,10 @@ test('My Kills renders current visibility, opens the encounter permalink, and re
   authListener(null);
   assert.match(list.innerHTML, /Unknown/);
 });
+
+test('player names in the leaderboard window open their page on the website', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../renderer/leaderboard.js'), 'utf8');
+  assert.match(src, /data-player-id="' \+ row\.character_id/);
+  assert.match(src, /openExternal\(SITE_BASE \+ '\/player\.html\?id=' \+ Number\(button\.dataset\.playerId\)\)/);
+  assert.ok(require('../link-policy.cjs').isAllowedExternalUrl('https://dyrelog.pages.dev/player.html?id=7'));
+});
