@@ -189,7 +189,7 @@ test('a saved kill the server no longer accepts is dropped with a message instea
 
 test('the live stream stops for the rest of the fight once the server reports its limit', () => {
   const app = readFileSync(path.join(__dirname, '../renderer/app.js'), 'utf8');
-  assert.match(app, /res\.error === "server_limit"\) stream\.limited = true/);
+  assert.match(app, /res\.error === "server_limit" \|\| res\.error === "update_required"\)\) stream\.limited = true/);
   assert.match(app, /if \(stream\.limited \|\|/);
   assert.match(app, /liveBatches: stream \? stream\.accepted : 0/);
 });
