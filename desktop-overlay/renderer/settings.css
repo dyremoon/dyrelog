@@ -491,6 +491,11 @@ label.check input { accent-color: var(--accent); }
 }
 
 .about-copy { font-size: 0.926rem; line-height: 1.6; color: var(--ink-2); margin: 0; }
+.usage-stats .about-copy + .about-copy { margin-top: 8px; }
+.usage-list { margin: 6px 0 10px; padding-left: 20px; font-size: 0.926rem; line-height: 1.6; color: var(--ink-2); }
+.usage-list li + li { margin-top: 4px; }
+.usage-stats code { font-size: 0.85em; overflow-wrap: anywhere; }
+.usage-stats .check { margin-top: 12px; }
 .btn-link {
   align-self: flex-start;
   display: inline-flex; align-items: center; gap: 6px;

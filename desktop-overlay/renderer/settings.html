@@ -341,13 +341,6 @@
     </section>
 
     <section class="tab-panel" data-tab-panel="options" hidden>
-      <div class="settings-section" data-searchable="privacy consent telemetry analytics tracking usage opt in opt out">
-        <p class="section-label">Usage statistics (optional)</p>
-        <p class="about-copy">If you allow it, Dyrelog sends a random install ID, the app version and your platform when it starts and every 15 minutes. Nothing else: no account, character, game data or files.</p>
-        <p class="about-copy">Turning it off stops future reports. Everything works the same either way.</p>
-        <label class="check"><input type="checkbox" id="allow-usage-analytics" disabled> Share usage statistics</label>
-        <p class="about-copy" id="usage-analytics-status" role="status">Loading preference…</p>
-      </div>
       <div class="settings-section" data-searchable="submission sound audio mp3 volume mute">
         <p class="section-label">Submit sound</p>
         <div class="row"><label for="submission-sound">Sound</label><select id="submission-sound"><option value="none">No sound</option></select></div>
@@ -410,28 +403,43 @@
         </div>
 
       </div>
+
+      <div class="settings-section usage-stats" data-searchable="privacy consent telemetry analytics tracking usage opt in opt out">
+        <p class="section-label">Usage statistics (optional)</p>
+        <p class="about-copy">Off unless you turn it on. It tells me roughly how many people use Dyrelog and which versions are still running, so I know when an old version can be retired. Everything works the same either way.</p>
+        <p class="about-copy"><strong>Exactly what's sent</strong>, when Dyrelog starts and then every 15 minutes while it's open:</p>
+        <ul class="usage-list">
+          <li><strong>A random ID</strong> made on your PC the first time, like <code>3f2504e0-4f89-41d3-9a0c-0305e82c3301</code>. It isn't linked to your Discord account, your characters or your computer.</li>
+          <li><strong>The Dyrelog version</strong>, like <code>0.1.21</code>.</li>
+          <li><strong>Your platform</strong>: <code>win32</code> (Windows).</li>
+        </ul>
+        <p class="about-copy"><strong>What's kept:</strong> that ID, the first and last day it was seen, and which days it was active and on which version.</p>
+        <p class="about-copy"><strong>Never sent:</strong> your Discord account, character names, log files, fights, chat, file paths or anything else about your PC. Dyrelog doesn't save your internet address.</p>
+        <label class="check"><input type="checkbox" id="allow-usage-analytics" disabled> Share usage statistics</label>
+        <p class="about-copy" id="usage-analytics-status" role="status">Loading preference…</p>
+        <p class="hint">Turning it off stops reports right away.</p>
+      </div>
     </section>
 
     <section class="tab-panel" data-tab-panel="about" hidden>
       <div class="settings-section" data-searchable="about goals why made this">
         <p class="section-label">About Dyrelog</p>
         <p class="about-copy">
-          Dyrelog started out as a project to get a sleek and lightweight dps
-          meter in EQL for myself and a group of friends. I found other
-          options, and they're fantastic as well, but I get overwhelmed when
-          there's too much data and information at my disposal, so I wanted
-          something that did just dps, and did it really well.
+          I started Dyrelog because I didn't see DPS meters that really clicked with me and my quirky sense of style. I tend to like a specific type of dps meter, so I thought I'd just make my own. There are some incredible options out there,
+          but often times they have much more functionality than I need, and I get overwhelmed when there's too much data and
+          information at my disposal. So I made something that just did DPS, Analytics, and Leaderboards, and did
+          it really well.
         </p>
         <p class="about-copy">
-          I'm a software engineer and enjoy building projects, and I've been
-          playing MMOs my whole life. I took inspiration from dps meters from
-          other games so that Dyrelog feels familiar, and added a fun
-          leaderboard for us all to track our dps on if we so choose.
+          In real life I'm just a guy who used to work in the game industry, and now a software engineer. I enjoy building projects, fixing problems, and helping others. I've been playing
+          MMOs my whole life just like most of us here, and I took inspiration from DPS meters from other games so
+          that Dyrelog feels familiar and easy to pick up.
         </p>
         <p class="about-copy">
-          This is a fan project, built and maintained by one person in their
-          spare time, not an official tool. If you have any feedback or bug
-          reports, please submit them below.
+          This is a fan project, built and maintained by one person in his spare
+          time and not an official tool, nor affiliated with Daybreak Game Company
+          or EverQuest Legends. If you have any questions, feedback, or bug reports,
+          please submit an issue on GitHub (linked below) and I'll review it as soon as I can.
         </p>
       </div>
 
