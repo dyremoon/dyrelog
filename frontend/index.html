@@ -204,10 +204,10 @@
                   (h, i) => `
                 <tr>
                   <td class="mono">${i + 1}</td>
-                  <td><a href="./parse.html?id=${h.encounter_id}">${esc(h.character_name)}</a> <span class="muted">(${esc(h.realm)})</span></td>
+                  <td>${playerLink(h)}</td>
                   <td class="muted">${esc(h.class_combo) || '—'}</td>
                   <td><a href="./boss.html?id=${h.boss_id}">${esc(h.boss_name)}</a></td>
-                  <td>${esc(h.difficulty) || 'D0'}</td><td class="num tabular">${fmtNumber(h.dps)}</td>
+                  <td>${esc(h.difficulty) || 'D0'}</td><td class="num tabular"><a href="./parse.html?id=${h.encounter_id}" title="Open this fight">${fmtNumber(h.dps)}</a></td>
                 </tr>`
                 )
                 .join('')}
@@ -229,7 +229,7 @@
       return `
         <tr>
           <td class="mono">${i + 1}</td>
-          <td><a href="./parse.html?id=${p.encounter_id}">${esc(p.character_name)}</a> <span class="muted">(${esc(p.realm)})</span></td>
+          <td>${playerLink(p)}</td>
           <td class="muted">${esc(p.class_combo) || '—'}</td>
           <td class="muted">${p.difficulty && p.difficulty !== 'D0' ? esc(p.difficulty) : 'D0'}</td>
           <td class="num tabular">${fmtNumber(p.dps)}</td>

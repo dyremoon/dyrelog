@@ -325,6 +325,15 @@ table tbody tr:hover { background: var(--surface-2); }
   font-size: 0.85rem;
 }
 
+.player-bio {
+  margin: 14px 0 0;
+  max-width: 640px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+
 .install-note {
   margin-top: 16px;
   padding: 12px 16px;

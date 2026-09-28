@@ -109,6 +109,13 @@ function esc(s) {
   }[c]));
 }
 
+// A character's name linking to their public page (plain text if the row has no character ID).
+function playerLink(row) {
+  const name = esc(row.character_name);
+  const link = Number.isInteger(row.character_id) ? `<a href="./player.html?id=${row.character_id}">${name}</a>` : name;
+  return `${link} <span class="muted">(${esc(row.realm)})</span>`;
+}
+
 function fmtNumber(n) {
   return new Intl.NumberFormat('en-US').format(Math.round(n));
 }

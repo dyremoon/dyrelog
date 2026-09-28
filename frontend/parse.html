@@ -72,7 +72,7 @@
                   (p, i) => `
                 <tr>
                   <td class="mono">${i + 1}</td>
-                  <td>${esc(p.character_name)} <span class="muted">(${esc(p.realm)})</span></td>
+                  <td>${playerLink(p)}</td>
                   <td class="muted">${esc(p.class_combo) || '—'}</td>
                   <td class="num tabular">${fmtNumber(p.dps)}</td>
                   <td class="num tabular">${fmtNumber(p.damage)}</td>

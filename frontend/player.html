@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dyrelog — EverQuest Legends Player</title>
+  <meta name="description" content="An EverQuest Legends player's class, bio and best verified boss kills on Dyrelog." />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="./css/dyrelog.css" />
+  <link rel="icon" type="image/png" href="./assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="./assets/logo-180.png" />
+</head>
+<body>
+  <div class="container">
+    <header class="site-header">
+      <div class="wordmark"><img class="logo-mark" src="./assets/logo-64.png" alt="" width="28" height="28">Dyrelog<span class="game-badge">EverQuest Legends</span></div>
+      <nav class="site-nav">
+        <a href="./index.html" class="active">Leaderboards</a>
+        <a href="./analyze.html">Analyze Log</a>
+        <a href="./about.html">About</a>
+        <a href="./download.html">Download Dyrelog</a>
+        <span id="auth-slot"></span>
+        <a href="./admin.html" id="nav-admin-link" hidden>Admin</a>
+      </nav>
+    </header>
+
+    <main>
+      <div class="plate plate-gold" style="margin-bottom:20px;">
+        <h1 id="player-name" style="margin:0;">Loading…</h1>
+        <p class="muted" id="player-class" style="margin:6px 0 0;"></p>
+        <p class="player-bio" id="player-bio" hidden></p>
+      </div>
+
+      <div class="plate">
+        <h2>Best kills</h2>
+        <p class="muted" style="margin-top:-6px;">Best verified public kill for each boss and difficulty.</p>
+        <div id="kill-list">
+          <p class="muted">Loading…</p>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      Dyrelog is an unofficial fan-made project and is not affiliated with, endorsed by, or sponsored by
+      Daybreak Game Company or EverQuest Legends.
+    </footer>
+  </div>
+
+  <script>window.DYRELOG_API_BASE = 'https://dyrelog-api.dyremoon.workers.dev';</script>
+  <script src="./js/app.js"></script>
+  <script>
+    async function loadPlayer() {
+      const id = new URLSearchParams(window.location.search).get('id');
+      const nameEl = document.getElementById('player-name');
+      const listEl = document.getElementById('kill-list');
+      if (!/^\d{1,12}$/.test(id || '')) {
+        nameEl.textContent = 'No player selected';
+        listEl.innerHTML = '<p class="empty-state">Click a player\'s name on a leaderboard to see their page.</p>';
+        return;
+      }
+      try {
+        const { character, kills } = await api(`/api/players/${id}`);
+        nameEl.textContent = character.character_name;
+        document.title = `${character.character_name} — Dyrelog`;
+        document.getElementById('player-class').textContent =
+          (character.class_combo || 'Class not set') + ' · ' + character.realm;
+        if (character.bio) {
+          const bio = document.getElementById('player-bio');
+          bio.textContent = character.bio;
+          bio.hidden = false;
+        }
+        if (!kills.length) {
+          listEl.innerHTML = '<p class="empty-state">No public verified kills yet.</p>';
+          return;
+        }
+        listEl.innerHTML = `
+          <table>
+            <thead>
+              <tr><th>Boss</th><th>Difficulty</th><th class="num">DPS</th><th class="num">Damage</th><th>Date</th><th></th></tr>
+            </thead>
+            <tbody>
+              ${kills.map((k) => `
+                <tr>
+                  <td><a href="./boss.html?id=${Number(k.boss_id)}">${esc(k.boss_name)}</a></td>
+                  <td class="muted">${esc(fmtDifficulty(k.difficulty))}</td>
+                  <td class="num tabular">${fmtNumber(k.dps)}</td>
+                  <td class="num tabular">${fmtNumber(k.damage)}</td>
+                  <td class="muted">${fmtDateOnly(k.start_time)}</td>
+                  <td><a href="./parse.html?id=${Number(k.encounter_id)}">Analyze</a></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`;
+      } catch (err) {
+        nameEl.textContent = err && err.message === 'not_found' ? 'Player not found' : "Can't load this player";
+        listEl.innerHTML = err && err.message === 'not_found'
+          ? '<p class="empty-state">This player doesn\'t exist, or the link is wrong.</p>'
+          : '<p class="empty-state">Can\'t reach the Dyrelog server right now. Try again in a minute.</p>';
+      }
+    }
+    document.addEventListener('DOMContentLoaded', loadPlayer);
+  </script>
+</body>
+</html>

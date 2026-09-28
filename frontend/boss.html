@@ -93,9 +93,9 @@
                   (p, i) => `
                 <tr>
                   <td class="mono">${i + 1}</td>
-                  <td><a href="./parse.html?id=${p.encounter_id}">${esc(p.character_name)}</a> <span class="muted">(${esc(p.realm)})</span></td>
+                  <td>${playerLink(p)}</td>
                   <td class="muted">${esc(p.class_combo) || '—'}</td>
-                  <td class="num tabular">${fmtNumber(p.dps)}</td>
+                  <td class="num tabular"><a href="./parse.html?id=${p.encounter_id}" title="Open this fight">${fmtNumber(p.dps)}</a></td>
                   <td class="num tabular">${fmtNumber(p.damage)}</td>
                   <td class="muted">${fmtDateOnly(p.start_time)}</td>
                 </tr>`

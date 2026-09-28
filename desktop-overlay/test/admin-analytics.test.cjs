@@ -25,7 +25,7 @@ test('shared navigation shows the Admin link only to admins, and never renders r
     assert.equal(adminLink.hidden, !isAdmin);
     assert.ok(!slot.innerHTML.includes('<user>'));
   }
-  for (const page of ['index', 'about', 'analyze', 'boss', 'download', 'parse', 'privacy', 'profile', 'admin']) {
+  for (const page of ['index', 'about', 'analyze', 'boss', 'download', 'parse', 'player', 'privacy', 'profile', 'admin']) {
     const html = readFileSync(path.join(__dirname, '../../frontend/' + page + '.html'), 'utf8');
     assert.match(html, /id="nav-admin-link"[^>]*hidden/, page + '.html admin link starts hidden');
   }

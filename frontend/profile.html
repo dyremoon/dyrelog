@@ -188,7 +188,7 @@
                 .map(
                   (c) => `
                 <tr data-char-id="${c.id}">
-                  <td>${esc(c.character_name)}</td>
+                  <td><a href="./player.html?id=${Number(c.id)}" title="See your public page">${esc(c.character_name)}</a></td>
                   <td class="muted">${esc(c.realm)}</td>
                   <td class="muted">
                     <span class="class-display">${esc(c.class_combo) || '—'}</span>
