@@ -213,6 +213,22 @@
     return m ? { characterName: m[1], realm: m[2] } : null;
   }
 
+  // Zone-in lines, kept apart from the 2-hour line buffer: each fight's upload includes the latest one,
+  // since the server only publishes a kill whose difficulty it can see in the log.
+  var zoneLines = [];
+  function rememberZone(ev, line) {
+    var text = line.replace(/\r$/, "");
+    if (zoneLines.some(function (z) { return z.line === text; })) return;
+    zoneLines.push({ time: ev.time, line: text });
+    zoneLines.sort(function (a, b) { return a.time - b.time; });
+    if (zoneLines.length > 20) zoneLines.shift();
+  }
+  function zoneLineBefore(time) {
+    var found = null;
+    zoneLines.forEach(function (z) { if (z.time <= time) found = z; });
+    return found;
+  }
+
   function feedLines(text) {
     var chunk = lineBuffer + text;
     var lines = chunk.split("\n");
@@ -222,6 +238,7 @@
       if (!line) return;
       var ev = EQP.parseLine(line);
       if (ev) { EQP.ingest(state, ev); lastKnownTime = ev.time; }
+      if (ev && ev.type === "zone") rememberZone(ev, line);
       rawLineBuffer.push({ time: lastKnownTime, line: line });
     });
     var cutoff = Date.now() - RAW_BUFFER_MAX_AGE_MS;
@@ -234,6 +251,8 @@
     var lines = rawLineBuffer
       .filter(function (r) { return r.time >= enc.startTime - padMs && r.time <= enc.endTime + padMs; })
       .map(function (r) { return r.line.replace(/\r$/, ""); });
+    var zone = zoneLineBefore(enc.startTime + padMs);
+    if (zone && lines.indexOf(zone.line) === -1) lines.unshift(zone.line);
     return EQP.encounterRawText(enc, LiveStream.combatLines(lines, EQP.parseLine));
   }
 
@@ -816,6 +835,7 @@
     state = makeState(characterName);
     lineBuffer = "";
     rawLineBuffer = [];
+    zoneLines = [];
     selectedRowKey = null;
     selectedSessionKey = null;
     combatSessionStart = null;
@@ -827,6 +847,14 @@
   window.dyrelog.onLogChunk(function (text) {
     feedLines(text);
     render();
+  });
+  // The last zone-in from before Dyrelog started; a newer one seen live always wins.
+  window.dyrelog.onZoneSeed(function (line) {
+    var ev = EQP.parseLine(String(line || ""));
+    if (!ev || ev.type !== "zone") return;
+    var newest = zoneLines[zoneLines.length - 1];
+    if (!newest || ev.time > newest.time) EQP.ingest(state, ev);
+    rememberZone(ev, line);
   });
 
   document.getElementById("btn-pick-file").addEventListener("click", async function () {

@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("dyrelog", {
   getSavedSource: () => ipcRenderer.invoke("get-saved-source"),
   clearSource: () => ipcRenderer.invoke("clear-source"),
   onLogChunk: (cb) => ipcRenderer.on("log-chunk", (_evt, text) => cb(text)),
+  onZoneSeed: (cb) => ipcRenderer.on("zone-seed", (_evt, line) => cb(line)),
   onSourceStatus: (cb) => ipcRenderer.on("source-status", (_evt, status) => cb(status)),
 
   completeFirstRun: (mode) => ipcRenderer.invoke('complete-first-run', mode),

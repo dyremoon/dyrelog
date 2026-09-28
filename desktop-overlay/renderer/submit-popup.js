@@ -67,7 +67,12 @@
   function showResult(result) {
     clearActions();
     var next = result.waiting > 0;
-    if (result.ok) {
+    if (result.ok && result.difficultyUnverified) {
+      els.title.textContent = "Saved to My Kills";
+      els.sub.textContent = "Not on the leaderboard: Dyrelog didn't see which difficulty you zoned into. Keep Dyrelog running when you zone in, and your next kill there will count.";
+      els.sub.className = "sub";
+      addButton(next ? "Next kill" : "OK", "btn-secondary", function () { window.dyrelog.submitPopupDone(); });
+    } else if (result.ok) {
       els.title.textContent = result.title || (result.status === "verified" && result.visibility !== "private" ? "On the leaderboard!" : "Submitted");
       els.sub.textContent = result.message ? result.message
         : result.status === "verified" && result.visibility !== "private" ? "Your kill is live."

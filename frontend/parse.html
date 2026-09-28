@@ -32,6 +32,16 @@
       <div class="plate">
         <div id="parse-table"><p class="muted">Loading…</p></div>
       </div>
+      <p class="muted" style="margin-top:12px;"><a id="parse-report" href="#" target="_blank" rel="noopener" hidden>Something look wrong with this kill? Report it</a></p>
+
+      <div class="plate" id="admin-tools" hidden style="margin-top:16px;">
+        <h2>Admin</h2>
+        <p class="muted" style="margin-top:-6px;">Take this kill off every leaderboard. Restricting the account sends its future kills to review.</p>
+        <p><input type="text" id="admin-note" maxlength="2000" placeholder="Note shown to the player (optional)" style="width:100%; max-width:480px;"></p>
+        <p><label><input type="checkbox" id="admin-restrict"> Also restrict this account</label></p>
+        <button class="btn" type="button" id="admin-remove">Remove this kill</button>
+        <p class="muted" id="admin-status" role="status"></p>
+      </div>
     </main>
 
     <footer class="site-footer">
@@ -84,10 +94,38 @@
             </tbody>
           </table>
         `;
+        const report = document.getElementById('parse-report');
+        const title = `Report kill: ${encounter.boss_name || 'fight'} (encounter ${encounter.id})`;
+        report.href = 'https://github.com/dyremoon/dyrelog/issues/new?title=' + encodeURIComponent(title) +
+          '&body=' + encodeURIComponent('Kill: ' + window.location.href + '\n\nWhat looks wrong:\n');
+        report.hidden = false;
+        showAdminTools(encounter);
       } catch (err) {
         document.getElementById('parse-boss').textContent = "Can't load this parse";
         tableEl.innerHTML = `<p class="empty-state">This parse isn't available! It may still be under review, or the link is wrong.</p>`;
       }
+    }
+    // Only shown to admins; the server checks admin rights on every call regardless.
+    async function showAdminTools(encounter) {
+      try {
+        const { isAdmin } = await getMe();
+        if (!isAdmin) return;
+      } catch { return; }
+      const box = document.getElementById('admin-tools');
+      box.hidden = false;
+      document.getElementById('admin-remove').addEventListener('click', async () => {
+        const restrict = document.getElementById('admin-restrict').checked;
+        if (!confirm('Remove this kill from the leaderboards' + (restrict ? ' and restrict the account' : '') + '?')) return;
+        try {
+          await api(`/api/admin/submissions/${Number(encounter.submission_id)}/remove`, {
+            method: 'POST',
+            body: JSON.stringify({ note: document.getElementById('admin-note').value, restrict }),
+          });
+          document.getElementById('admin-status').textContent = 'Removed. It no longer appears on any leaderboard.';
+        } catch (err) {
+          document.getElementById('admin-status').textContent = "Couldn't remove it: " + err.message;
+        }
+      });
     }
     document.addEventListener('DOMContentLoaded', loadParse);
   </script>

@@ -304,21 +304,9 @@
                           ? '<span class="badge badge-bad">Denied</span>'
                           : b.visibility === 'public'
                           ? statusBadge(b.status, b.visibility)
-                          : `
-                        ${
-                          b.difficulty
-                            ? ''
-                            : `<select class="difficulty-input">
-                                 <option value="" selected disabled>Difficulty…</option>
-                                 <option value="base">D0</option>
-                                 <option value="D1">D1 · Awakened</option>
-                                 <option value="D2">D2 · Adaptive</option>
-                                 <option value="D3">D3 · Fused</option>
-                                 <option value="D4">D4 · Refined</option>
-                               </select>`
-                        }
-                        <button class="btn publish-btn" type="button" ${b.difficulty ? '' : 'disabled'}>Publish</button>
-                      `
+                          : String(b.flag_reasons || '').includes('difficulty_not_in_log')
+                          ? '<span class="badge" title="Dyrelog did not see which difficulty you zoned into, so this kill stays private.">Difficulty not seen in log</span>'
+                          : '<button class="btn publish-btn" type="button">Publish</button>'
                       }
                       ${b.review_note ? `<span class="review-note">${esc(b.review_note)}</span>` : ''}
                     </td>
@@ -329,23 +317,16 @@
             </table>
           `;
 
-          listEl.querySelectorAll('.difficulty-input').forEach((sel) => {
-            sel.addEventListener('change', () => {
-              sel.closest('tr').querySelector('.publish-btn').disabled = !sel.value;
-            });
-          });
           listEl.querySelectorAll('.publish-btn').forEach((btn) => {
             btn.addEventListener('click', async () => {
               const row = btn.closest('tr');
               const submissionId = row.dataset.submissionId;
-              const sel = row.querySelector('.difficulty-input');
-              const difficulty = sel ? (sel.value === 'base' ? null : sel.value) : null;
               btn.disabled = true;
               btn.textContent = 'Publishing…';
               try {
                 const result = await api(`/api/submissions/${submissionId}/publish`, {
                   method: 'POST',
-                  body: JSON.stringify({ difficulty }),
+                  body: JSON.stringify({}),
                 });
                 bests.filter(b => String(b.submission_id) === String(submissionId)).forEach(b => Object.assign(b, { status: result.status, visibility: result.visibility, difficulty: result.difficulty ?? b.difficulty }));
                 render();

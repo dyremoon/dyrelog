@@ -102,13 +102,14 @@ const SERVER_CHECK = fs.existsSync(path.join(__dirname, '../../worker/src/antich
   ? {} : { skip: 'needs the private worker code (runs on the developer machine)' };
 
 // Plays a real-time fight through the app's 5 s push schedule and runs the server's own streaming check on the result.
-async function simulateLiveFight({ seconds, linesPerSecond = 15, latencyMs = 150, startAfterMs = 5000, remainderDelayMs = 0 }) {
+async function simulateLiveFight({ seconds, linesPerSecond = 15, latencyMs = 150, startAfterMs = 5000, remainderDelayMs = 0, zoneAheadMs = 0 }) {
   const { checkStreamingPattern } = await import('../../worker/src/anticheat.js');
   const all = [];
   for (let s = 0; s <= seconds; s++) {
     for (let k = 0; k < linesPerSecond; k++) all.push({ at: s * 1000, line: `${stamp(s)} You slash Lady Vox for ${100 + ((s * 7 + k * 13) % 90)} points of damage.` });
   }
   all.push({ at: seconds * 1000, line: `${stamp(seconds)} You have slain Lady Vox!` });
+  if (zoneAheadMs) all.unshift({ at: -zoneAheadMs, line: `${stamp(-zoneAheadMs / 1000)} You have entered Permafrost Keep (Refined).` });
   const T0 = Date.UTC(2026, 8, 1, 20, 0, 0);
   const sent = LiveStream.newSentLines();
   const received = [];
@@ -130,7 +131,7 @@ async function simulateLiveFight({ seconds, linesPerSecond = 15, latencyMs = 150
     const times = b.raw_chunk_text.split('\n').map(lineTime).filter((t) => t != null);
     return times.length ? { min: Math.min(...times), max: Math.max(...times) } : null;
   });
-  return { batches: received.length, check: checkStreamingPattern(received, seconds * 1000, spans) };
+  return { batches: received.length, first: received[0] && received[0].raw_chunk_text, check: checkStreamingPattern(received, seconds * 1000, spans) };
 }
 
 test('a 3-minute fight at the 5 s cadence passes the server streaming check with about a fifth of the uploads', SERVER_CHECK, async () => {
@@ -149,4 +150,10 @@ test('short, slow-network and ask-mode fights still pass the server streaming ch
 test('the simulation can fail: a fight uploaded only after the kill is still flagged', SERVER_CHECK, async () => {
   const r = await simulateLiveFight({ seconds: 60, startAfterMs: 60000 });
   assert.equal(r.check.flagged, true);
+});
+
+test('the zone-in line goes up first, on its own, and the fight still passes the server check', SERVER_CHECK, async () => {
+  const r = await simulateLiveFight({ seconds: 90, zoneAheadMs: 420000 });
+  assert.match(r.first, /^\[[^\]]+\] You have entered Permafrost Keep \(Refined\)\.$/);
+  assert.equal(r.check.flagged, false, r.check.reason);
 });

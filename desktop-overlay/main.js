@@ -360,9 +360,29 @@ function sendToMain(channel, data) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
 }
 
+// The server only publishes a kill when its upload shows the zone-in line (that is where the difficulty
+// comes from), so the latest one is looked up in the end of the log when tailing starts.
+var ZONE_SEED_BYTES = 8 * 1024 * 1024;
+function sendLastZoneLine(filePath, isCurrent) {
+  fs.stat(filePath, function (err, st) {
+    if (err || !st.isFile() || !st.size || !isCurrent()) return;
+    var start = Math.max(0, st.size - ZONE_SEED_BYTES);
+    var parts = [];
+    var stream = fs.createReadStream(filePath, { start: start, end: st.size - 1 });
+    stream.on("data", function (chunk) { parts.push(chunk); });
+    stream.on("error", function () {});
+    stream.on("end", function () {
+      if (!isCurrent()) return;
+      var matches = Buffer.concat(parts).toString("utf8").match(/^\[[^\]\r\n]+\] You have entered [^\r\n]+$/gm);
+      if (matches) sendToMain("zone-seed", matches[matches.length - 1]);
+    });
+  });
+}
+
 function startTailing(filePath) {
   stopTailing();
   var fileName = path.basename(filePath);
+  var seeded = false;
   var tailer = createLogTailer({
     filePath: filePath,
     onChunk: function (text) { if (tailState === tailer) sendToMain("log-chunk", text); },
@@ -371,6 +391,10 @@ function startTailing(filePath) {
       lastSourceStatus = Object.assign({ filePath: filePath, fileName: fileName }, s);
       sendToMain("source-status", lastSourceStatus);
       broadcastSourceStatus(lastSourceStatus);
+      if (s.ok && !seeded) {
+        seeded = true;
+        sendLastZoneLine(filePath, function () { return tailState === tailer; });
+      }
     }
   });
   tailState = tailer;
@@ -937,7 +961,7 @@ function runSubmit(payload) {
   performSubmit(payload).finally(settle).then(function (result) {
     recordSubmission(payload.startTime, result.submissionId, result.status, result.visibility);
     submissionSounds.notify(result);
-    sendPopupResult({ ok: true, status: result.status, visibility: result.visibility, waiting: askQueue.length });
+    sendPopupResult({ ok: true, status: result.status, visibility: result.visibility, difficultyUnverified: !!result.difficultyUnverified, waiting: askQueue.length });
   }).catch(function (err) {
     // A failed attempt can be retried by the next request for the same kill.
     if (payload.startTime != null) submittedStartTimes.delete(payload.startTime);
