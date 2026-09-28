@@ -9,8 +9,11 @@
   var LIVE_FIRST_BATCH_GAME_SPAN_MS = 8000;
 
   // Only lines the server's parser uses leave the PC; chat, tells and other log lines never do.
+  // Arrow-style tells ("Bob -> You: ...") are chat even when the message reads like combat.
+  var ARROW_TELL = /^\[[^\]]*\]\s+\S+ -> \S+:/;
   function combatLines(lines, parseLine) {
     return lines.filter(function (line) {
+      if (ARROW_TELL.test(line)) return false;
       var ev = parseLine(line);
       return !!ev && ev.type !== "unmatched";
     });

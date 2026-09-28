@@ -83,6 +83,20 @@ test('only combat lines are uploaded; chat and other log lines stay on the PC', 
   assert.deepEqual(LiveStream.combatLines(lines, EQP.parseLine), [lines[0], lines[3], lines[5]]);
 });
 
+test('chat that quotes combat text is never uploaded', () => {
+  const chat = [
+    "Bob tells you, 'You hit a rat for 50 points of damage.'",
+    "Bob tells the guild, 'You have slain Lady Vox!'",
+    "Bob tells the group, 'Lady Vox hits YOU for 900 points of damage.'",
+    "Bob shouts, 'You have been slain by Lady Vox!'",
+    "Bob says out of character, 'Bob healed you for 500 hit points.'",
+    'Bob -> You: You slash Lady Vox for 100 points of damage.',
+    "You told Bob, 'You hit Lady Vox for 5 points of damage.'",
+    'Your faction standing with Freeport has gotten better.',
+  ].map((text) => `${stamp(1)} ${text}`);
+  assert.deepEqual(LiveStream.combatLines(chat, EQP.parseLine), []);
+});
+
 // The server's streaming check lives in the private worker repo, which GitHub's build doesn't check out.
 const SERVER_CHECK = fs.existsSync(path.join(__dirname, '../../worker/src/anticheat.js'))
   ? {} : { skip: 'needs the private worker code (runs on the developer machine)' };

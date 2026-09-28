@@ -741,7 +741,8 @@ function sendToSubmitPopup(channel, data) {
 
 var SUBMIT_ERROR_MESSAGES = {
   unauthorized: "Your Discord login expired. Log in again from Settings, then try the next kill.",
-  character_linked_to_another_account: "This character is already linked to a different Discord account.",
+  character_linked_to_another_account: "This character is already linked to a different Discord account. If it's yours, open an issue on GitHub and it can be moved.",
+  too_many_characters: "This Discord account already has 10 characters, the most allowed. Open an issue on GitHub if you need more.",
   too_many_open_streams: "Too many unfinished uploads right now. Wait a minute and try again.",
   nothing_captured: "Nothing from this fight was captured.",
   no_you_lines_found: "The log for this fight has no lines from you, so there's nothing to submit.",
