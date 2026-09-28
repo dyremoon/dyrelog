@@ -83,6 +83,10 @@ test('only combat lines are uploaded; chat and other log lines stay on the PC', 
   assert.deepEqual(LiveStream.combatLines(lines, EQP.parseLine), [lines[0], lines[3], lines[5]]);
 });
 
+// The server's streaming check lives in the private worker repo, which GitHub's build doesn't check out.
+const SERVER_CHECK = fs.existsSync(path.join(__dirname, '../../worker/src/anticheat.js'))
+  ? {} : { skip: 'needs the private worker code (runs on the developer machine)' };
+
 // Plays a real-time fight through the app's 5 s push schedule and runs the server's own streaming check on the result.
 async function simulateLiveFight({ seconds, linesPerSecond = 15, latencyMs = 150, startAfterMs = 5000, remainderDelayMs = 0 }) {
   const { checkStreamingPattern } = await import('../../worker/src/anticheat.js');
@@ -115,20 +119,20 @@ async function simulateLiveFight({ seconds, linesPerSecond = 15, latencyMs = 150
   return { batches: received.length, check: checkStreamingPattern(received, seconds * 1000, spans) };
 }
 
-test('a 3-minute fight at the 5 s cadence passes the server streaming check with about a fifth of the uploads', async () => {
+test('a 3-minute fight at the 5 s cadence passes the server streaming check with about a fifth of the uploads', SERVER_CHECK, async () => {
   const r = await simulateLiveFight({ seconds: 180 });
   assert.equal(r.check.flagged, false, r.check.reason);
   assert.ok(r.batches <= 40, `${r.batches} uploads`);
 });
 
-test('short, slow-network and ask-mode fights still pass the server streaming check', async () => {
+test('short, slow-network and ask-mode fights still pass the server streaming check', SERVER_CHECK, async () => {
   for (const opts of [{ seconds: 20 }, { seconds: 25 }, { seconds: 60, latencyMs: 900 }, { seconds: 90, linesPerSecond: 60 }, { seconds: 120, remainderDelayMs: 30000 }]) {
     const r = await simulateLiveFight(opts);
     assert.equal(r.check.flagged, false, JSON.stringify(opts) + ' ' + r.check.reason);
   }
 });
 
-test('the simulation can fail: a fight uploaded only after the kill is still flagged', async () => {
+test('the simulation can fail: a fight uploaded only after the kill is still flagged', SERVER_CHECK, async () => {
   const r = await simulateLiveFight({ seconds: 60, startAfterMs: 60000 });
   assert.equal(r.check.flagged, true);
 });
