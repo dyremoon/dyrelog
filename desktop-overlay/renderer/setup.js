@@ -30,7 +30,9 @@
       if (!authenticated) {
         const result = await window.dyrelog.loginWithDiscord();
         if (!result.ok) {
-          status.textContent = result.cancelled ? 'Login cancelled. Try again, or keep your fights local.' : 'Finish logging in with Discord, then try again.';
+          status.textContent = result.cancelled ? 'Login cancelled. Try again, or keep your fights local.'
+            : result.error === 'server_limit' ? "Dyrelog's server is at its daily limit. Try logging in again after midnight UTC, or keep your fights local for now."
+            : 'Finish logging in with Discord, then try again.';
           return;
         }
       }

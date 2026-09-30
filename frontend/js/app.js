@@ -20,7 +20,8 @@ async function api(path, opts = {}) {
     const body = await res.json().catch(() => ({}));
     const err = new Error(body.error || `Request failed: ${res.status}`);
     err.limit = res.status === 429 || res.status === 503;
-    if (err.limit) showServerNotice(true);
+    // Only the Worker's daily_limit answer means "until midnight"; a short rate limit just says try again soon.
+    if (err.limit) showServerNotice(body.error === 'daily_limit');
     throw err;
   }
   return res.status === 204 ? null : res.json();
@@ -30,6 +31,7 @@ const LOGIN_PROBLEMS = {
   cancelled: 'Discord login was cancelled. You can log in any time from the top of the page.',
   expired: 'That login link expired. Click "Log in with Discord" to try again.',
   failed: "Discord login didn't finish. Try again in a minute.",
+  limit: "Dyrelog's server is at its daily limit, so logging in isn't possible right now. Try again after midnight UTC.",
 };
 
 // Shown once after the server sends a failed or cancelled login back here.
@@ -64,8 +66,8 @@ function showServerNotice(atLimit) {
   }
   notice.dataset.limit = String(atLimit);
   notice.textContent = atLimit
-    ? "Dyrelog's leaderboards are temporarily unavailable because the server is at its daily limit. They'll be back after midnight UTC. Kills from the app are saved and sent then."
-    : "Dyrelog's leaderboards are temporarily unavailable. Check your connection or try again in a little while.";
+    ? "Leaderboards are temporarily unavailable. Dyrelog's server is at its daily limit and will be back after midnight UTC. Kills from the app are saved and sent then."
+    : "Leaderboards are temporarily unavailable. Check your connection or try again in a little while.";
 }
 
 // Several parts of a page need the signed-in user; they share one request.

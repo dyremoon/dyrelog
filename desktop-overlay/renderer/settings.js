@@ -647,7 +647,9 @@
     var result = await window.dyrelog.loginWithDiscord();
     els.btnLogin.disabled = false;
     if (!result.ok && !result.cancelled && !result.alreadyOpen) {
-      els.accountHint.textContent = "Couldn't log in. Try again.";
+      els.accountHint.textContent = result.error === "server_limit"
+        ? "Dyrelog's server is at its daily limit. Try logging in again after midnight UTC."
+        : "Couldn't log in. Try again.";
     }
   });
   els.btnLogout.addEventListener("click", function () { window.dyrelog.logout(); });

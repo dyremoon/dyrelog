@@ -220,8 +220,57 @@ test('website shows a friendly banner instead of a blank page when the server is
   await assert.rejects(context.api('/api/bosses'), (err) => err.limit === true);
   await assert.rejects(context.api('/api/leaderboard/highlights'));
   assert.equal(main.children.length, 1, 'one banner, not one per request');
-  assert.match(main.children[0].textContent, /leaderboards are temporarily unavailable/);
+  assert.match(main.children[0].textContent, /^Leaderboards are temporarily unavailable\./);
   assert.match(main.children[0].textContent, /midnight UTC/);
+});
+
+test('website: a short rate limit shows the banner without promising "after midnight"', async () => {
+  const { context, main } = site(async () => ({ ok: false, status: 429, json: async () => ({ error: 'rate_limited', retryAfter: 60 }) }));
+  await assert.rejects(context.api('/api/bosses'), (err) => err.limit === true);
+  assert.match(main.children[0].textContent, /^Leaderboards are temporarily unavailable\./);
+  assert.doesNotMatch(main.children[0].textContent, /midnight/);
+});
+
+test('website explains a login that failed because the server is at its limit', () => {
+  const { context } = site(async () => ({ ok: true, status: 200, json: async () => ({}) }));
+  const text = vm.runInContext('LOGIN_PROBLEMS.limit', context);
+  assert.match(text, /daily limit/);
+  assert.match(text, /midnight UTC/);
+});
+
+test('a finalize the server is still holding keeps the kill and retries it, instead of dropping it as "already submitted"', async () => {
+  const h = mainHarness({ responses: [{ status: 200, body: { submissionId: 8 } }, { status: 200, body: {} }, { status: 409, body: { error: 'finalize_in_progress' } }] });
+  h.handlers['request-submit']({}, Object.assign({}, shortKill, { batches: ['a'] }));
+  await h.flush();
+  assert.equal(h.results.at(-1).queued, true);
+  const saved = h.ctx.pendingState().kills;
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].existingSubmissionId, 8, 'resumes the same upload');
+  assert.equal(h.timers.at(-1).ms, 60000, 'retried in a minute, not hammered');
+
+  h.calls.length = 0;
+  await h.ctx.sendPendingKills();
+  assert.deepEqual(h.calls, ['/api/streams/8/finalize']);
+  assert.equal(h.ctx.pendingState().kills.length, 0);
+});
+
+test('a Cloudflare 1027 page is recognized whatever HTTP status it comes with', async () => {
+  for (const status of [403, 500, 503, 429]) {
+    const h = mainHarness({ responses: [{ status, body: '<html><title>Error 1027</title>error code: 1027</html>' }] });
+    h.handlers['request-submit']({}, Object.assign({}, shortKill, { batches: ['a'] }));
+    await h.flush();
+    assert.match(h.results.at(-1).error, /^Dyrelog's server is at its daily limit\. Your kill is saved/, 'status ' + status);
+    assert.ok(h.ctx.pendingState().pauseUntil >= MIDNIGHT, 'status ' + status);
+  }
+});
+
+test('usage pings and logins also respect a server limit', () => {
+  const src = readFileSync(path.join(__dirname, '../main.js'), 'utf8');
+  assert.match(src, /isAllowed: \(\) => Analytics\.hasConsent\(loadSettings\(\)\) && Date\.now\(\) >= pending\.pauseUntil/);
+  assert.match(src, /loginProblem === "limit"\) \{\s*finish\(\{ ok: false, error: "server_limit" \}\)/);
+  for (const file of ['settings.js', 'setup.js']) {
+    assert.match(readFileSync(path.join(__dirname, '../renderer', file), 'utf8'), /server_limit['"]\s*\? "Dyrelog's server is at its daily limit\. Try logging in again after midnight UTC/, file);
+  }
 });
 
 test('website shows the banner when Cloudflare blocks the request outright', async () => {

@@ -627,7 +627,8 @@ async function apiFetch(pathname, opts) {
   headers["X-Dyrelog-Version"] = app.getVersion();
   var res = await fetch(API_BASE + pathname, Object.assign({ signal: AbortSignal.timeout(20000) }, opts, { headers: headers }));
   if (res.status === 401) { saveAuth(null); broadcastAuthUpdate(null); }
-  if (res.status === 429 || res.status === 503 || res.status === 403) {
+  // Any error status: Cloudflare doesn't document which status its 1027 (daily request limit) page uses.
+  if (!res.ok && res.status !== 401) {
     var text = await res.clone().text().catch(function () { return ""; });
     var limit = LimitPolicy.parseLimit(res.status, text, res.headers.get("Retry-After"));
     if (limit) {
@@ -671,6 +672,13 @@ function openLoginWindow() {
       var landedOnSite = false;
       try { landedOnSite = new URL(url).origin === SITE_URL; } catch (_err) { landedOnSite = false; }
       if (settled || !landedOnSite) return; // still mid-flow — keep waiting
+      var loginProblem = null;
+      try { loginProblem = new URL(url).searchParams.get("login"); } catch (_err) { loginProblem = null; }
+      if (loginProblem === "limit") {
+        finish({ ok: false, error: "server_limit" });
+        if (authWin && !authWin.isDestroyed()) authWin.close();
+        return;
+      }
       try {
         var cookies = await authSession.cookies.get({ url: API_BASE, name: "dyrelog_session" });
         var cookie = cookies[0];
@@ -771,6 +779,7 @@ var SUBMIT_ERROR_MESSAGES = {
   nothing_captured: "Nothing from this fight was captured.",
   no_you_lines_found: "The log for this fight has no lines from you, so there's nothing to submit.",
   already_finalized: "This kill was already submitted.",
+  finalize_in_progress: "The Dyrelog server is still finishing this kill. It will be sent again in a few minutes.",
   already_submitted: "This kill was already submitted.",
   submission_not_streaming: "This kill was already submitted.",
   chunk_too_large: "This fight's log is too large to upload.",
@@ -792,6 +801,8 @@ function submitError(code, fallback, status) {
 function isTemporaryFailure(err) {
   if (!err) return false;
   if (err.name === "TimeoutError" || err.name === "AbortError") return true;
+  // Another finalize holds the kill, or one that died at the server limit; it can be taken over a few minutes later.
+  if (err.code === "finalize_in_progress") return true;
   if (/fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN/i.test(String(err.message))) return true;
   return Number(err.status) >= 500;
 }
@@ -1189,7 +1200,8 @@ function syncAnalyticsConsent() {
   if (!app.isPackaged || process.env.DYRELOG_DISABLE_ANALYTICS === '1' || !Analytics.hasConsent(loadSettings())) return;
   stopAnalytics = Analytics.startAnalytics({
     directory: app.getPath('userData'), version: app.getVersion(), platform: process.platform, apiBase: API_BASE,
-    isAllowed: () => Analytics.hasConsent(loadSettings()),
+    // Usage pings wait out a server limit like everything else.
+    isAllowed: () => Analytics.hasConsent(loadSettings()) && Date.now() >= pending.pauseUntil,
   });
 }
 
