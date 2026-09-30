@@ -3,9 +3,10 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage, session, screen, safeStorage, clipboard } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const { watchGameForeground } = require("./game-window-policy.cjs");
+const { watchGameForeground, applyGameContext, RAISE_AGAIN_MS } = require("./game-window-policy.cjs");
 const { createWindowGesture } = require("./window-gesture.cjs");
 let gameForeground = false;
+let raiseAgainTimer = null;
 let stopForegroundWatch = null;
 const Appearance = require("./renderer/appearance.js");
 const FirstRunPolicy = require("./renderer/first-run-policy.js");
@@ -427,7 +428,7 @@ function createWindow() {
       nodeIntegration: false
     }
   });
-  win.setAlwaysOnTop(gameForeground, "floating");
+  applyGameContext([win], gameForeground);
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
   win.on("blur", function () { windowGesture.cancel(); });
 
@@ -520,7 +521,7 @@ function createAnalysisWindow() {
       nodeIntegration: false
     }
   });
-  analysisWin.setAlwaysOnTop(gameForeground, "floating");
+  applyGameContext([analysisWin], gameForeground);
   analysisWin.setMenuBarVisibility(false);
   analysisWin.loadFile(path.join(__dirname, "renderer", "analysis.html"));
   analysisWin.webContents.on("before-input-event", function (event, input) {
@@ -558,7 +559,7 @@ function createLeaderboardWindow() {
       nodeIntegration: false
     }
   });
-  leaderboardWin.setAlwaysOnTop(gameForeground, "floating");
+  applyGameContext([leaderboardWin], gameForeground);
   leaderboardWin.setMenuBarVisibility(false);
   leaderboardWin.loadFile(path.join(__dirname, "renderer", "leaderboard.html"));
   leaderboardWin.webContents.on("before-input-event", function (event, input) {
@@ -756,7 +757,7 @@ function ensureSubmitPopupWindow() {
       nodeIntegration: false
     }
   });
-  submitPopupWin.setAlwaysOnTop(gameForeground, "floating");
+  applyGameContext([submitPopupWin], gameForeground);
   submitPopupWin.loadFile(path.join(__dirname, "renderer", "submit-popup.html"));
   submitPopupWin.webContents.on("before-input-event", function (event, input) {
     if (input.type === "keyDown" && input.key === "F12") submitPopupWin.webContents.toggleDevTools();
@@ -1168,7 +1169,7 @@ function createSettingsWindow(initialTab) {
       nodeIntegration: false
     }
   });
-  settingsWin.setAlwaysOnTop(gameForeground, "floating");
+  applyGameContext([settingsWin], gameForeground);
   settingsWin.setMenuBarVisibility(false);
   settingsWin.loadFile(
     path.join(__dirname, "renderer", "settings.html"),
@@ -1190,6 +1191,7 @@ function showFirstRunSetup() {
     alwaysOnTop: gameForeground,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
+  applyGameContext([setupWin], gameForeground);
   setupWin.setMenuBarVisibility(false);
   setupWin.loadFile(path.join(__dirname, 'renderer', 'setup.html'));
   setupWin.on('closed', function() { setupWin = null; });
@@ -1269,9 +1271,14 @@ app.whenReady().then(function () {
       appProcessId: process.pid,
       onChange(active) {
         gameForeground = active;
-        BrowserWindow.getAllWindows().forEach(window => {
-          if (!window.isDestroyed()) window.setAlwaysOnTop(active, 'floating');
-        });
+        applyGameContext(BrowserWindow.getAllWindows(), active);
+      },
+      onGameActivated() {
+        applyGameContext(BrowserWindow.getAllWindows(), true, { raise: true });
+        clearTimeout(raiseAgainTimer);
+        raiseAgainTimer = setTimeout(function () {
+          if (gameForeground) applyGameContext(BrowserWindow.getAllWindows(), true, { raise: true });
+        }, RAISE_AGAIN_MS);
       },
       onError(message) { console.error('EverQuest foreground detection:', message); }
     });
