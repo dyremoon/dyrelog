@@ -1,0 +1,70 @@
+name: Bug report
+description: Something in Dyrelog isn't working right.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. The more detail you give, the faster it gets fixed.
+        Please don't paste your whole combat log here. It can include chat and other players' names.
+  - type: input
+    id: version
+    attributes:
+      label: Dyrelog version
+      description: Shown at the bottom of Settings, and in Settings → What's New.
+      placeholder: "0.1.27"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it happen?
+      options:
+        - Installing or updating
+        - The meter (Bars, Mini or Circle)
+        - Combat Analysis
+        - Picking my log file
+        - Logging in with Discord
+        - Submitting a kill
+        - Leaderboards or profiles on the website
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what-you-did
+    attributes:
+      label: What did you do?
+      description: The steps that led to the problem, like "killed a boss with auto submit on".
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Include any error text you saw. Screenshots help a lot, and you can drag them into this box.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: false
+  - type: input
+    id: boss
+    attributes:
+      label: Boss, character and server (if it's about a kill)
+      placeholder: "Boss name, character, server"
+    validations:
+      required: false
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Windows version
+      options:
+        - Windows 11
+        - Windows 10
+        - Not sure
+    validations:
+      required: false

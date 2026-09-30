@@ -1,0 +1,18 @@
+name: Idea or feature request
+description: Suggest something new or a change to how Dyrelog works.
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What's your idea?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it help?
+      description: What are you trying to do that's hard or annoying right now?
+    validations:
+      required: false

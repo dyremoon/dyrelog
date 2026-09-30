@@ -5,6 +5,9 @@ A free DPS meter and boss-kill leaderboard for **EverQuest Legends**.
 Dyrelog is a small Windows app that sits on top of your game, reads your combat log, and shows your damage
 live. When you kill a boss, you can send the fight to the Dyrelog website and see how it ranks.
 
+Dyrelog only reads the combat log file that EverQuest writes. It never reads game memory, changes game files, or
+sends keypresses or clicks to the game.
+
 Dyrelog is an unofficial fan project and is not affiliated with Daybreak Game Company or EverQuest Legends.
 
 Website: https://dyrelog.pages.dev
@@ -62,8 +65,9 @@ version and platform). Full details: [Privacy](https://dyrelog.pages.dev/privacy
 
 ## Problems and feedback
 
-[Open an issue on GitHub](https://github.com/dyremoon/dyrelog/issues/new). Say what you did, what you
-expected, and what happened. If a window shows an error, a screenshot helps.
+[Report a bug or suggest a feature on GitHub](https://github.com/dyremoon/dyrelog/issues/new/choose). The form
+asks for your Dyrelog version (shown at the bottom of Settings), what you did, and what happened. If a window
+shows an error, a screenshot helps. You'll need a free GitHub account to post.
 
 ## Support
 
