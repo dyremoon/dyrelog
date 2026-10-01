@@ -367,15 +367,41 @@
     selectBoss(bossId);
   }
 
+  // The meter sends its state every second. Rebuilding the table each time would close an open dropdown (and
+  // reset hover/scroll), so the list is only replaced when it changes, and never while a control in it has focus.
+  var lastPersonalHtml = null;
+  var personalRenderPending = false;
+  function personalListBusy(el) {
+    var active = document.activeElement;
+    return !!(active && active !== el && typeof el.contains === "function" && el.contains(active) && active.tagName === "SELECT");
+  }
   function renderPersonalList() {
     var el = document.getElementById("personal-list");
+    var html = personalListHtml();
+    if (html === lastPersonalHtml) return;
+    if (personalListBusy(el)) { personalRenderPending = true; return; }
+    personalRenderPending = false;
+    lastPersonalHtml = html;
+    el.innerHTML = html;
+    if (!el.querySelector('.column-difficulty')) return;
+    el.querySelectorAll('[data-sort-key]').forEach(function (button) { button.addEventListener('click', function () { var key = button.dataset.sortKey; if (personalSort.key === key) personalSort.dir *= -1; else { personalSort.key = key; personalSort.dir = 1; } renderPersonalList(); }); });
+    el.querySelector('.column-difficulty').addEventListener('change', function (event) {
+      personalDifficulty = event.target.value;
+      event.target.blur();
+      renderPersonalList();
+    });
+  }
+  // A dropdown closed without picking anything: catch up on updates that arrived while it was open.
+  document.getElementById("personal-list").addEventListener("focusout", function () {
+    setTimeout(function () { if (personalRenderPending) renderPersonalList(); }, 0);
+  });
+  function personalListHtml() {
     var bests = buildPersonalBests(latestState.encounters);
     if (!bests.length) {
-      el.innerHTML = '<p class="muted">No boss kills yet. Your best kill against each boss shows up here.</p>';
-      return;
+      return '<p class="muted">No boss kills yet. Your best kill against each boss shows up here.</p>';
     }
     var visibleBests = bests.filter(function (b) { return !personalDifficulty || b.difficulty === personalDifficulty; });
-    el.innerHTML =
+    return (
       '<table><thead><tr><th>' + sortHeader('Boss', 'name', personalSort) + '</th><th>' + '<span class="difficulty-control">Difficulty ' + difficultyColumnFilter(personalDifficulty) + '</span>' + '</th><th class="num">' + sortHeader('DPS', 'dps', personalSort) + '</th><th class="num">' + sortHeader('Damage', 'damage', personalSort) + '</th><th>' + sortHeader('Date', 'date', personalSort) + '</th><th>' + sortHeader('Visibility', 'visibility', personalSort) + '</th><th>' + sortHeader('Review', 'review', personalSort) + '</th><th></th></tr></thead><tbody>' +
       sortRows(visibleBests.map(function (b) { var s = SubmissionView.describeSubmission(b, submissionRows); return Object.assign({}, b, { sortVisibility: s.visibility, sortReview: s.review }); }), personalSort.key, personalSort.dir).map(function (b) {
         var matchedBoss = findBossByName(b.name);
@@ -404,12 +430,8 @@
           "</tr>"
         );
       }).join("") +
-      "</tbody></table>";
-
-    el.querySelectorAll('[data-sort-key]').forEach(function (button) { button.addEventListener('click', function () { var key = button.dataset.sortKey; if (personalSort.key === key) personalSort.dir *= -1; else { personalSort.key = key; personalSort.dir = 1; } renderPersonalList(); }); });
-    el.querySelector('.column-difficulty').addEventListener('change', function (event) {
-      personalDifficulty = event.target.value; renderPersonalList();
-    });
+      "</tbody></table>"
+    );
   }
   document.getElementById("personal-list").addEventListener("click", function (evt) {
     var nameBtn = evt.target.closest(".boss-name-link[data-boss-id]");

@@ -63,6 +63,66 @@ test('My Kills renders current visibility, opens the encounter permalink, and re
   assert.match(list.innerHTML, /Unknown/);
 });
 
+test('My Kills difficulty dropdown stays open while the meter sends its once-a-second updates', async () => {
+  const elements = new Map();
+  let writes = 0;
+  const select = { tagName: 'SELECT', blur() {}, addEventListener(event, handler) { this.onchange = handler; } };
+  const getElement = id => {
+    if (!elements.has(id)) {
+      let html = '';
+      elements.set(id, {
+        get innerHTML() { return html; }, set innerHTML(v) { html = v; if (id === 'personal-list') writes++; },
+        hidden: false, listeners: {}, dataset: {},
+        contains: node => node === select,
+        querySelectorAll() { return []; },
+        querySelector() { return select; },
+        addEventListener(event, handler) { this.listeners[event] = handler; }
+      });
+    }
+    return elements.get(id);
+  };
+  const document = { hidden: false, activeElement: null, getElementById: getElement, documentElement: { setAttribute() {} } };
+  let stateListener;
+  const kill = (startTime, difficulty, mobName = 'Master Yael') => ({ mobKilled: true, mobName, startTime, difficulty, difficultyKnown: true });
+  const context = {
+    document,
+    EQP: { computeStats: () => ({ rows: [{ name: 'You', dps: 100, damage: 950 }] }) },
+    SubmissionView, BossBrowser: require('../renderer/boss-browser.js'),
+    fetch: async () => ({ ok: true, json: async () => ({ bosses: [{ id: 1, name: 'Master Yael' }, { id: 2, name: 'Lord of Ire' }], highlights: [] }) }),
+    setTimeout: callback => { callback(); }, clearTimeout() {}, setInterval() {},
+    window: {
+      addEventListener() {},
+      dyrelog: {
+        getState: async () => ({ encounters: [kill(1000, 'D1')] }),
+        onStateUpdate: callback => { stateListener = callback; }, onAuthUpdate() {},
+        getSubmissionStatuses: async () => ({ ok: true, submissions: [] }),
+        getSettings: async () => ({}), onSettingsUpdate() {}, openExternal() {}, openAnalysisFight() {}
+      }
+    }
+  };
+  vm.runInNewContext(readFileSync(path.join(__dirname, '../renderer/leaderboard.js'), 'utf8'), context);
+  await new Promise(resolve => setImmediate(resolve));
+  const list = getElement('personal-list');
+  const settled = writes;
+
+  for (let i = 0; i < 5; i++) stateListener({ encounters: [kill(1000, 'D1')] });
+  assert.equal(writes, settled, 'an unchanged list is not rebuilt every second');
+
+  document.activeElement = select; // the player opened the dropdown
+  stateListener({ encounters: [kill(1000, 'D1'), kill(2000, 'D2', 'Lord of Ire')] });
+  assert.equal(writes, settled, 'a new kill does not tear down the open dropdown');
+
+  document.activeElement = null; // closed it without choosing
+  list.listeners.focusout();
+  assert.equal(writes, settled + 1, 'the update shows once the dropdown closes');
+  assert.match(list.innerHTML, /Lord of Ire/);
+
+  document.activeElement = select;
+  select.onchange({ target: { value: 'D2', blur() { document.activeElement = null; } } });
+  assert.match(list.innerHTML, /Lord of Ire/);
+  assert.doesNotMatch(list.innerHTML, /Master Yael/, 'picking a difficulty filters the list');
+});
+
 test('player names in the leaderboard window open their page on the website', () => {
   const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../renderer/leaderboard.js'), 'utf8');
   assert.match(src, /data-player-id="' \+ row\.character_id/);
